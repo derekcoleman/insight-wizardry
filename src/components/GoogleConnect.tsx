@@ -104,38 +104,11 @@ export function GoogleConnect() {
       setError(null);
       
       try {
-      // Fetch GA4 accounts
-      try {
-        console.log("Fetching GA4 accounts...");
-        const gaResponse = await fetch(
-          "https://analyticsadmin.googleapis.com/v1alpha/accounts",
-          {
-            headers: {
-              Authorization: `Bearer ${response.access_token}`,
-            },
-          }
-        );
-
-        if (!gaResponse.ok) {
-          const errorData = await gaResponse.json().catch(() => ({}));
-          console.error("GA4 Error Response:", errorData);
-          throw new Error(`GA4 API error: ${gaResponse.statusText}\n${JSON.stringify(errorData, null, 2)}`);
-        }
-
-        const gaData = await gaResponse.json();
-        console.log("GA4 Response:", gaData);
-
-        if (!gaData.accounts || gaData.accounts.length === 0) {
-          throw new Error("No GA4 accounts found. Please make sure you have access to GA4 accounts.");
-        }
-
-        // Fetch properties for all accounts
-        console.log("Fetching GA4 properties for all accounts...");
-        const allProperties = [];
-        
-        for (const account of gaData.accounts) {
-          const propertiesResponse = await fetch(
-            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
+        // Fetch GA4 accounts
+        try {
+          console.log("Fetching GA4 accounts...");
+          const gaResponse = await fetch(
+            "https://analyticsadmin.googleapis.com/v1alpha/accounts",
             {
               headers: {
                 Authorization: `Bearer ${response.access_token}`,
@@ -143,93 +116,120 @@ export function GoogleConnect() {
             }
           );
 
-          if (!propertiesResponse.ok) {
-            console.warn(`Failed to fetch properties for account ${account.name}:`, await propertiesResponse.json());
-            continue; // Skip this account but continue with others
+          if (!gaResponse.ok) {
+            const errorData = await gaResponse.json().catch(() => ({}));
+            console.error("GA4 Error Response:", errorData);
+            throw new Error(`GA4 API error: ${gaResponse.statusText}\n${JSON.stringify(errorData, null, 2)}`);
           }
 
-          const propertiesData = await propertiesResponse.json();
-          if (propertiesData.properties) {
-            allProperties.push(...propertiesData.properties);
+          const gaData = await gaResponse.json();
+          console.log("GA4 Response:", gaData);
+
+          if (!gaData.accounts || gaData.accounts.length === 0) {
+            throw new Error("No GA4 accounts found. Please make sure you have access to GA4 accounts.");
           }
-        }
 
-        console.log("All GA4 Properties Response:", allProperties);
-        
-        if (allProperties.length === 0) {
-          console.log("No GA4 properties found");
-          toast({
-            title: "Warning",
-            description: "No Google Analytics 4 properties found for your accounts. Please make sure you have access to GA4 properties.",
-            variant: "destructive",
-          });
-        } else {
-          setGaConnected(true);
-          toast({
-            title: "Success",
-            description: "Successfully connected to Google Analytics 4",
-          });
-        }
-        
-        setGaAccounts(
-          allProperties.map((p: any) => ({
-            id: p.name,
-            name: p.displayName,
-          }))
-        );
-      } catch (error: any) {
-        handleApiError(error, "Google Analytics");
-      }
+          // Fetch properties for all accounts
+          console.log("Fetching GA4 properties for all accounts...");
+          const allProperties = [];
+          
+          for (const account of gaData.accounts) {
+            const propertiesResponse = await fetch(
+              `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${response.access_token}`,
+                },
+              }
+            );
 
-      // Fetch Search Console sites
-      try {
-        console.log("Fetching Search Console sites...");
-        const gscResponse = await fetch(
-          "https://www.googleapis.com/webmasters/v3/sites",
-          {
-            headers: {
-              Authorization: `Bearer ${response.access_token}`,
-            },
+            if (!propertiesResponse.ok) {
+              console.warn(`Failed to fetch properties for account ${account.name}:`, await propertiesResponse.json());
+              continue; // Skip this account but continue with others
+            }
+
+            const propertiesData = await propertiesResponse.json();
+            if (propertiesData.properties) {
+              allProperties.push(...propertiesData.properties);
+            }
           }
-        );
 
-        if (!gscResponse.ok) {
-          const errorData = await gscResponse.json().catch(() => ({}));
-          console.error("Search Console Error Response:", errorData);
-          throw new Error(`Search Console API error: ${gscResponse.statusText}\n${JSON.stringify(errorData, null, 2)}`);
+          console.log("All GA4 Properties Response:", allProperties);
+          
+          if (allProperties.length === 0) {
+            console.log("No GA4 properties found");
+            toast({
+              title: "Warning",
+              description: "No Google Analytics 4 properties found for your accounts. Please make sure you have access to GA4 properties.",
+              variant: "destructive",
+            });
+          } else {
+            setGaConnected(true);
+            toast({
+              title: "Success",
+              description: "Successfully connected to Google Analytics 4",
+            });
+          }
+          
+          setGaAccounts(
+            allProperties.map((p: any) => ({
+              id: p.name,
+              name: p.displayName,
+            }))
+          );
+        } catch (error: any) {
+          handleApiError(error, "Google Analytics");
         }
 
-        const gscData = await gscResponse.json();
-        console.log("Search Console Response:", gscData);
-        
-        if (!gscData.siteEntry || gscData.siteEntry.length === 0) {
-          console.log("No Search Console sites found");
-          toast({
-            title: "Warning",
-            description: "No Search Console sites found for your account. Please verify that you have:"+
-                        "\n1. Added and verified your sites in Search Console"+
-                        "\n2. Proper access permissions to the sites",
-            variant: "destructive",
-          });
-        } else {
-          setGscConnected(true);
-          toast({
-            title: "Success",
-            description: "Successfully connected to Search Console",
-          });
+        // Fetch Search Console sites
+        try {
+          console.log("Fetching Search Console sites...");
+          const gscResponse = await fetch(
+            "https://www.googleapis.com/webmasters/v3/sites",
+            {
+              headers: {
+                Authorization: `Bearer ${response.access_token}`,
+              },
+            }
+          );
+
+          if (!gscResponse.ok) {
+            const errorData = await gscResponse.json().catch(() => ({}));
+            console.error("Search Console Error Response:", errorData);
+            throw new Error(`Search Console API error: ${gscResponse.statusText}\n${JSON.stringify(errorData, null, 2)}`);
+          }
+
+          const gscData = await gscResponse.json();
+          console.log("Search Console Response:", gscData);
+          
+          if (!gscData.siteEntry || gscData.siteEntry.length === 0) {
+            console.log("No Search Console sites found");
+            toast({
+              title: "Warning",
+              description: "No Search Console sites found for your account. Please verify that you have:"+
+                          "\n1. Added and verified your sites in Search Console"+
+                          "\n2. Proper access permissions to the sites",
+              variant: "destructive",
+            });
+          } else {
+            setGscConnected(true);
+            toast({
+              title: "Success",
+              description: "Successfully connected to Search Console",
+            });
+          }
+          
+          setGscAccounts(
+            gscData.siteEntry?.map((s: any) => ({
+              id: s.siteUrl,
+              name: s.siteUrl,
+            })) || []
+          );
+        } catch (error: any) {
+          handleApiError(error, "Search Console");
+        } finally {
+          setIsLoading(false);
         }
-        
-        setGscAccounts(
-          gscData.siteEntry?.map((s: any) => ({
-            id: s.siteUrl,
-            name: s.siteUrl,
-          })) || []
-        );
-      } catch (error: any) {
-        handleApiError(error, "Search Console");
-      } finally {
-        setIsLoading(false);
-      }
       } catch (error: any) {
         handleApiError(error, "Google Analytics");
       } finally {
@@ -242,7 +242,7 @@ export function GoogleConnect() {
       "https://www.googleapis.com/auth/analytics",
       "https://www.googleapis.com/auth/analytics.edit"
     ].join(" "),
-    flow: "implicit" // Add this to ensure we get the access token directly
+    flow: "implicit"
   });
 
   const handleAnalyze = async () => {
@@ -257,32 +257,47 @@ export function GoogleConnect() {
 
     setIsAnalyzing(true);
     try {
-      // Instead of calling login directly, we'll create a new promise to handle the token
-      const tokenPromise = new Promise<string>((resolve) => {
-        login({
-          onSuccess: (response) => {
-            resolve(response.access_token);
-          },
-        });
-      });
+      // Create a new instance of login with a custom success handler
+      const googleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+          try {
+            const result = await supabase.functions.invoke('analyze-ga4-data', {
+              body: {
+                ga4Property: selectedGaAccount,
+                gscProperty: selectedGscAccount,
+                accessToken: tokenResponse.access_token,
+              },
+            });
 
-      const accessToken = await tokenPromise;
-      
-      const result = await supabase.functions.invoke('analyze-ga4-data', {
-        body: {
-          ga4Property: selectedGaAccount,
-          gscProperty: selectedGscAccount,
-          accessToken,
+            if (result.error) throw result.error;
+            
+            setReport(result.data.report);
+            toast({
+              title: "Success",
+              description: "Analysis completed successfully",
+            });
+          } catch (error) {
+            console.error('Analysis error:', error);
+            toast({
+              title: "Error",
+              description: "Failed to analyze data. Please try again.",
+              variant: "destructive",
+            });
+          } finally {
+            setIsAnalyzing(false);
+          }
         },
+        flow: "implicit",
+        scope: [
+          "https://www.googleapis.com/auth/analytics.readonly",
+          "https://www.googleapis.com/auth/webmasters.readonly",
+          "https://www.googleapis.com/auth/analytics",
+          "https://www.googleapis.com/auth/analytics.edit"
+        ].join(" ")
       });
 
-      if (result.error) throw result.error;
-      
-      setReport(result.data.report);
-      toast({
-        title: "Success",
-        description: "Analysis completed successfully",
-      });
+      // Trigger the login flow
+      googleLogin();
     } catch (error) {
       console.error('Analysis error:', error);
       toast({
@@ -290,7 +305,6 @@ export function GoogleConnect() {
         description: "Failed to analyze data. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsAnalyzing(false);
     }
   };
