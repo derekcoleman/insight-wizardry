@@ -10,8 +10,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 
 interface Account {
   id: string;
@@ -25,6 +26,8 @@ export function GoogleConnect() {
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gaConnected, setGaConnected] = useState(false);
+  const [gscConnected, setGscConnected] = useState(false);
   const { toast } = useToast();
 
   const handleApiError = (error: any, apiName: string) => {
@@ -79,8 +82,9 @@ export function GoogleConnect() {
     onSuccess: async (response) => {
       setIsLoading(true);
       setError(null);
+      
+      // Fetch GA4 accounts
       try {
-        // Fetch GA4 accounts
         console.log("Fetching GA4 accounts...");
         const gaResponse = await fetch(
           "https://analyticsadmin.googleapis.com/v1alpha/accounts",
@@ -127,6 +131,12 @@ export function GoogleConnect() {
             description: "No Google Analytics 4 properties found for your account. Please make sure you have access to GA4 properties.",
             variant: "destructive",
           });
+        } else {
+          setGaConnected(true);
+          toast({
+            title: "Success",
+            description: "Successfully connected to Google Analytics 4",
+          });
         }
         
         setGaAccounts(
@@ -135,8 +145,12 @@ export function GoogleConnect() {
             name: p.displayName,
           })) || []
         );
+      } catch (error: any) {
+        handleApiError(error, "Google Analytics");
+      }
 
-        // Fetch Search Console sites
+      // Fetch Search Console sites
+      try {
         console.log("Fetching Search Console sites...");
         const gscResponse = await fetch(
           "https://www.googleapis.com/webmasters/v3/sites",
@@ -161,6 +175,12 @@ export function GoogleConnect() {
             description: "No Search Console sites found for your account. Please make sure you have access to Search Console properties.",
             variant: "destructive",
           });
+        } else {
+          setGscConnected(true);
+          toast({
+            title: "Success",
+            description: "Successfully connected to Search Console",
+          });
         }
         
         setGscAccounts(
@@ -169,14 +189,8 @@ export function GoogleConnect() {
             name: s.siteUrl,
           })) || []
         );
-
-        toast({
-          title: "Success",
-          description: "Successfully connected to Google services",
-        });
-
       } catch (error: any) {
-        handleApiError(error, error.message.includes("GA4") ? "Google Analytics" : "Search Console");
+        handleApiError(error, "Search Console");
       } finally {
         setIsLoading(false);
       }
@@ -216,10 +230,22 @@ export function GoogleConnect() {
           Connect Google Account
         </Button>
 
+        {(gaConnected || gscConnected) && (
+          <Alert>
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertTitle>Connected Services</AlertTitle>
+            <AlertDescription>
+              {gaConnected && "✓ Google Analytics 4"}
+              {gaConnected && gscConnected && <br />}
+              {gscConnected && "✓ Search Console"}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {gaAccounts.length > 0 && (
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              Select Google Analytics Account
+              Select Google Analytics 4 Property
             </label>
             <Select
               value={selectedGaAccount}
@@ -237,6 +263,10 @@ export function GoogleConnect() {
               </SelectContent>
             </Select>
           </div>
+        )}
+
+        {gaAccounts.length > 0 && gscAccounts.length > 0 && (
+          <Separator className="my-4" />
         )}
 
         {gscAccounts.length > 0 && (
