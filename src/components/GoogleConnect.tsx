@@ -31,7 +31,7 @@ export function GoogleConnect() {
       try {
         // Fetch GA4 accounts
         const gaResponse = await fetch(
-          "https://analyticsadmin.googleapis.com/v1beta/properties",
+          "https://analyticsadmin.googleapis.com/v1alpha/accounts",
           {
             headers: {
               Authorization: `Bearer ${response.access_token}`,
@@ -45,9 +45,26 @@ export function GoogleConnect() {
 
         const gaData = await gaResponse.json();
         console.log("GA4 Response:", gaData);
+
+        // After getting accounts, fetch properties
+        const propertiesResponse = await fetch(
+          "https://analyticsadmin.googleapis.com/v1beta/properties",
+          {
+            headers: {
+              Authorization: `Bearer ${response.access_token}`,
+            },
+          }
+        );
+
+        if (!propertiesResponse.ok) {
+          throw new Error(`GA4 Properties API error: ${propertiesResponse.statusText}`);
+        }
+
+        const propertiesData = await propertiesResponse.json();
+        console.log("GA4 Properties Response:", propertiesData);
         
         setGaAccounts(
-          gaData.properties?.map((p: any) => ({
+          propertiesData.properties?.map((p: any) => ({
             id: p.name,
             name: p.displayName,
           })) || []
@@ -96,6 +113,7 @@ export function GoogleConnect() {
       "https://www.googleapis.com/auth/analytics.readonly",
       "https://www.googleapis.com/auth/webmasters.readonly",
       "https://www.googleapis.com/auth/analytics",
+      "https://www.googleapis.com/auth/analytics.edit"
     ].join(" "),
   });
 
