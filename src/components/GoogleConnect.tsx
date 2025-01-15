@@ -124,32 +124,38 @@ export function GoogleConnect() {
           throw new Error("No GA4 accounts found. Please make sure you have access to GA4 accounts.");
         }
 
-        // After getting accounts, fetch properties with the required filter
-        console.log("Fetching GA4 properties...");
-        const accountIds = gaData.accounts.map((account: any) => account.name).join(" OR ");
-        const propertiesResponse = await fetch(
-          `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${gaData.accounts[0].name}`,
-          {
-            headers: {
-              Authorization: `Bearer ${response.access_token}`,
-            },
-          }
-        );
+        // Fetch properties for all accounts
+        console.log("Fetching GA4 properties for all accounts...");
+        const allProperties = [];
+        
+        for (const account of gaData.accounts) {
+          const propertiesResponse = await fetch(
+            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
+            {
+              headers: {
+                Authorization: `Bearer ${response.access_token}`,
+              },
+            }
+          );
 
-        if (!propertiesResponse.ok) {
-          const errorData = await propertiesResponse.json().catch(() => ({}));
-          console.error("GA4 Properties Error Response:", errorData);
-          throw new Error(`GA4 Properties API error: ${propertiesResponse.statusText}\n${JSON.stringify(errorData, null, 2)}`);
+          if (!propertiesResponse.ok) {
+            console.warn(`Failed to fetch properties for account ${account.name}:`, await propertiesResponse.json());
+            continue; // Skip this account but continue with others
+          }
+
+          const propertiesData = await propertiesResponse.json();
+          if (propertiesData.properties) {
+            allProperties.push(...propertiesData.properties);
+          }
         }
 
-        const propertiesData = await propertiesResponse.json();
-        console.log("GA4 Properties Response:", propertiesData);
+        console.log("All GA4 Properties Response:", allProperties);
         
-        if (!propertiesData.properties || propertiesData.properties.length === 0) {
+        if (allProperties.length === 0) {
           console.log("No GA4 properties found");
           toast({
             title: "Warning",
-            description: "No Google Analytics 4 properties found for your account. Please make sure you have access to GA4 properties.",
+            description: "No Google Analytics 4 properties found for your accounts. Please make sure you have access to GA4 properties.",
             variant: "destructive",
           });
         } else {
@@ -161,10 +167,10 @@ export function GoogleConnect() {
         }
         
         setGaAccounts(
-          propertiesData.properties?.map((p: any) => ({
+          allProperties.map((p: any) => ({
             id: p.name,
             name: p.displayName,
-          })) || []
+          }))
         );
       } catch (error: any) {
         handleApiError(error, "Google Analytics");
