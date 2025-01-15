@@ -2,6 +2,7 @@ import { useState } from "react";
 import { DataInput } from "@/components/DataInput";
 import { Summary } from "@/components/Summary";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
+import { GoogleConnect } from "@/components/GoogleConnect";
 import { useToast } from "@/components/ui/use-toast";
 
 const Index = () => {
@@ -70,6 +71,7 @@ const Index = () => {
           </p>
         </div>
         <ApiKeyInput />
+        <GoogleConnect />
         <DataInput onSubmit={generateSummary} />
         <Summary summary={summary} isLoading={isLoading} />
       </div>
