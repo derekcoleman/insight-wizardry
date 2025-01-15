@@ -103,6 +103,7 @@ export function GoogleConnect() {
       setIsLoading(true);
       setError(null);
       
+      try {
       // Fetch GA4 accounts
       try {
         console.log("Fetching GA4 accounts...");
@@ -229,7 +230,11 @@ export function GoogleConnect() {
       } finally {
         setIsLoading(false);
       }
-
+      } catch (error: any) {
+        handleApiError(error, "Google Analytics");
+      } finally {
+        setIsLoading(false);
+      }
     },
     scope: [
       "https://www.googleapis.com/auth/analytics.readonly",
@@ -237,6 +242,7 @@ export function GoogleConnect() {
       "https://www.googleapis.com/auth/analytics",
       "https://www.googleapis.com/auth/analytics.edit"
     ].join(" "),
+    flow: "implicit" // Add this to ensure we get the access token directly
   });
 
   const handleAnalyze = async () => {
@@ -251,12 +257,22 @@ export function GoogleConnect() {
 
     setIsAnalyzing(true);
     try {
-      const response = await login();
+      // Instead of calling login directly, we'll create a new promise to handle the token
+      const tokenPromise = new Promise<string>((resolve) => {
+        login({
+          onSuccess: (response) => {
+            resolve(response.access_token);
+          },
+        });
+      });
+
+      const accessToken = await tokenPromise;
+      
       const result = await supabase.functions.invoke('analyze-ga4-data', {
         body: {
           ga4Property: selectedGaAccount,
           gscProperty: selectedGscAccount,
-          accessToken: response.access_token,
+          accessToken,
         },
       });
 
