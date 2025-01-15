@@ -43,16 +43,23 @@ export function GoogleConnect() {
       if (error.response.status === 403) {
         errorMessage = `Access denied to ${apiName}. Please check:`;
         detailedError = `
-          1. The Google Analytics API is enabled in your Google Cloud Console
-          2. Your account has the necessary permissions (Editor or Admin role)
+          1. The ${apiName} API is enabled in your Google Cloud Console
+          2. Your account has the necessary permissions
           3. You've granted all required OAuth scopes during login
         `;
+        if (apiName === "Search Console") {
+          detailedError += "\n4. You have verified ownership of the sites in Search Console";
+        }
       } else if (error.response.status === 401) {
         errorMessage = `Authentication failed for ${apiName}.`;
         detailedError = "Please try logging in again or check if your Google Cloud project is properly configured.";
       } else if (error.response.status === 404) {
         errorMessage = `${apiName} resource not found.`;
-        detailedError = "Please verify that you have GA4 properties set up in your Google Analytics account.";
+        if (apiName === "Search Console") {
+          detailedError = "Please verify that you have sites added and verified in your Search Console account.";
+        } else {
+          detailedError = "Please verify that you have GA4 properties set up in your Google Analytics account.";
+        }
       } else if (error.response.status === 429) {
         errorMessage = `Too many requests to ${apiName}.`;
         detailedError = "Please wait a few minutes and try again.";
@@ -162,17 +169,21 @@ export function GoogleConnect() {
         );
 
         if (!gscResponse.ok) {
-          throw new Error(`Search Console API error: ${gscResponse.statusText}`);
+          const errorData = await gscResponse.json().catch(() => ({}));
+          console.error("Search Console Error Response:", errorData);
+          throw new Error(`Search Console API error: ${gscResponse.statusText}\n${JSON.stringify(errorData, null, 2)}`);
         }
 
         const gscData = await gscResponse.json();
-        console.log("GSC Response:", gscData);
+        console.log("Search Console Response:", gscData);
         
         if (!gscData.siteEntry || gscData.siteEntry.length === 0) {
           console.log("No Search Console sites found");
           toast({
             title: "Warning",
-            description: "No Search Console sites found for your account. Please make sure you have access to Search Console properties.",
+            description: "No Search Console sites found for your account. Please verify that you have:"+
+                        "\n1. Added and verified your sites in Search Console"+
+                        "\n2. Proper access permissions to the sites",
             variant: "destructive",
           });
         } else {
