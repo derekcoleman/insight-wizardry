@@ -120,10 +120,15 @@ export function GoogleConnect() {
         const gaData = await gaResponse.json();
         console.log("GA4 Response:", gaData);
 
-        // After getting accounts, fetch properties
+        if (!gaData.accounts || gaData.accounts.length === 0) {
+          throw new Error("No GA4 accounts found. Please make sure you have access to GA4 accounts.");
+        }
+
+        // After getting accounts, fetch properties with the required filter
         console.log("Fetching GA4 properties...");
+        const accountIds = gaData.accounts.map((account: any) => account.name).join(" OR ");
         const propertiesResponse = await fetch(
-          "https://analyticsadmin.googleapis.com/v1beta/properties",
+          `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${gaData.accounts[0].name}`,
           {
             headers: {
               Authorization: `Bearer ${response.access_token}`,
@@ -214,6 +219,7 @@ export function GoogleConnect() {
       } finally {
         setIsLoading(false);
       }
+
     },
     scope: [
       "https://www.googleapis.com/auth/analytics.readonly",
