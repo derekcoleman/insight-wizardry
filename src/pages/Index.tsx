@@ -3,6 +3,7 @@ import { Summary } from "@/components/Summary";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [summary, setSummary] = useState("");
@@ -10,49 +11,19 @@ const Index = () => {
   const { toast } = useToast();
 
   const generateSummary = async (data: string) => {
-    const apiKey = localStorage.getItem("OPENAI_API_KEY");
-    if (!apiKey) {
-      toast({
-        title: "Error",
-        description: "Please enter your OpenAI API key first",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: "You are a professional analytics expert. Create a concise, well-structured summary of the provided Google Analytics and Search Console data. Focus on key metrics, trends, and actionable insights.",
-            },
-            {
-              role: "user",
-              content: data,
-            },
-          ],
-        }),
+      const { data: response, error } = await supabase.functions.invoke('generate-summary', {
+        body: { data }
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to generate summary");
-      }
+      if (error) throw error;
 
-      const result = await response.json();
-      setSummary(result.choices[0].message.content);
+      setSummary(response.summary);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to generate summary. Please check your API key and try again.",
+        description: "Failed to generate summary. Please try again.",
         variant: "destructive",
       });
     } finally {
