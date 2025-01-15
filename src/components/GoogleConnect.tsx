@@ -31,14 +31,21 @@ export function GoogleConnect() {
       try {
         // Fetch GA4 accounts
         const gaResponse = await fetch(
-          "https://analyticsdata.googleapis.com/v1beta/properties",
+          "https://analyticsadmin.googleapis.com/v1beta/properties",
           {
             headers: {
               Authorization: `Bearer ${response.access_token}`,
             },
           }
         );
+
+        if (!gaResponse.ok) {
+          throw new Error(`GA4 API error: ${gaResponse.statusText}`);
+        }
+
         const gaData = await gaResponse.json();
+        console.log("GA4 Response:", gaData);
+        
         setGaAccounts(
           gaData.properties?.map((p: any) => ({
             id: p.name,
@@ -55,7 +62,14 @@ export function GoogleConnect() {
             },
           }
         );
+
+        if (!gscResponse.ok) {
+          throw new Error(`Search Console API error: ${gscResponse.statusText}`);
+        }
+
         const gscData = await gscResponse.json();
+        console.log("GSC Response:", gscData);
+        
         setGscAccounts(
           gscData.siteEntry?.map((s: any) => ({
             id: s.siteUrl,
@@ -68,17 +82,21 @@ export function GoogleConnect() {
           description: "Successfully connected to Google services",
         });
       } catch (error) {
+        console.error("Error fetching account data:", error);
         toast({
           title: "Error",
-          description: "Failed to fetch account data",
+          description: error instanceof Error ? error.message : "Failed to fetch account data",
           variant: "destructive",
         });
       } finally {
         setIsLoading(false);
       }
     },
-    scope:
-      "https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly",
+    scope: [
+      "https://www.googleapis.com/auth/analytics.readonly",
+      "https://www.googleapis.com/auth/webmasters.readonly",
+      "https://www.googleapis.com/auth/analytics",
+    ].join(" "),
   });
 
   return (
