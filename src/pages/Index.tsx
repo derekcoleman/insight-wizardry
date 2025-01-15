@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { DataInput } from "@/components/DataInput";
 import { Summary } from "@/components/Summary";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
 import { GoogleConnect } from "@/components/GoogleConnect";
@@ -72,7 +71,6 @@ const Index = () => {
         </div>
         <ApiKeyInput />
         <GoogleConnect />
-        <DataInput onSubmit={generateSummary} />
         <Summary summary={summary} isLoading={isLoading} />
       </div>
     </div>
