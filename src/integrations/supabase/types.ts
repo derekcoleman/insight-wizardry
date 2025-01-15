@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      analytics_reports: {
+        Row: {
+          created_at: string
+          ga4_property: string
+          gsc_property: string | null
+          id: string
+          monthly_analysis: Json | null
+          quarterly_analysis: Json | null
+          status: string
+          weekly_analysis: Json | null
+          yoy_analysis: Json | null
+        }
+        Insert: {
+          created_at?: string
+          ga4_property: string
+          gsc_property?: string | null
+          id?: string
+          monthly_analysis?: Json | null
+          quarterly_analysis?: Json | null
+          status?: string
+          weekly_analysis?: Json | null
+          yoy_analysis?: Json | null
+        }
+        Update: {
+          created_at?: string
+          ga4_property?: string
+          gsc_property?: string | null
+          id?: string
+          monthly_analysis?: Json | null
+          quarterly_analysis?: Json | null
+          status?: string
+          weekly_analysis?: Json | null
+          yoy_analysis?: Json | null
+        }
+        Relationships: []
+      }
       api_configurations: {
         Row: {
           created_at: string

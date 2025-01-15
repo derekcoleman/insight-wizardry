@@ -13,6 +13,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { AnalysisResults } from "@/components/AnalysisResults";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Account {
   id: string;
@@ -29,6 +31,8 @@ export function GoogleConnect() {
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
   const { toast } = useToast();
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [report, setReport] = useState(null);
 
   const handleApiError = (error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
@@ -235,95 +239,160 @@ export function GoogleConnect() {
     ].join(" "),
   });
 
+  const handleAnalyze = async () => {
+    if (!selectedGaAccount) {
+      toast({
+        title: "Error",
+        description: "Please select a GA4 property",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const response = await login();
+      const result = await supabase.functions.invoke('analyze-ga4-data', {
+        body: {
+          ga4Property: selectedGaAccount,
+          gscProperty: selectedGscAccount,
+          accessToken: response.access_token,
+        },
+      });
+
+      if (result.error) throw result.error;
+      
+      setReport(result.data.report);
+      toast({
+        title: "Success",
+        description: "Analysis completed successfully",
+      });
+    } catch (error) {
+      console.error('Analysis error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to analyze data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Connect Google Services</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription className="whitespace-pre-line">
-              {error}
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        <Button
-          onClick={() => login()}
-          disabled={isLoading}
-          className="w-full"
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : null}
-          Connect Google Account
-        </Button>
+    <div className="space-y-6">
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Connect Google Services</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription className="whitespace-pre-line">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <Button
+            onClick={() => login()}
+            disabled={isLoading}
+            className="w-full"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Connect Google Account
+          </Button>
 
-        {(gaConnected || gscConnected) && (
-          <Alert>
-            <CheckCircle2 className="h-4 w-4" />
-            <AlertTitle>Connected Services</AlertTitle>
-            <AlertDescription>
-              {gaConnected && "✓ Google Analytics 4"}
-              {gaConnected && gscConnected && <br />}
-              {gscConnected && "✓ Search Console"}
-            </AlertDescription>
-          </Alert>
-        )}
+          {(gaConnected || gscConnected) && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Connected Services</AlertTitle>
+              <AlertDescription>
+                {gaConnected && "✓ Google Analytics 4"}
+                {gaConnected && gscConnected && <br />}
+                {gscConnected && "✓ Search Console"}
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {gaAccounts.length > 0 && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Select Google Analytics 4 Property
-            </label>
-            <Select
-              value={selectedGaAccount}
-              onValueChange={setSelectedGaAccount}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select GA4 property" />
-              </SelectTrigger>
-              <SelectContent>
-                {gaAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+          {gaAccounts.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Select Google Analytics 4 Property
+              </label>
+              <Select
+                value={selectedGaAccount}
+                onValueChange={setSelectedGaAccount}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select GA4 property" />
+                </SelectTrigger>
+                <SelectContent>
+                  {gaAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-        {gaAccounts.length > 0 && gscAccounts.length > 0 && (
-          <Separator className="my-4" />
-        )}
+          {gaAccounts.length > 0 && gscAccounts.length > 0 && (
+            <Separator className="my-4" />
+          )}
 
-        {gscAccounts.length > 0 && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Select Search Console Property
-            </label>
-            <Select
-              value={selectedGscAccount}
-              onValueChange={setSelectedGscAccount}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select Search Console property" />
-              </SelectTrigger>
-              <SelectContent>
-                {gscAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          {gscAccounts.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Select Search Console Property
+              </label>
+              <Select
+                value={selectedGscAccount}
+                onValueChange={setSelectedGscAccount}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Search Console property" />
+                </SelectTrigger>
+                <SelectContent>
+                  {gscAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {(selectedGaAccount || selectedGscAccount) && (
+            <CardContent className="pt-4">
+              <Button
+                onClick={handleAnalyze}
+                disabled={isAnalyzing || !selectedGaAccount}
+                className="w-full"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Analyzing Data...
+                  </>
+                ) : (
+                  "Continue with Analysis"
+                )}
+              </Button>
+            </CardContent>
+          )}
+        </CardContent>
+      </Card>
+
+      {(isAnalyzing || report) && (
+        <AnalysisResults report={report} isLoading={isAnalyzing} />
+      )}
+    </div>
   );
 }
