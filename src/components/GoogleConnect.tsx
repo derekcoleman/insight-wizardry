@@ -41,14 +41,23 @@ export function GoogleConnect() {
       console.error('Error Response Headers:', error.response.headers);
 
       if (error.response.status === 403) {
-        errorMessage = `Access denied to ${apiName}. Please check:`;
-        detailedError = `
-          1. The ${apiName} API is enabled in your Google Cloud Console
-          2. Your account has the necessary permissions
-          3. You've granted all required OAuth scopes during login
-        `;
-        if (apiName === "Search Console") {
-          detailedError += "\n4. You have verified ownership of the sites in Search Console";
+        if (error.response.data?.error?.reason === "accessNotConfigured") {
+          errorMessage = `${apiName} API is not enabled.`;
+          detailedError = `Please follow these steps:
+          1. Go to Google Cloud Console
+          2. Enable the ${apiName} API at: ${error.response.data?.error?.details?.[0]?.metadata?.activationUrl || 'https://console.cloud.google.com'}
+          3. Wait a few minutes for changes to propagate
+          4. Try connecting again`;
+        } else {
+          errorMessage = `Access denied to ${apiName}. Please check:`;
+          detailedError = `
+            1. The ${apiName} API is enabled in your Google Cloud Console
+            2. Your account has the necessary permissions
+            3. You've granted all required OAuth scopes during login
+          `;
+          if (apiName === "Search Console") {
+            detailedError += "\n4. You have verified ownership of the sites in Search Console";
+          }
         }
       } else if (error.response.status === 401) {
         errorMessage = `Authentication failed for ${apiName}.`;
