@@ -10,8 +10,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Account {
   id: string;
@@ -30,32 +30,44 @@ export function GoogleConnect() {
   const handleApiError = (error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
     let errorMessage = "An unknown error occurred";
+    let detailedError = "";
 
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
       console.error('Error Response Data:', error.response.data);
       console.error('Error Response Status:', error.response.status);
       console.error('Error Response Headers:', error.response.headers);
 
       if (error.response.status === 403) {
-        errorMessage = `Access denied to ${apiName}. Please check if you have the required permissions and that the API is enabled in the Google Cloud Console.`;
+        errorMessage = `Access denied to ${apiName}. Please check:`;
+        detailedError = `
+          1. The Google Analytics API is enabled in your Google Cloud Console
+          2. Your account has the necessary permissions (Editor or Admin role)
+          3. You've granted all required OAuth scopes during login
+        `;
       } else if (error.response.status === 401) {
-        errorMessage = `Authentication failed for ${apiName}. Please try logging in again.`;
+        errorMessage = `Authentication failed for ${apiName}.`;
+        detailedError = "Please try logging in again or check if your Google Cloud project is properly configured.";
+      } else if (error.response.status === 404) {
+        errorMessage = `${apiName} resource not found.`;
+        detailedError = "Please verify that you have GA4 properties set up in your Google Analytics account.";
+      } else if (error.response.status === 429) {
+        errorMessage = `Too many requests to ${apiName}.`;
+        detailedError = "Please wait a few minutes and try again.";
       } else {
         errorMessage = `${apiName} API error: ${error.response.status} - ${error.response.statusText}`;
+        detailedError = error.response.data?.error?.message || "No additional error details available.";
       }
     } else if (error.request) {
-      // The request was made but no response was received
       console.error('Error Request:', error.request);
-      errorMessage = `No response received from ${apiName} API. Please check your internet connection.`;
+      errorMessage = `No response received from ${apiName} API.`;
+      detailedError = "Please check your internet connection and try again.";
     } else {
-      // Something happened in setting up the request that triggered an Error
       console.error('Error Message:', error.message);
-      errorMessage = `Error accessing ${apiName}: ${error.message}`;
+      errorMessage = `Error accessing ${apiName}`;
+      detailedError = error.message || "An unexpected error occurred.";
     }
 
-    setError(errorMessage);
+    setError(`${errorMessage}\n${detailedError}`);
     toast({
       title: "Error",
       description: errorMessage,
@@ -80,7 +92,9 @@ export function GoogleConnect() {
         );
 
         if (!gaResponse.ok) {
-          throw new Error(`GA4 API error: ${gaResponse.statusText}`);
+          const errorData = await gaResponse.json().catch(() => ({}));
+          console.error("GA4 Error Response:", errorData);
+          throw new Error(`GA4 API error: ${gaResponse.statusText}\n${JSON.stringify(errorData, null, 2)}`);
         }
 
         const gaData = await gaResponse.json();
@@ -98,7 +112,9 @@ export function GoogleConnect() {
         );
 
         if (!propertiesResponse.ok) {
-          throw new Error(`GA4 Properties API error: ${propertiesResponse.statusText}`);
+          const errorData = await propertiesResponse.json().catch(() => ({}));
+          console.error("GA4 Properties Error Response:", errorData);
+          throw new Error(`GA4 Properties API error: ${propertiesResponse.statusText}\n${JSON.stringify(errorData, null, 2)}`);
         }
 
         const propertiesData = await propertiesResponse.json();
@@ -158,6 +174,7 @@ export function GoogleConnect() {
           title: "Success",
           description: "Successfully connected to Google services",
         });
+
       } catch (error: any) {
         handleApiError(error, error.message.includes("GA4") ? "Google Analytics" : "Search Console");
       } finally {
@@ -180,7 +197,11 @@ export function GoogleConnect() {
       <CardContent className="space-y-4">
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription className="whitespace-pre-line">
+              {error}
+            </AlertDescription>
           </Alert>
         )}
         
