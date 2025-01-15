@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Account {
   id: string;
@@ -23,13 +24,52 @@ export function GoogleConnect() {
   const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const handleApiError = (error: any, apiName: string) => {
+    console.error(`${apiName} API Error:`, error);
+    let errorMessage = "An unknown error occurred";
+
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('Error Response Data:', error.response.data);
+      console.error('Error Response Status:', error.response.status);
+      console.error('Error Response Headers:', error.response.headers);
+
+      if (error.response.status === 403) {
+        errorMessage = `Access denied to ${apiName}. Please check if you have the required permissions and that the API is enabled in the Google Cloud Console.`;
+      } else if (error.response.status === 401) {
+        errorMessage = `Authentication failed for ${apiName}. Please try logging in again.`;
+      } else {
+        errorMessage = `${apiName} API error: ${error.response.status} - ${error.response.statusText}`;
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('Error Request:', error.request);
+      errorMessage = `No response received from ${apiName} API. Please check your internet connection.`;
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('Error Message:', error.message);
+      errorMessage = `Error accessing ${apiName}: ${error.message}`;
+    }
+
+    setError(errorMessage);
+    toast({
+      title: "Error",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  };
 
   const login = useGoogleLogin({
     onSuccess: async (response) => {
       setIsLoading(true);
+      setError(null);
       try {
         // Fetch GA4 accounts
+        console.log("Fetching GA4 accounts...");
         const gaResponse = await fetch(
           "https://analyticsadmin.googleapis.com/v1alpha/accounts",
           {
@@ -47,6 +87,7 @@ export function GoogleConnect() {
         console.log("GA4 Response:", gaData);
 
         // After getting accounts, fetch properties
+        console.log("Fetching GA4 properties...");
         const propertiesResponse = await fetch(
           "https://analyticsadmin.googleapis.com/v1beta/properties",
           {
@@ -63,6 +104,15 @@ export function GoogleConnect() {
         const propertiesData = await propertiesResponse.json();
         console.log("GA4 Properties Response:", propertiesData);
         
+        if (!propertiesData.properties || propertiesData.properties.length === 0) {
+          console.log("No GA4 properties found");
+          toast({
+            title: "Warning",
+            description: "No Google Analytics 4 properties found for your account. Please make sure you have access to GA4 properties.",
+            variant: "destructive",
+          });
+        }
+        
         setGaAccounts(
           propertiesData.properties?.map((p: any) => ({
             id: p.name,
@@ -71,6 +121,7 @@ export function GoogleConnect() {
         );
 
         // Fetch Search Console sites
+        console.log("Fetching Search Console sites...");
         const gscResponse = await fetch(
           "https://www.googleapis.com/webmasters/v3/sites",
           {
@@ -87,6 +138,15 @@ export function GoogleConnect() {
         const gscData = await gscResponse.json();
         console.log("GSC Response:", gscData);
         
+        if (!gscData.siteEntry || gscData.siteEntry.length === 0) {
+          console.log("No Search Console sites found");
+          toast({
+            title: "Warning",
+            description: "No Search Console sites found for your account. Please make sure you have access to Search Console properties.",
+            variant: "destructive",
+          });
+        }
+        
         setGscAccounts(
           gscData.siteEntry?.map((s: any) => ({
             id: s.siteUrl,
@@ -98,13 +158,8 @@ export function GoogleConnect() {
           title: "Success",
           description: "Successfully connected to Google services",
         });
-      } catch (error) {
-        console.error("Error fetching account data:", error);
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to fetch account data",
-          variant: "destructive",
-        });
+      } catch (error: any) {
+        handleApiError(error, error.message.includes("GA4") ? "Google Analytics" : "Search Console");
       } finally {
         setIsLoading(false);
       }
@@ -123,6 +178,12 @@ export function GoogleConnect() {
         <CardTitle>Connect Google Services</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
         <Button
           onClick={() => login()}
           disabled={isLoading}
