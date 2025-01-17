@@ -49,17 +49,20 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
               title="Organic Sessions"
               value={data.current.sessions}
               change={data.changes.sessions}
+              source={data.current.source}
             />
             <MetricCard
               title={`Organic ${data.current.conversionGoal || 'Conversions'}`}
               value={data.current.conversions}
               change={data.changes.conversions}
+              source={data.current.source}
             />
             <MetricCard
               title="Organic Revenue"
               value={data.current.revenue}
               change={data.changes.revenue}
               suffix="$"
+              source={data.current.source}
             />
           </div>
           {data.summary && (
