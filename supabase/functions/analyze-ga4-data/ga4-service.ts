@@ -1,6 +1,6 @@
 export async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
   console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
-  console.log('Using conversion goal:', mainConversionGoal || 'default conversions');
+  console.log('Using event metric:', mainConversionGoal || 'all events');
   
   try {
     const response = await fetch(
@@ -18,10 +18,11 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
           }],
           dimensions: [
             { name: 'sessionDefaultChannelGroup' },
+            { name: 'eventName' },
           ],
           metrics: [
             { name: 'sessions' },
-            { name: mainConversionGoal || 'conversions' },
+            { name: 'eventCount' },
             { name: 'totalRevenue' },
           ],
         }),
@@ -38,7 +39,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
     console.log('GA4 API Response:', data);
     
     // Add conversion goal name to the response
-    data.conversionGoal = mainConversionGoal || 'Total Conversions';
+    data.conversionGoal = mainConversionGoal || 'Total Events';
     return data;
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
@@ -53,7 +54,7 @@ export function extractOrganicMetrics(data: any) {
       sessions: 0,
       conversions: 0,
       revenue: 0,
-      source: 'GA4',
+      source: 'Traffic Acquisition: Session primary channel group (Default channel group) (Organic)',
     };
   }
 
@@ -64,9 +65,9 @@ export function extractOrganicMetrics(data: any) {
 
   const metrics = {
     sessions: sumMetric(organicRows, 0),
-    conversions: sumMetric(organicRows, 1),
+    conversions: sumMetricForEvent(organicRows, 1, data.conversionGoal),
     revenue: sumMetric(organicRows, 2),
-    source: 'GA4',
+    source: 'Traffic Acquisition: Session primary channel group (Default channel group) (Organic)',
   };
 
   console.log('Extracted GA4 metrics:', metrics);
@@ -77,5 +78,18 @@ function sumMetric(rows: any[], metricIndex: number) {
   return rows.reduce((sum: number, row: any) => {
     const value = row.metricValues?.[metricIndex]?.value;
     return sum + (Number(value) || 0);
+  }, 0);
+}
+
+function sumMetricForEvent(rows: any[], metricIndex: number, eventName: string) {
+  if (eventName === 'Total Events') {
+    return sumMetric(rows, metricIndex);
+  }
+  return rows.reduce((sum: number, row: any) => {
+    if (row.dimensionValues?.[1]?.value === eventName) {
+      const value = row.metricValues?.[metricIndex]?.value;
+      return sum + (Number(value) || 0);
+    }
+    return sum;
   }, 0);
 }

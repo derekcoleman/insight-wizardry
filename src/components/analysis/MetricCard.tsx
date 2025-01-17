@@ -3,12 +3,18 @@ interface MetricCardProps {
   value: string | number;
   change: number;
   suffix?: string;
+  source?: string;
 }
 
-export function MetricCard({ title, value, change, suffix = '' }: MetricCardProps) {
+export function MetricCard({ title, value, change, suffix = '', source }: MetricCardProps) {
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">{title}</p>
+      <div className="space-y-1">
+        <p className="text-sm font-medium">{title}</p>
+        {source && (
+          <p className="text-xs text-muted-foreground">{source}</p>
+        )}
+      </div>
       <p className="text-2xl font-bold">
         {suffix && suffix}{value?.toLocaleString() ?? '0'}
       </p>
