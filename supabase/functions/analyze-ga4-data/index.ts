@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,15 +24,30 @@ serve(async (req) => {
     const now = new Date();
     const lastWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const prevWeekStart = new Date(lastWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
 
-    // Fetch GA4 data
     try {
+      // Fetch weekly data
+      console.log('Fetching weekly data...');
       const weeklyData = await fetchGA4Data(ga4Property, accessToken, lastWeekStart, now, mainConversionGoal);
+      console.log('Weekly data fetched successfully');
+      
       const prevWeekData = await fetchGA4Data(ga4Property, accessToken, prevWeekStart, lastWeekStart, mainConversionGoal);
+      console.log('Previous week data fetched successfully');
+
+      // Fetch monthly data
+      console.log('Fetching monthly data...');
+      const monthlyData = await fetchGA4Data(ga4Property, accessToken, lastMonthStart, now, mainConversionGoal);
+      const prevMonthData = await fetchGA4Data(ga4Property, accessToken, prevMonthStart, lastMonthStart, mainConversionGoal);
+      console.log('Monthly data fetched successfully');
 
       // Analyze the data
       const analysis = {
-        weekly: analyzeTimePeriod(weeklyData, prevWeekData, 'week'),
+        weekly_analysis: analyzeTimePeriod(weeklyData, prevWeekData, 'week'),
+        monthly_analysis: analyzeTimePeriod(monthlyData, prevMonthData, 'month'),
+        quarterly_analysis: null, // To be implemented
+        yoy_analysis: null, // To be implemented
       };
 
       return new Response(JSON.stringify({ report: analysis }), {
@@ -44,7 +58,8 @@ serve(async (req) => {
       console.error('Error in data fetching or analysis:', error);
       return new Response(JSON.stringify({ 
         error: error instanceof Error ? error.message : 'An error occurred during data analysis',
-        details: error instanceof Error ? error.stack : undefined
+        details: error instanceof Error ? error.stack : undefined,
+        status: 'error'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -54,7 +69,8 @@ serve(async (req) => {
     console.error('Error in analyze-ga4-data function:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'An unknown error occurred',
-      details: error instanceof Error ? error.stack : undefined
+      details: error instanceof Error ? error.stack : undefined,
+      status: 'error'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
@@ -63,11 +79,10 @@ serve(async (req) => {
 });
 
 async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
+  // Clean up the property ID by removing any trailing slashes and ensuring proper format
+  const cleanPropertyId = propertyId.replace(/\/$/, '').replace('properties/', '');
   const baseUrl = 'https://analyticsdata.googleapis.com/v1beta';
-  
-  // Remove any trailing slashes and ensure proper property ID format
-  const cleanPropertyId = propertyId.replace(/\/$/, '');
-  const url = `${baseUrl}/${cleanPropertyId}/runReport`;
+  const url = `${baseUrl}/properties/${cleanPropertyId}/runReport`;
 
   console.log(`Fetching GA4 data from ${startDate.toISOString()} to ${endDate.toISOString()}`);
   console.log('Request URL:', url);
@@ -75,13 +90,14 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
   const metrics = [
     { name: 'sessions' },
     { name: mainConversionGoal || 'conversions' },
+    { name: 'totalRevenue' }
   ];
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -98,9 +114,9 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
     });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error('GA4 API Error Response:', errorData);
-      throw new Error(`GA4 API error: ${response.statusText || 'Unknown error'}`);
+      const errorText = await response.text();
+      console.error('GA4 API Error Response:', errorText);
+      throw new Error(`GA4 API error: ${response.statusText || 'Unknown error'} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -127,6 +143,10 @@ function analyzeTimePeriod(currentData: any, previousData: any, period: string) 
       organic.current.conversions,
       organic.previous.conversions
     ),
+    revenue: calculatePercentageChange(
+      organic.current.revenue,
+      organic.previous.revenue
+    ),
   };
 
   return {
@@ -141,7 +161,7 @@ function analyzeTimePeriod(currentData: any, previousData: any, period: string) 
 function extractOrganicMetrics(data: any) {
   if (!data || !data.rows) {
     console.warn('No data available for metric extraction');
-    return { sessions: 0, conversions: 0 };
+    return { sessions: 0, conversions: 0, revenue: 0 };
   }
 
   const organicTraffic = data.rows.filter(
@@ -153,6 +173,7 @@ function extractOrganicMetrics(data: any) {
   return {
     sessions: sumMetric(organicTraffic, 0),
     conversions: sumMetric(organicTraffic, 1),
+    revenue: sumMetric(organicTraffic, 2),
   };
 }
 
