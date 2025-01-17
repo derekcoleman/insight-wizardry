@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Target } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AnalysisResults } from "@/components/AnalysisResults";
@@ -21,11 +21,18 @@ interface Account {
   name: string;
 }
 
+interface ConversionGoal {
+  id: string;
+  name: string;
+}
+
 export function GoogleConnect() {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
   const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
+  const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
+  const [selectedGoal, setSelectedGoal] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gaConnected, setGaConnected] = useState(false);
@@ -98,6 +105,41 @@ export function GoogleConnect() {
     });
   };
 
+  const fetchConversionGoals = async (propertyId: string, accessToken: string) => {
+    try {
+      console.log("Fetching conversion goals for property:", propertyId);
+      const response = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/${propertyId}/metadata`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch conversion goals: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const goals = data.metrics
+        .filter((metric: any) => 
+          metric.name.toLowerCase().includes('conversion') || 
+          metric.name.toLowerCase().includes('goal')
+        )
+        .map((metric: any) => ({
+          id: metric.name,
+          name: metric.displayName || metric.name,
+        }));
+
+      console.log("Fetched conversion goals:", goals);
+      setConversionGoals(goals);
+    } catch (error) {
+      console.error("Error fetching conversion goals:", error);
+      handleApiError(error, "Google Analytics");
+    }
+  };
+
   const login = useGoogleLogin({
     onSuccess: async (response) => {
       setIsLoading(true);
@@ -145,7 +187,7 @@ export function GoogleConnect() {
 
             if (!propertiesResponse.ok) {
               console.warn(`Failed to fetch properties for account ${account.name}:`, await propertiesResponse.json());
-              continue; // Skip this account but continue with others
+              continue;
             }
 
             const propertiesData = await propertiesResponse.json();
@@ -181,7 +223,6 @@ export function GoogleConnect() {
           handleApiError(error, "Google Analytics");
         }
 
-        // Fetch Search Console sites
         try {
           console.log("Fetching Search Console sites...");
           const gscResponse = await fetch(
@@ -230,6 +271,7 @@ export function GoogleConnect() {
         } finally {
           setIsLoading(false);
         }
+
       } catch (error: any) {
         handleApiError(error, "Google Analytics");
       } finally {
@@ -245,6 +287,19 @@ export function GoogleConnect() {
     flow: "implicit"
   });
 
+  const handleGaAccountChange = async (value: string) => {
+    setSelectedGaAccount(value);
+    // Create a new instance of login to get a fresh token
+    const googleLogin = useGoogleLogin({
+      onSuccess: async (response) => {
+        await fetchConversionGoals(value, response.access_token);
+      },
+      scope: "https://www.googleapis.com/auth/analytics.readonly",
+      flow: "implicit"
+    });
+    googleLogin();
+  };
+
   const handleAnalyze = async () => {
     if (!selectedGaAccount) {
       toast({
@@ -257,7 +312,6 @@ export function GoogleConnect() {
 
     setIsAnalyzing(true);
     try {
-      // Create a new instance of login with a custom success handler
       const googleLogin = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
           try {
@@ -266,6 +320,7 @@ export function GoogleConnect() {
                 ga4Property: selectedGaAccount,
                 gscProperty: selectedGscAccount,
                 accessToken: tokenResponse.access_token,
+                mainConversionGoal: selectedGoal || undefined,
               },
             });
 
@@ -296,7 +351,6 @@ export function GoogleConnect() {
         ].join(" ")
       });
 
-      // Trigger the login flow
       googleLogin();
     } catch (error) {
       console.error('Analysis error:', error);
@@ -356,7 +410,7 @@ export function GoogleConnect() {
               </label>
               <Select
                 value={selectedGaAccount}
-                onValueChange={setSelectedGaAccount}
+                onValueChange={handleGaAccountChange}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select GA4 property" />
@@ -365,6 +419,30 @@ export function GoogleConnect() {
                   {gaAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {conversionGoals.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Select Main Conversion Goal (Optional)
+              </label>
+              <Select
+                value={selectedGoal}
+                onValueChange={setSelectedGoal}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select conversion goal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {conversionGoals.map((goal) => (
+                    <SelectItem key={goal.id} value={goal.id}>
+                      {goal.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
