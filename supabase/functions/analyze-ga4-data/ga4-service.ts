@@ -6,7 +6,8 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
   console.log('Clean property ID:', cleanPropertyId);
   
   try {
-    const response = await fetch(
+    // First request: Get session data
+    const sessionResponse = await fetch(
       `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
       {
         method: 'POST',
@@ -20,11 +21,45 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
             endDate: endDate.toISOString().split('T')[0],
           }],
           dimensions: [
-            { name: 'sessionDefaultChannelGrouping' },
-            { name: 'eventName' },
+            { name: 'sessionSource' },
+            { name: 'sessionMedium' },
           ],
           metrics: [
             { name: 'sessions' },
+          ],
+        }),
+      }
+    );
+
+    if (!sessionResponse.ok) {
+      const errorText = await sessionResponse.text();
+      console.error('GA4 Session API Error Response:', errorText);
+      throw new Error(`GA4 API error: ${sessionResponse.status} ${sessionResponse.statusText} - ${errorText}`);
+    }
+
+    const sessionData = await sessionResponse.json();
+    console.log('GA4 Session API Response:', sessionData);
+
+    // Second request: Get event data
+    const eventResponse = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateRanges: [{
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+          }],
+          dimensions: [
+            { name: 'sessionSource' },
+            { name: 'sessionMedium' },
+            { name: 'eventName' },
+          ],
+          metrics: [
             { name: 'eventCount' },
             { name: 'totalRevenue' },
           ],
@@ -32,18 +67,23 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GA4 API Error Response:', errorText);
-      throw new Error(`GA4 API error: ${response.status} ${response.statusText} - ${errorText}`);
+    if (!eventResponse.ok) {
+      const errorText = await eventResponse.text();
+      console.error('GA4 Event API Error Response:', errorText);
+      throw new Error(`GA4 API error: ${eventResponse.status} ${eventResponse.statusText} - ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log('GA4 API Response:', data);
-    
-    // Add conversion goal name to the response
-    data.conversionGoal = mainConversionGoal || 'Total Events';
-    return data;
+    const eventData = await eventResponse.json();
+    console.log('GA4 Event API Response:', eventData);
+
+    // Combine the data
+    const combinedData = {
+      ...eventData,
+      sessionData: sessionData,
+      conversionGoal: mainConversionGoal || 'Total Events',
+    };
+
+    return combinedData;
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
     throw error;
@@ -60,28 +100,39 @@ export function extractOrganicMetrics(data: any) {
     };
   }
 
-  // Filter for organic search traffic using sessionDefaultChannelGrouping
-  const organicRows = data.rows.filter((row: any) => 
-    row.dimensionValues?.[0]?.value === 'Organic Search'
-  );
+  // Calculate organic sessions from session data
+  const organicSessions = data.sessionData?.rows?.reduce((total: number, row: any) => {
+    const source = row.dimensionValues?.[0]?.value?.toLowerCase();
+    const medium = row.dimensionValues?.[1]?.value?.toLowerCase();
+    
+    // Check if it's organic search traffic
+    if (medium === 'organic' || source === 'google' || source === 'bing' || source === 'yahoo') {
+      return total + Number(row.metricValues?.[0]?.value || 0);
+    }
+    return total;
+  }, 0) || 0;
 
-  console.log('Organic Search rows:', organicRows);
+  console.log('Organic sessions calculated:', organicSessions);
 
-  // Calculate total organic sessions
-  const sessions = organicRows.reduce((total: number, row: any) => {
-    return total + Number(row.metricValues[0].value || 0);
-  }, 0);
+  // Filter for organic search traffic in event data
+  const organicRows = data.rows.filter((row: any) => {
+    const source = row.dimensionValues?.[0]?.value?.toLowerCase();
+    const medium = row.dimensionValues?.[1]?.value?.toLowerCase();
+    return medium === 'organic' || source === 'google' || source === 'bing' || source === 'yahoo';
+  });
+
+  console.log('Organic event rows:', organicRows);
 
   // Calculate conversions based on the specific event or total events
-  const conversions = sumMetricForEvent(organicRows, 1, data.conversionGoal);
+  const conversions = sumMetricForEvent(organicRows, 0, data.conversionGoal);
   
   // Calculate revenue
   const revenue = organicRows.reduce((total: number, row: any) => {
-    return total + Number(row.metricValues[2].value || 0);
+    return total + Number(row.metricValues[1].value || 0);
   }, 0);
 
   const metrics = {
-    sessions,
+    sessions: organicSessions,
     conversions,
     revenue,
   };
@@ -100,7 +151,7 @@ function sumMetricForEvent(rows: any[], metricIndex: number, eventName: string) 
   
   // Filter rows for the specific event and sum its count
   return rows.reduce((sum: number, row: any) => {
-    if (row.dimensionValues?.[1]?.value === eventName) {
+    if (row.dimensionValues?.[2]?.value === eventName) {
       const value = row.metricValues?.[metricIndex]?.value;
       return sum + (Number(value) || 0);
     }
