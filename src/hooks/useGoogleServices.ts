@@ -70,12 +70,12 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const fetchConversionGoals = async (propertyId: string) => {
     if (!accessToken) {
-      console.log("No access token available for fetching events");
+      console.log("No access token available for fetching conversion metrics");
       return;
     }
 
     try {
-      console.log("Fetching events for property:", propertyId);
+      console.log("Fetching conversion metrics for property:", propertyId);
       
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
@@ -92,43 +92,71 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("GA4 API Error Response:", errorText);
-        throw new Error(`Failed to fetch events: ${response.statusText}`);
+        throw new Error(`Failed to fetch conversion metrics: ${response.statusText}`);
       }
 
       const data = await response.json();
       console.log("Full metadata response:", data);
+      
+      if (!data.metrics) {
+        console.log("No metrics found in response");
+        setConversionGoals([]);
+        return;
+      }
 
-      // Add "Total Events" as the first option
-      const goals = [
-        { id: 'Total Events', name: 'Total Events' },
-        ...(data.dimensions
-          ?.filter((dimension: any) => dimension.apiName === 'eventName')
-          ?.map((dimension: any) => ({
-            id: dimension.apiName,
-            name: dimension.uiName || dimension.apiName,
-          })) || [])
-      ];
+      const goals = data.metrics
+        .filter((metric: any) => {
+          if (!metric || typeof metric !== 'object') {
+            console.log("Invalid metric object:", metric);
+            return false;
+          }
 
-      console.log("Found events:", goals);
+          const metricName = metric.name || '';
+          const displayName = metric.displayName || '';
+          const category = metric.category || '';
+          const apiName = metric.apiName || '';
+
+          console.log("Evaluating metric:", {
+            name: metricName,
+            displayName: displayName,
+            category: category,
+            apiName: apiName,
+          });
+
+          const isConversion = 
+            (metricName && metricName.toLowerCase().includes('conversion')) || 
+            (category === 'CONVERSION') ||
+            (metric.customEvent === true && displayName.toLowerCase().includes('conversion'));
+
+          console.log(`Metric ${metricName} - Is Conversion: ${isConversion}`);
+
+          return isConversion;
+        })
+        .map((metric: any) => ({
+          id: metric.apiName || metric.name,
+          name: metric.displayName || metric.name,
+        }));
+
+      console.log("Found conversion metrics:", goals);
       setConversionGoals(goals);
       
       if (goals.length === 0) {
-        console.log("No events found");
+        console.log("No conversion metrics found after filtering");
         toast({
-          title: "No Events Found",
-          description: "No events were found in this GA4 property. Please verify your GA4 configuration.",
+          title: "No Conversion Metrics Found",
+          description: "No conversion metrics were found in this GA4 property. Please verify your GA4 configuration.",
           variant: "destructive",
         });
       } else {
-        console.log(`Found ${goals.length} events`);
+        console.log(`Found ${goals.length} conversion metrics`);
         toast({
-          title: "Events Found",
-          description: `Found ${goals.length} events in this GA4 property`,
+          title: "Conversion Metrics Found",
+          description: `Found ${goals.length} conversion metrics in this GA4 property`,
           variant: "default",
         });
       }
     } catch (error) {
-      console.error("Error fetching events:", error);
+      console.error("Error fetching conversion metrics:", error);
       handleApiError(error, "Google Analytics");
       setConversionGoals([]);
     }
