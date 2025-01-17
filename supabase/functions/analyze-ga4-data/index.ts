@@ -81,6 +81,55 @@ serve(async (req) => {
       }
     });
 
+    function formatDateRange(start: Date, end: Date, previous: { start: Date; end: Date }) {
+      const formatDate = (date: Date) => {
+        return date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric'
+        });
+      };
+      
+      return `${formatDate(start)} - ${formatDate(end)} vs ${formatDate(previous.start)} - ${formatDate(previous.end)}`;
+    }
+
+    function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSCData: any, previousGSCData: any, period: string, currentDateRange: { start: Date; end: Date }, previousDateRange: { start: Date; end: Date }) {
+      const organic = {
+        current: {
+          ...extractOrganicMetrics(currentGA4Data),
+          ...(currentGSCData ? extractGSCMetrics(currentGSCData) : {}),
+          conversionGoal: currentGA4Data?.conversionGoal || 'Total Conversions',
+        },
+        previous: {
+          ...extractOrganicMetrics(previousGA4Data),
+          ...(previousGSCData ? extractGSCMetrics(previousGSCData) : {}),
+          conversionGoal: previousGA4Data?.conversionGoal || 'Total Conversions',
+        },
+      };
+
+      console.log('Analyzed data:', organic);
+
+      const changes = calculateChanges(organic.current, organic.previous);
+      console.log('Calculated changes:', changes);
+
+      const dateRangeText = formatDateRange(
+        currentDateRange.start,
+        currentDateRange.end,
+        previousDateRange
+      );
+      
+      return {
+        period: dateRangeText,
+        current: organic.current,
+        previous: organic.previous,
+        changes,
+        summary: generateDetailedSummary(changes, organic.current, organic.previous, dateRangeText),
+        dataSources: {
+          ga4: Boolean(currentGA4Data),
+          gsc: Boolean(currentGSCData),
+        },
+      };
+    }
+
     try {
       // Fetch GA4 data
       console.log('Fetching GA4 data...');
@@ -181,350 +230,6 @@ serve(async (req) => {
     });
   }
 });
-
-function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSCData: any, previousGSCData: any, period: string, currentDateRange: { start: Date; end: Date }, previousDateRange: { start: Date; end: Date }) {
-  const organic = {
-    current: {
-      ...extractOrganicMetrics(currentGA4Data),
-      ...(currentGSCData ? extractGSCMetrics(currentGSCData) : {}),
-      conversionGoal: currentGA4Data?.conversionGoal || 'Total Conversions',
-    },
-    previous: {
-      ...extractOrganicMetrics(previousGA4Data),
-      ...(previousGSCData ? extractGSCMetrics(previousGSCData) : {}),
-      conversionGoal: previousGA4Data?.conversionGoal || 'Total Conversions',
-    },
-  };
-
-  console.log('Analyzed data:', organic);
-
-  const changes = calculateChanges(organic.current, organic.previous);
-  console.log('Calculated changes:', changes);
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-  
-  const periodText = period === 'month' ? 
-    `${formatDate(currentDateRange.start)} to ${formatDate(currentDateRange.end)} vs ${formatDate(previousDateRange.start)} to ${formatDate(previousDateRange.end)}` : 
-    `${formatDate(currentDateRange.start)} to ${formatDate(currentDateRange.end)} vs ${formatDate(previousDateRange.start)} to ${formatDate(previousDateRange.end)}`;
-  
-  return {
-    period,
-    current: organic.current,
-    previous: organic.previous,
-    changes,
-    summary: generateDetailedSummary(changes, organic.current, organic.previous, periodText),
-    dataSources: {
-      ga4: Boolean(currentGA4Data),
-      gsc: Boolean(currentGSCData),
-    },
-  };
-}
-
-function generateDetailedSummary(changes: any, current: any, previous: any, periodText: string) {
-  let summary = `${periodText} Organic Performance Analysis:\n\n`;
-  
-  // GA4 Metrics
-  if (current.sessions !== undefined) {
-    summary += `Traffic and Engagement:\n`;
-    summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
-    
-    if (current.conversions > 0) {
-      const conversionType = current.conversionGoal || 'Total Conversions';
-      summary += `\n\nConversions:\nOrganic ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
-    }
-    
-    if (current.revenue > 0) {
-      summary += `\n\nRevenue:\nOrganic revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
-    }
-  }
-  
-  // GSC Metrics
-  if (current.clicks !== undefined) {
-    console.log('Adding GSC metrics to summary:', {
-      currentClicks: current.clicks,
-      previousClicks: previous.clicks,
-      currentImpressions: current.impressions,
-      previousImpressions: previous.impressions,
-      currentCtr: current.ctr,
-      previousCtr: previous.ctr,
-      currentPosition: current.position,
-      previousPosition: previous.position,
-    });
-
-    summary += `\n\nSearch Console Performance:\n`;
-    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${Math.round(previous.clicks).toLocaleString()} to ${Math.round(current.clicks).toLocaleString()}. `;
-    summary += `Impressions ${formatChange(changes.impressions, true)} from ${Math.round(previous.impressions).toLocaleString()} to ${Math.round(current.impressions).toLocaleString()}. `;
-    
-    const currentCtr = current.ctr * 100;
-    const previousCtr = previous.ctr * 100;
-    if (!isNaN(currentCtr) && !isNaN(previousCtr)) {
-      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${currentCtr.toFixed(1)}%. `;
-    }
-    
-    if (current.position !== undefined && previous.position !== undefined) {
-      summary += `The average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
-    }
-  }
-
-  return summary;
-}
-
-async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
-  console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
-  console.log('Using conversion goal:', mainConversionGoal || 'default conversions');
-  
-  try {
-    const response = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          dateRanges: [{
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0],
-          }],
-          dimensionFilter: {
-            andGroup: {
-              expressions: [
-                {
-                  filter: {
-                    fieldName: "sessionSource",
-                    stringFilter: {
-                      value: "google",
-                      matchType: "EXACT"
-                    }
-                  }
-                },
-                {
-                  filter: {
-                    fieldName: "sessionMedium",
-                    stringFilter: {
-                      value: "organic",
-                      matchType: "EXACT"
-                    }
-                  }
-                }
-              ]
-            }
-          },
-          dimensions: [
-            { name: 'sessionSource' },
-            { name: 'sessionMedium' },
-          ],
-          metrics: [
-            { name: 'sessions' },
-            { name: mainConversionGoal || 'conversions' },
-            { name: 'totalRevenue' },
-          ],
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GA4 API Error Response:', errorText);
-      throw new Error(`GA4 API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log('GA4 API Response:', data);
-    
-    // Add conversion goal name to the response
-    data.conversionGoal = mainConversionGoal || 'Total Conversions';
-    return data;
-  } catch (error) {
-    console.error('Error fetching GA4 data:', error);
-    throw error;
-  }
-}
-
-async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Date, endDate: Date) {
-  try {
-    console.log(`Fetching GSC data for ${siteUrl} from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
-    
-    const response = await fetch(
-      'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-          type: 'web',
-          dimensions: [], // Remove dimensions to get total aggregated data
-          rowLimit: 1, // We only need the totals
-          aggregationType: 'auto'
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GSC API Error Response:', errorText);
-      throw new Error(`GSC API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log('GSC API Response:', data);
-
-    // If no data is returned, return zeros but log it
-    if (!data.rows || data.rows.length === 0) {
-      console.log('No GSC data found for the period');
-      return {
-        clicks: 0,
-        impressions: 0,
-        ctr: 0,
-        position: 0
-      };
-    }
-
-    // Extract the totals from the first row
-    const totals = data.rows[0];
-    return {
-      clicks: Math.round(totals.clicks || 0),
-      impressions: Math.round(totals.impressions || 0),
-      ctr: totals.ctr ? (totals.ctr * 100) : 0,
-      position: totals.position || 0
-    };
-  } catch (error) {
-    console.error('Error fetching GSC data:', error);
-    throw error;
-  }
-}
-
-async function fetchGSCSearchTerms(
-  siteUrl: string, 
-  accessToken: string, 
-  currentStartDate: Date, 
-  currentEndDate: Date,
-  previousStartDate: Date,
-  previousEndDate: Date
-) {
-  try {
-    console.log('Fetching GSC search terms data...');
-    
-    // Fetch current period data
-    const currentResponse = await fetch(
-      'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: currentStartDate.toISOString().split('T')[0],
-          endDate: currentEndDate.toISOString().split('T')[0],
-          dimensions: ['query'],
-          type: 'web',
-          rowLimit: 10,
-          aggregationType: 'auto'
-        }),
-      }
-    );
-
-    if (!currentResponse.ok) {
-      throw new Error(`GSC API error: ${currentResponse.status}`);
-    }
-
-    const currentData = await currentResponse.json();
-    console.log('Current period search terms data:', currentData);
-    
-    // Fetch previous period data
-    const previousResponse = await fetch(
-      'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: previousStartDate.toISOString().split('T')[0],
-          endDate: previousEndDate.toISOString().split('T')[0],
-          dimensions: ['query'],
-          type: 'web',
-          rowLimit: 50, // Fetch more to ensure we can match with current terms
-          aggregationType: 'auto'
-        }),
-      }
-    );
-
-    if (!previousResponse.ok) {
-      throw new Error(`GSC API error: ${previousResponse.status}`);
-    }
-
-    const previousData = await previousResponse.json();
-    console.log('Previous period search terms data:', previousData);
-
-    // Handle case where no data is returned
-    if (!currentData.rows || currentData.rows.length === 0) {
-      console.log('No search terms data found for current period');
-      return [];
-    }
-
-    // Create a map of previous period data for easy lookup
-    const previousTermsMap = new Map(
-      previousData.rows?.map((row: any) => [row.keys[0], row]) || []
-    );
-
-    // Process and combine the data
-    const searchTerms = currentData.rows.map((currentRow: any) => {
-      const term = currentRow.keys[0];
-      const previousRow = previousTermsMap.get(term);
-      
-      const currentClicks = Math.round(currentRow.clicks || 0);
-      const previousClicks = Math.round(previousRow?.clicks || 0);
-      const clicksChange = previousClicks === 0 
-        ? (currentClicks > 0 ? 100 : 0)
-        : ((currentClicks - previousClicks) / previousClicks * 100);
-
-      return {
-        term,
-        current: {
-          clicks: currentClicks,
-          impressions: Math.round(currentRow.impressions || 0),
-          ctr: (currentRow.ctr * 100).toFixed(1),
-          position: currentRow.position.toFixed(1)
-        },
-        previous: {
-          clicks: previousClicks,
-          impressions: Math.round(previousRow?.impressions || 0),
-          ctr: previousRow ? (previousRow.ctr * 100).toFixed(1) : "0.0",
-          position: previousRow ? previousRow.position.toFixed(1) : "0.0"
-        },
-        changes: {
-          clicks: clicksChange.toFixed(1),
-          impressions: previousRow ? 
-            ((currentRow.impressions - previousRow.impressions) / previousRow.impressions * 100).toFixed(1) : 
-            "100.0",
-          ctr: previousRow ? 
-            ((currentRow.ctr - previousRow.ctr) / previousRow.ctr * 100).toFixed(1) : 
-            "100.0",
-          position: previousRow ? 
-            ((previousRow.position - currentRow.position) / previousRow.position * 100).toFixed(1) : 
-            "100.0"
-        }
-      };
-    });
-
-    console.log('Processed search terms data:', searchTerms);
-    return searchTerms;
-
-  } catch (error) {
-    console.error('Error fetching GSC search terms:', error);
-    throw error;
-  }
-}
 
 function extractOrganicMetrics(data: any) {
   if (!data || !data.rows || !data.rows.length) {
