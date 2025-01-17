@@ -144,25 +144,6 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
   console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
   
   try {
-    // Build metrics array based on whether we have a main conversion goal
-    const metrics = [
-      { name: 'sessions' },
-      { name: 'purchaseRevenue' }, // Changed from totalRevenue to purchaseRevenue
-      { name: 'transactions' }, // Added to track number of purchases
-      { name: 'averagePurchaseRevenue' },
-      { name: 'bounceRate' },
-      { name: 'engagedSessions' },
-      { name: 'screenPageViews' },
-      { name: 'userEngagementDuration' },
-      { name: 'newUsers' },
-      { name: 'returningUsers' }
-    ];
-
-    // Add custom conversion goal if specified
-    if (mainConversionGoal) {
-      metrics.push({ name: mainConversionGoal });
-    }
-
     const response = await fetch(
       `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
       {
@@ -180,7 +161,18 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
             { name: 'sessionSource' },
             { name: 'sessionMedium' },
           ],
-          metrics,
+          metrics: [
+            { name: 'sessions' },
+            { name: mainConversionGoal || 'conversions' },
+            { name: 'totalRevenue' },
+            { name: 'averagePurchaseRevenue' },
+            { name: 'bounceRate' },
+            { name: 'engagedSessions' },
+            { name: 'screenPageViews' },
+            { name: 'userEngagementDuration' },
+            { name: 'newUsers' },
+            { name: 'returningUsers' }
+          ],
         }),
       }
     );
@@ -283,19 +275,19 @@ function extractOrganicMetrics(data: any) {
   ) || [];
 
   const totalSessions = sumMetric(organicTraffic, 0);
-  const totalRevenue = sumMetric(organicTraffic, 1); // purchaseRevenue
-  const totalTransactions = sumMetric(organicTraffic, 2); // transactions
+  const totalConversions = sumMetric(organicTraffic, 1);
+  const totalRevenue = sumMetric(organicTraffic, 2);
 
   const metrics = {
     sessions: totalSessions,
-    conversions: totalTransactions, // Use transactions as conversions for e-commerce
+    conversions: totalConversions,
     revenue: totalRevenue,
-    averageOrderValue: totalTransactions > 0 ? totalRevenue / totalTransactions : 0,
+    averageOrderValue: totalRevenue / (totalConversions || 1),
     bounceRate: sumMetric(organicTraffic, 4),
     engagedSessions: sumMetric(organicTraffic, 5),
     pageviews: sumMetric(organicTraffic, 6),
     avgSessionDuration: sumMetric(organicTraffic, 7),
-    conversionRate: (totalTransactions / totalSessions) * 100 || 0,
+    conversionRate: (totalConversions / totalSessions) * 100 || 0,
     newUsers: sumMetric(organicTraffic, 8),
     returningUsers: sumMetric(organicTraffic, 9),
     source: 'GA4',
