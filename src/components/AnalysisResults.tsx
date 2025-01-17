@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisInsights } from "./AnalysisInsights";
 import { AnalysisCard } from "./analysis/AnalysisCard";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { FileText, Loader2 } from "lucide-react";
+import { useToast } from "./ui/use-toast";
 
 interface AnalysisResultsProps {
   report: {
@@ -20,6 +23,8 @@ interface AnalysisResultsProps {
 export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   const [insights, setInsights] = useState<string>("");
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [isCreatingDoc, setIsCreatingDoc] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const generateInsights = async () => {
@@ -42,6 +47,36 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
     generateInsights();
   }, [report, isLoading]);
+
+  const handleCreateDoc = async () => {
+    if (!report) return;
+
+    setIsCreatingDoc(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-report-doc', {
+        body: { report }
+      });
+
+      if (error) throw error;
+
+      if (data.docUrl) {
+        window.open(data.docUrl, '_blank');
+        toast({
+          title: "Success",
+          description: "Report document created successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating document:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create report document",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingDoc(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -96,6 +131,21 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Analysis Results</h2>
+        <Button
+          onClick={handleCreateDoc}
+          disabled={isCreatingDoc}
+          variant="outline"
+        >
+          {isCreatingDoc ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <FileText className="mr-2 h-4 w-4" />
+          )}
+          Export to Google Doc
+        </Button>
+      </div>
       <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
       {analyses.map((analysis) => {
         if (!analysis.data?.current) return null;
