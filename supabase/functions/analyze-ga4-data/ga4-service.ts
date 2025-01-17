@@ -18,7 +18,6 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
           }],
           dimensions: [
             { name: 'sessionDefaultChannelGroup' },
-            { name: 'eventName' },
           ],
           metrics: [
             { name: 'sessions' },
@@ -57,16 +56,16 @@ export function extractOrganicMetrics(data: any) {
     };
   }
 
-  // Filter specifically for Organic Search from the default channel grouping
+  // Filter for organic search traffic
   const organicRows = data.rows.filter((row: any) => 
     row.dimensionValues?.[0]?.value === 'Organic Search'
   );
 
-  console.log('Filtered organic rows:', organicRows);
+  console.log('Organic Search rows:', organicRows);
 
   const metrics = {
     sessions: sumMetric(organicRows, 0),
-    conversions: sumMetricForEvent(organicRows, 1, data.conversionGoal),
+    conversions: sumMetric(organicRows, 1),
     revenue: sumMetric(organicRows, 2),
   };
 
