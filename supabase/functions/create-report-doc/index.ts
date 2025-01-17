@@ -6,8 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -57,194 +55,150 @@ serve(async (req) => {
       },
     });
 
-    // Helper function to create table cells with proper formatting
-    const createTableCells = (data: string[][], startIndex: number) => {
-      const requests = [];
-      let currentIndex = startIndex;
-
-      // Insert table structure
-      requests.push({
-        insertTable: {
-          rows: data.length,
-          columns: data[0].length,
-          location: { index: currentIndex }
-        }
-      });
-
-      // Add content to cells
-      for (let i = 0; i < data.length; i++) {
-        for (let j = 0; j < data[i].length; j++) {
-          const cellText = data[i][j] + (j === data[i].length - 1 ? '\n' : '\t');
-          requests.push({
-            insertText: {
-              location: { index: currentIndex + 1 },
-              text: cellText
-            }
-          });
-          currentIndex += cellText.length;
-        }
-      }
-
-      return { requests, endIndex: currentIndex };
-    };
-
-    // Process requests in smaller batches
-    const processBatchRequests = async (requests: any[]) => {
-      const BATCH_SIZE = 20;
-      const batches = [];
-      
-      for (let i = 0; i < requests.length; i += BATCH_SIZE) {
-        batches.push(requests.slice(i, i + BATCH_SIZE));
-      }
-
-      for (const batch of batches) {
-        await docs.documents.batchUpdate({
-          documentId: docId,
-          requestBody: { requests: batch },
-        });
-        await delay(1000); // Add delay between batches
-      }
-    };
-
+    // Create document content
     const requests = [];
     let currentIndex = 1;
 
     // Add title
-    requests.push(
-      {
-        insertText: {
-          location: { index: currentIndex },
-          text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`,
-        },
-      },
-      {
-        updateParagraphStyle: {
-          range: {
-            startIndex: currentIndex,
-            endIndex: currentIndex + "Analytics Report".length,
-          },
-          paragraphStyle: {
-            namedStyleType: "HEADING_1",
-            alignment: "CENTER"
-          },
-          fields: "namedStyleType,alignment",
-        },
+    requests.push({
+      insertText: {
+        location: { index: currentIndex },
+        text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`
       }
-    );
+    });
+
+    // Format title
+    requests.push({
+      updateParagraphStyle: {
+        range: {
+          startIndex: currentIndex,
+          endIndex: currentIndex + "Analytics Report".length
+        },
+        paragraphStyle: {
+          namedStyleType: "HEADING_1",
+          alignment: "CENTER"
+        },
+        fields: "namedStyleType,alignment"
+      }
+    });
 
     currentIndex += `Analytics Report\n${new Date().toLocaleDateString()}\n\n`.length;
 
-    // Add insights section if available
+    // Add insights if available
     if (insights) {
-      requests.push(
-        {
-          insertText: {
-            location: { index: currentIndex },
-            text: "AI Analysis\n\n" + insights + "\n\n",
-          },
-        },
-        {
-          updateParagraphStyle: {
-            range: {
-              startIndex: currentIndex,
-              endIndex: currentIndex + "AI Analysis".length,
-            },
-            paragraphStyle: {
-              namedStyleType: "HEADING_2",
-            },
-            fields: "namedStyleType",
-          },
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: `AI Analysis\n\n${insights}\n\n`
         }
-      );
+      });
 
-      currentIndex += "AI Analysis\n\n".length + insights.length + 2;
+      // Format insights heading
+      requests.push({
+        updateParagraphStyle: {
+          range: {
+            startIndex: currentIndex,
+            endIndex: currentIndex + "AI Analysis".length
+          },
+          paragraphStyle: {
+            namedStyleType: "HEADING_2"
+          },
+          fields: "namedStyleType"
+        }
+      });
+
+      currentIndex += `AI Analysis\n\n${insights}\n\n`.length;
     }
 
-    // Helper function to format metrics data
-    const formatMetricsData = (data: any) => {
-      return [
-        ['Metric', 'Current Value', 'Previous Value', 'Change'],
-        ['Sessions', 
-          data.current.sessions?.toString() || '0',
-          data.previous.sessions?.toString() || '0',
-          `${data.changes.sessions?.toFixed(1)}%`
-        ],
-        ['Conversions',
-          data.current.conversions?.toString() || '0',
-          data.previous.conversions?.toString() || '0',
-          `${data.changes.conversions?.toFixed(1)}%`
-        ],
-        ['Revenue',
-          `$${data.current.revenue?.toString() || '0'}`,
-          `$${data.previous.revenue?.toString() || '0'}`,
-          `${data.changes.revenue?.toFixed(1)}%`
-        ]
-      ];
-    };
+    // Helper function to create a metrics table
+    const createMetricsTable = (title: string, data: any) => {
+      if (!data?.current) return [];
 
-    // Add analysis sections
-    const addAnalysisSection = (title: string, data: any) => {
-      if (!data?.current) return;
-
-      requests.push(
-        {
-          insertText: {
-            location: { index: currentIndex },
-            text: `${title}\n`,
-          },
-        },
-        {
-          updateParagraphStyle: {
-            range: {
-              startIndex: currentIndex,
-              endIndex: currentIndex + title.length,
-            },
-            paragraphStyle: {
-              namedStyleType: "HEADING_2",
-            },
-            fields: "namedStyleType",
-          },
+      const tableRequests = [];
+      
+      // Add section title
+      tableRequests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: `${title}\n`
         }
-      );
+      });
+
+      // Format section title
+      tableRequests.push({
+        updateParagraphStyle: {
+          range: {
+            startIndex: currentIndex,
+            endIndex: currentIndex + title.length
+          },
+          paragraphStyle: {
+            namedStyleType: "HEADING_2"
+          },
+          fields: "namedStyleType"
+        }
+      });
 
       currentIndex += title.length + 1;
 
+      // Add period if available
       if (data.period) {
         const periodText = `Period: ${data.period}\n\n`;
-        requests.push({
+        tableRequests.push({
           insertText: {
             location: { index: currentIndex },
-            text: periodText,
-          },
+            text: periodText
+          }
         });
         currentIndex += periodText.length;
       }
 
-      // Add metrics table
-      const metricsData = formatMetricsData(data);
-      const { requests: tableRequests, endIndex } = createTableCells(metricsData, currentIndex);
-      requests.push(...tableRequests);
-      currentIndex = endIndex + 1;
+      // Create table with header and data rows
+      const tableText = [
+        "Metric\tCurrent Value\tPrevious Value\tChange",
+        `Sessions\t${data.current.sessions}\t${data.previous.sessions}\t${data.changes.sessions}%`,
+        `Conversions\t${data.current.conversions}\t${data.previous.conversions}\t${data.changes.conversions}%`,
+        `Revenue\t$${data.current.revenue}\t$${data.previous.revenue}\t${data.changes.revenue}%`
+      ].join('\n') + '\n\n';
 
-      // Add spacing after table
-      requests.push({
+      tableRequests.push({
         insertText: {
           location: { index: currentIndex },
-          text: '\n\n',
-        },
+          text: tableText
+        }
       });
-      currentIndex += 2;
+
+      currentIndex += tableText.length;
+
+      return tableRequests;
     };
 
-    // Process each analysis section
-    addAnalysisSection('Weekly Analysis', report.weekly_analysis);
-    addAnalysisSection('Monthly Analysis', report.monthly_analysis);
-    addAnalysisSection('Quarterly Analysis', report.quarterly_analysis);
-    addAnalysisSection('Year to Date Analysis', report.ytd_analysis);
-    addAnalysisSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis);
+    // Add analysis sections
+    if (report.weekly_analysis) {
+      requests.push(...createMetricsTable('Weekly Analysis', report.weekly_analysis));
+    }
+    if (report.monthly_analysis) {
+      requests.push(...createMetricsTable('Monthly Analysis', report.monthly_analysis));
+    }
+    if (report.quarterly_analysis) {
+      requests.push(...createMetricsTable('Quarterly Analysis', report.quarterly_analysis));
+    }
+    if (report.ytd_analysis) {
+      requests.push(...createMetricsTable('Year to Date Analysis', report.ytd_analysis));
+    }
 
-    // Process all requests in batches
-    await processBatchRequests(requests);
+    // Process requests in batches
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < requests.length; i += BATCH_SIZE) {
+      const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
+      await docs.documents.batchUpdate({
+        documentId: docId,
+        requestBody: { requests: batch },
+      });
+      // Add delay between batches
+      if (i + BATCH_SIZE < requests.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
 
     console.log('Document created successfully');
     return new Response(
