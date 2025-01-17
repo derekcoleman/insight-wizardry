@@ -104,52 +104,33 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         return;
       }
 
-      // Enhanced filtering logic specifically for GA4 Key Events (formerly Goals)
+      // Enhanced filtering logic to identify Key Events
       const goals = data.metrics
         .filter((metric: any) => {
-          const name = (metric.name || '').toLowerCase();
-          const displayName = (metric.displayName || '').toLowerCase();
-          const description = (metric.description || '').toLowerCase();
-          const category = (metric.category || '').toLowerCase();
-          
-          // Log each potential Key Event metric for debugging
-          console.log("Evaluating potential Key Event:", {
-            name,
-            displayName,
-            description,
-            category,
-            type: metric.type,
+          // Log each metric for debugging
+          console.log("Evaluating metric:", {
+            name: metric.name,
+            displayName: metric.displayName,
+            category: metric.category,
             apiName: metric.apiName,
-            expression: metric.expression
           });
 
-          // Focus on metrics that are likely to be Key Events/Goals
-          return (
-            name.includes('conversions') ||      // Direct conversion metrics
-            name.includes('event_count') ||      // Event count metrics
-            displayName.includes('conversion') || // Conversion in display name
-            displayName.includes('goal') ||      // Goal in display name
-            category === 'EVENT' ||              // Event category metrics
-            description.includes('conversion') || // Conversion in description
-            description.includes('goal') ||      // Goal in description
-            name.startsWith('eventCount') ||     // Event count metrics
-            name.includes('_conversion_') ||     // Conversion metrics
-            metric.expression?.includes('event') // Custom event metrics
-          );
+          // Check if this is a custom event or conversion
+          const isCustomEvent = metric.customEvent === true;
+          const isConversion = 
+            metric.name.includes('conversions') || 
+            metric.name.includes('conversion_rate') ||
+            metric.category === 'CONVERSION';
+
+          // Log the decision
+          console.log(`Metric ${metric.name} - Custom Event: ${isCustomEvent}, Conversion: ${isConversion}`);
+
+          return isCustomEvent || isConversion;
         })
-        .map((metric: any) => {
-          console.log("Converting metric to Key Event:", {
-            id: metric.name,
-            name: metric.displayName || metric.name,
-            category: metric.category,
-            type: metric.type
-          });
-          
-          return {
-            id: metric.name,
-            name: metric.displayName || metric.name,
-          };
-        });
+        .map((metric: any) => ({
+          id: metric.apiName || metric.name,
+          name: metric.displayName || metric.name,
+        }));
 
       console.log("Found Key Events:", goals);
       setConversionGoals(goals);
@@ -158,8 +139,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         console.log("No Key Events found after filtering");
         toast({
           title: "No Key Events Found",
-          description: "No Key Events (formerly Goals) were found in this GA4 property. Please verify your GA4 configuration.",
-          variant: "default",
+          description: "No Key Events were found in this GA4 property. Please verify your GA4 configuration.",
+          variant: "destructive",
         });
       } else {
         console.log(`Found ${goals.length} Key Events`);
