@@ -16,33 +16,8 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
             startDate: startDate.toISOString().split('T')[0],
             endDate: endDate.toISOString().split('T')[0],
           }],
-          dimensionFilter: {
-            andGroup: {
-              expressions: [
-                {
-                  filter: {
-                    fieldName: "sessionSource",
-                    stringFilter: {
-                      value: "google",
-                      matchType: "EXACT"
-                    }
-                  }
-                },
-                {
-                  filter: {
-                    fieldName: "sessionMedium",
-                    stringFilter: {
-                      value: "organic",
-                      matchType: "EXACT"
-                    }
-                  }
-                }
-              ]
-            }
-          },
           dimensions: [
-            { name: 'sessionSource' },
-            { name: 'sessionMedium' },
+            { name: 'sessionDefaultChannelGroup' },
           ],
           metrics: [
             { name: 'sessions' },
@@ -82,10 +57,15 @@ export function extractOrganicMetrics(data: any) {
     };
   }
 
+  // Filter for organic search from the default channel grouping
+  const organicRows = data.rows.filter((row: any) => 
+    row.dimensionValues?.[0]?.value === 'Organic Search'
+  );
+
   const metrics = {
-    sessions: sumMetric(data.rows, 0),
-    conversions: sumMetric(data.rows, 1),
-    revenue: sumMetric(data.rows, 2),
+    sessions: sumMetric(organicRows, 0),
+    conversions: sumMetric(organicRows, 1),
+    revenue: sumMetric(organicRows, 2),
     source: 'GA4',
   };
 
