@@ -20,7 +20,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
             endDate: endDate.toISOString().split('T')[0],
           }],
           dimensions: [
-            { name: 'sessionDefaultChannelGroup' },
+            { name: 'sessionDefaultChannelGrouping' },
             { name: 'eventName' },
           ],
           metrics: [
@@ -60,33 +60,42 @@ export function extractOrganicMetrics(data: any) {
     };
   }
 
-  // Filter for organic search traffic
+  // Filter for organic search traffic using sessionDefaultChannelGrouping
   const organicRows = data.rows.filter((row: any) => 
     row.dimensionValues?.[0]?.value === 'Organic Search'
   );
 
   console.log('Organic Search rows:', organicRows);
 
+  // Calculate total organic sessions
+  const sessions = organicRows.reduce((total: number, row: any) => {
+    return total + Number(row.metricValues[0].value || 0);
+  }, 0);
+
+  // Calculate conversions based on the specific event or total events
+  const conversions = sumMetricForEvent(organicRows, 1, data.conversionGoal);
+  
+  // Calculate revenue
+  const revenue = organicRows.reduce((total: number, row: any) => {
+    return total + Number(row.metricValues[2].value || 0);
+  }, 0);
+
   const metrics = {
-    sessions: sumMetric(organicRows, 0),
-    conversions: sumMetricForEvent(organicRows, 1, data.conversionGoal),
-    revenue: sumMetric(organicRows, 2),
+    sessions,
+    conversions,
+    revenue,
   };
 
   console.log('Extracted GA4 metrics:', metrics);
   return metrics;
 }
 
-function sumMetric(rows: any[], metricIndex: number) {
-  return rows.reduce((sum: number, row: any) => {
-    const value = row.metricValues?.[metricIndex]?.value;
-    return sum + (Number(value) || 0);
-  }, 0);
-}
-
 function sumMetricForEvent(rows: any[], metricIndex: number, eventName: string) {
   if (!eventName || eventName === 'Total Events') {
-    return sumMetric(rows, metricIndex);
+    return rows.reduce((sum: number, row: any) => {
+      const value = row.metricValues?.[metricIndex]?.value;
+      return sum + (Number(value) || 0);
+    }, 0);
   }
   
   // Filter rows for the specific event and sum its count
