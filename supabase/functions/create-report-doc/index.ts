@@ -55,33 +55,96 @@ serve(async (req) => {
       },
     });
 
-    // Helper function to create table cells
-    const createTableCell = (content: string, isBold = false) => ({
-      content: [{
-        paragraph: {
-          elements: [{
-            textRun: {
-              content: content,
-              textStyle: isBold ? { bold: true } : undefined
-            }
-          }]
-        }
-      }]
+    // Process document creation in smaller batches
+    const requests = [];
+
+    // Add title
+    requests.push({
+      insertText: {
+        location: { index: 1 },
+        text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`
+      }
     });
 
-    // Helper function to create a table
-    const createTable = (data: any, title: string) => {
-      const requests = [];
-      
-      // Add section title
+    requests.push({
+      updateParagraphStyle: {
+        range: { startIndex: 1, endIndex: 30 },
+        paragraphStyle: {
+          namedStyleType: 'HEADING_1',
+          alignment: 'CENTER'
+        },
+        fields: 'namedStyleType,alignment'
+      }
+    });
+
+    // Process insights section
+    if (insights) {
+      const sections = insights.split('\n\n');
+      let currentIndex = 31;
+
+      for (const section of sections) {
+        if (section.startsWith('Key Findings:') || section.startsWith('Recommended Next Steps:')) {
+          // Add section header
+          requests.push({
+            insertText: {
+              location: { index: currentIndex },
+              text: section.split(':')[0] + ':\n\n'
+            }
+          });
+
+          requests.push({
+            updateParagraphStyle: {
+              range: {
+                startIndex: currentIndex,
+                endIndex: currentIndex + section.split(':')[0].length + 2
+              },
+              paragraphStyle: { namedStyleType: 'HEADING_2' },
+              fields: 'namedStyleType'
+            }
+          });
+
+          currentIndex += section.split(':')[0].length + 3;
+        } else if (section.trim().startsWith('-')) {
+          // Process bullet points
+          const bulletPoints = section.split('\n').filter(line => line.trim());
+          
+          for (const point of bulletPoints) {
+            const cleanPoint = point.replace(/^-\s*/, '').trim();
+            
+            requests.push({
+              insertText: {
+                location: { index: currentIndex },
+                text: cleanPoint + '\n'
+              }
+            });
+
+            // Add bullet style
+            requests.push({
+              createParagraphBullets: {
+                range: {
+                  startIndex: currentIndex,
+                  endIndex: currentIndex + cleanPoint.length
+                },
+                bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
+              }
+            });
+
+            currentIndex += cleanPoint.length + 1;
+          }
+        }
+      }
+    }
+
+    // Add analysis sections
+    const addAnalysisSection = (title: string, data: any) => {
       requests.push({
         insertText: {
           location: { endOfSegmentLocation: {} },
-          text: `${title}\n\n`
+          text: `\n${title}\n\n`
         }
       });
 
-      // Create table structure
+      // Create table
       requests.push({
         insertTable: {
           rows: 4,
@@ -90,181 +153,56 @@ serve(async (req) => {
         }
       });
 
-      // Add header cells
-      const headers = ['Metric', 'Current Value', 'Previous Value', 'Change'];
+      // Add headers
+      const headers = ['Metric', 'Current', 'Previous', 'Change'];
       headers.forEach((header, i) => {
         requests.push({
-          updateTableCellStyle: {
-            tableStartLocation: { index: -1 },
-            rowIndex: 0,
-            columnIndex: i,
-            tableCellStyle: {
-              backgroundColor: { color: { rgbColor: { red: 0.95, green: 0.95, blue: 0.95 } } }
-            },
-            fields: 'backgroundColor'
+          insertText: {
+            location: { endOfSegmentLocation: {} },
+            text: header + (i < headers.length - 1 ? '\t' : '\n')
           }
         });
       });
 
-      // Add data cells
+      // Add data rows
       const metrics = [
         ['Sessions', data.current.sessions, data.previous.sessions, `${data.changes.sessions}%`],
         ['Conversions', data.current.conversions, data.previous.conversions, `${data.changes.conversions}%`],
         ['Revenue', `$${data.current.revenue}`, `$${data.previous.revenue}`, `${data.changes.revenue}%`]
       ];
 
-      metrics.forEach((row, rowIndex) => {
-        row.forEach((cell, colIndex) => {
+      metrics.forEach(row => {
+        row.forEach((cell, i) => {
           requests.push({
-            insertTableCell: {
-              tableCellLocation: {
-                tableStartLocation: { index: -1 },
-                rowIndex: rowIndex + 1,
-                columnIndex: colIndex
-              },
-              cell: createTableCell(cell.toString(), colIndex === 0)
+            insertText: {
+              location: { endOfSegmentLocation: {} },
+              text: cell + (i < row.length - 1 ? '\t' : '\n')
             }
           });
         });
       });
-
-      return requests;
     };
 
-    // Process document creation in batches
-    const BATCH_SIZE = 20;
-    const requests = [];
-
-    // Add title
-    requests.push(
-      {
-        insertText: {
-          location: { index: 1 },
-          text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`
-        }
-      },
-      {
-        updateParagraphStyle: {
-          range: {
-            startIndex: 1,
-            endIndex: 30
-          },
-          paragraphStyle: {
-            namedStyleType: 'HEADING_1',
-            alignment: 'CENTER'
-          },
-          fields: 'namedStyleType,alignment'
-        }
-      }
-    );
-
-    // Process insights with proper formatting
-    if (insights) {
-      const sections = insights.split('\n\n');
-      let currentIndex = 30;
-
-      sections.forEach(section => {
-        if (section.startsWith('**')) {
-          // Handle headers
-          const headerText = section.replace(/\*\*/g, '');
-          requests.push({
-            insertText: {
-              location: { index: currentIndex },
-              text: headerText + '\n\n'
-            }
-          });
-          requests.push({
-            updateParagraphStyle: {
-              range: {
-                startIndex: currentIndex,
-                endIndex: currentIndex + headerText.length
-              },
-              paragraphStyle: {
-                namedStyleType: 'HEADING_2'
-              },
-              fields: 'namedStyleType'
-            }
-          });
-          currentIndex += headerText.length + 2;
-        } else if (section.startsWith('- ')) {
-          // Handle bullet points
-          const bulletPoints = section.split('\n');
-          bulletPoints.forEach(point => {
-            if (point.trim()) {
-              const cleanPoint = point.replace(/^-\s*/, '').replace(/\*\*(.*?)\*\*/g, '$1');
-              requests.push({
-                insertText: {
-                  location: { index: currentIndex },
-                  text: cleanPoint + '\n'
-                }
-              });
-              
-              // Apply bullet style
-              requests.push({
-                createParagraphBullets: {
-                  range: {
-                    startIndex: currentIndex,
-                    endIndex: currentIndex + cleanPoint.length
-                  },
-                  bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
-                }
-              });
-              
-              // Find and apply bold formatting
-              const boldMatches = point.match(/\*\*(.*?)\*\*/g);
-              if (boldMatches) {
-                boldMatches.forEach(match => {
-                  const boldText = match.replace(/\*\*/g, '');
-                  const startIdx = cleanPoint.indexOf(boldText);
-                  if (startIdx !== -1) {
-                    requests.push({
-                      updateTextStyle: {
-                        range: {
-                          startIndex: currentIndex + startIdx,
-                          endIndex: currentIndex + startIdx + boldText.length
-                        },
-                        textStyle: { bold: true },
-                        fields: 'bold'
-                      }
-                    });
-                  }
-                });
-              }
-              
-              currentIndex += cleanPoint.length + 1;
-            }
-          });
-        } else {
-          // Handle regular paragraphs
-          requests.push({
-            insertText: {
-              location: { index: currentIndex },
-              text: section + '\n\n'
-            }
-          });
-          currentIndex += section.length + 2;
-        }
-      });
-    }
-
-    // Add analysis sections with tables
+    // Add analysis sections
     if (report.weekly_analysis) {
-      requests.push(...createTable(report.weekly_analysis, 'Weekly Analysis'));
+      addAnalysisSection('Weekly Analysis', report.weekly_analysis);
     }
     if (report.monthly_analysis) {
-      requests.push(...createTable(report.monthly_analysis, 'Monthly Analysis'));
+      addAnalysisSection('Monthly Analysis', report.monthly_analysis);
     }
     if (report.quarterly_analysis) {
-      requests.push(...createTable(report.quarterly_analysis, 'Quarterly Analysis'));
+      addAnalysisSection('Quarterly Analysis', report.quarterly_analysis);
     }
     if (report.ytd_analysis) {
-      requests.push(...createTable(report.ytd_analysis, 'Year to Date Analysis'));
+      addAnalysisSection('Year to Date Analysis', report.ytd_analysis);
     }
 
-    // Process requests in batches
+    // Process requests in smaller batches
+    const BATCH_SIZE = 10;
     console.log('Processing document updates in batches...');
+    
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
-      const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
+      const batch = requests.slice(i, i + BATCH_SIZE);
       try {
         await docs.documents.batchUpdate({
           documentId: docId,
@@ -276,7 +214,6 @@ serve(async (req) => {
         }
       } catch (error) {
         console.error('Error in batch update:', error);
-        console.error('Failed batch:', JSON.stringify(batch, null, 2));
         throw error;
       }
     }
