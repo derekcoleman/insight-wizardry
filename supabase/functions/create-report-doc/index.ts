@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -22,25 +24,13 @@ serve(async (req) => {
     
     const serviceAccountStr = Deno.env.get('GOOGLE_SERVICE_ACCOUNT');
     if (!serviceAccountStr) {
-      console.error('GOOGLE_SERVICE_ACCOUNT environment variable is not set');
       throw new Error('Google service account configuration is missing');
     }
 
-    let serviceAccount;
-    try {
-      serviceAccount = JSON.parse(serviceAccountStr);
-      console.log('Successfully parsed service account configuration');
-    } catch (error) {
-      console.error('Failed to parse service account JSON:', error);
-      throw new Error('Invalid service account configuration');
-    }
-
+    const serviceAccount = JSON.parse(serviceAccountStr);
     const auth = new google.auth.GoogleAuth({
       credentials: serviceAccount,
-      scopes: [
-        'https://www.googleapis.com/auth/drive.file',
-        'https://www.googleapis.com/auth/documents'
-      ],
+      scopes: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/documents']
     });
 
     const docs = google.docs({ version: 'v1', auth });
@@ -67,242 +57,194 @@ serve(async (req) => {
       },
     });
 
+    // Helper function to create table cells with proper formatting
+    const createTableCells = (data: string[][], startIndex: number) => {
+      const requests = [];
+      let currentIndex = startIndex;
+
+      // Insert table structure
+      requests.push({
+        insertTable: {
+          rows: data.length,
+          columns: data[0].length,
+          location: { index: currentIndex }
+        }
+      });
+
+      // Add content to cells
+      for (let i = 0; i < data.length; i++) {
+        for (let j = 0; j < data[i].length; j++) {
+          const cellText = data[i][j] + (j === data[i].length - 1 ? '\n' : '\t');
+          requests.push({
+            insertText: {
+              location: { index: currentIndex + 1 },
+              text: cellText
+            }
+          });
+          currentIndex += cellText.length;
+        }
+      }
+
+      return { requests, endIndex: currentIndex };
+    };
+
+    // Process requests in smaller batches
+    const processBatchRequests = async (requests: any[]) => {
+      const BATCH_SIZE = 20;
+      const batches = [];
+      
+      for (let i = 0; i < requests.length; i += BATCH_SIZE) {
+        batches.push(requests.slice(i, i + BATCH_SIZE));
+      }
+
+      for (const batch of batches) {
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: { requests: batch },
+        });
+        await delay(1000); // Add delay between batches
+      }
+    };
+
     const requests = [];
     let currentIndex = 1;
 
     // Add title
-    requests.push({
-      insertText: {
-        location: { index: currentIndex },
-        text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`,
-      },
-    }, {
-      updateParagraphStyle: {
-        range: {
-          startIndex: currentIndex,
-          endIndex: currentIndex + "Analytics Report".length,
+    requests.push(
+      {
+        insertText: {
+          location: { index: currentIndex },
+          text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`,
         },
-        paragraphStyle: {
-          namedStyleType: "HEADING_1",
-          alignment: "CENTER"
-        },
-        fields: "namedStyleType,alignment",
       },
-    });
+      {
+        updateParagraphStyle: {
+          range: {
+            startIndex: currentIndex,
+            endIndex: currentIndex + "Analytics Report".length,
+          },
+          paragraphStyle: {
+            namedStyleType: "HEADING_1",
+            alignment: "CENTER"
+          },
+          fields: "namedStyleType,alignment",
+        },
+      }
+    );
 
     currentIndex += `Analytics Report\n${new Date().toLocaleDateString()}\n\n`.length;
 
-    // Add AI Insights with formatting
+    // Add insights section if available
     if (insights) {
-      requests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: "AI Analysis\n\n",
-        },
-      }, {
-        updateParagraphStyle: {
-          range: {
-            startIndex: currentIndex,
-            endIndex: currentIndex + "AI Analysis".length,
+      requests.push(
+        {
+          insertText: {
+            location: { index: currentIndex },
+            text: "AI Analysis\n\n" + insights + "\n\n",
           },
-          paragraphStyle: {
-            namedStyleType: "HEADING_2",
-          },
-          fields: "namedStyleType",
         },
-      });
-      currentIndex += "AI Analysis\n\n".length;
-
-      const formattedInsights = insights.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1");
-      requests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: formattedInsights + "\n\n",
-        },
-      });
-
-      // Batch formatting requests for bold and italic text
-      const boldMatches = [...insights.matchAll(/\*\*(.*?)\*\*/g)];
-      if (boldMatches.length > 0) {
-        const boldRequests = boldMatches.map(match => ({
-          updateTextStyle: {
+        {
+          updateParagraphStyle: {
             range: {
-              startIndex: currentIndex + insights.indexOf(match[0]),
-              endIndex: currentIndex + insights.indexOf(match[0]) + match[1].length,
+              startIndex: currentIndex,
+              endIndex: currentIndex + "AI Analysis".length,
             },
-            textStyle: { bold: true },
-            fields: "bold",
+            paragraphStyle: {
+              namedStyleType: "HEADING_2",
+            },
+            fields: "namedStyleType",
           },
-        }));
-        requests.push(...boldRequests);
-      }
+        }
+      );
 
-      currentIndex += formattedInsights.length + 2;
+      currentIndex += "AI Analysis\n\n".length + insights.length + 2;
     }
 
-    const formatNumber = (num: number | undefined) => {
-      if (num === undefined || isNaN(num)) return 'N/A';
-      return new Intl.NumberFormat('en-US', {
-        maximumFractionDigits: 2,
-        notation: 'compact',
-        compactDisplay: 'short'
-      }).format(num);
+    // Helper function to format metrics data
+    const formatMetricsData = (data: any) => {
+      return [
+        ['Metric', 'Current Value', 'Previous Value', 'Change'],
+        ['Sessions', 
+          data.current.sessions?.toString() || '0',
+          data.previous.sessions?.toString() || '0',
+          `${data.changes.sessions?.toFixed(1)}%`
+        ],
+        ['Conversions',
+          data.current.conversions?.toString() || '0',
+          data.previous.conversions?.toString() || '0',
+          `${data.changes.conversions?.toFixed(1)}%`
+        ],
+        ['Revenue',
+          `$${data.current.revenue?.toString() || '0'}`,
+          `$${data.previous.revenue?.toString() || '0'}`,
+          `${data.changes.revenue?.toFixed(1)}%`
+        ]
+      ];
     };
 
-    const formatChange = (change: number | undefined | null) => {
-      if (change === undefined || change === null || isNaN(change)) return 'N/A';
-      const sign = change >= 0 ? '+' : '';
-      return `${sign}${Number(change).toFixed(1)}%`;
-    };
-
-    const createTable = (headers: string[], rows: string[][]) => {
-      const table = {
-        insertTable: {
-          rows: rows.length + 1,
-          columns: headers.length,
-          location: { index: currentIndex },
-        },
-      };
-      requests.push(table);
-
-      // Add headers
-      headers.forEach((header, i) => {
-        requests.push({
-          insertText: {
-            location: { index: currentIndex + 1 + i },
-            text: header,
-          },
-        });
-      });
-
-      // Add data rows
-      rows.forEach((row, rowIndex) => {
-        row.forEach((cell, cellIndex) => {
-          requests.push({
-            insertText: {
-              location: { index: currentIndex + headers.length + (rowIndex * headers.length) + cellIndex + 1 },
-              text: cell,
-            },
-          });
-        });
-      });
-
-      // Style the table
-      requests.push({
-        updateTableCellStyle: {
-          tableRange: {
-            tableCellLocation: {
-              tableStartLocation: { index: currentIndex },
-            },
-            rowSpan: rows.length + 1,
-            columnSpan: headers.length,
-          },
-          tableCellStyle: {
-            backgroundColor: { color: { rgbColor: { red: 0.95, green: 0.95, blue: 0.95 } } },
-            paddingLeft: { magnitude: 5, unit: 'PT' },
-            paddingRight: { magnitude: 5, unit: 'PT' },
-            paddingTop: { magnitude: 5, unit: 'PT' },
-            paddingBottom: { magnitude: 5, unit: 'PT' },
-          },
-          fields: 'backgroundColor,paddingLeft,paddingRight,paddingTop,paddingBottom',
-        },
-      });
-
-      currentIndex += (rows.length + 1) * headers.length + 2;
-    };
-
-    const addSection = (title: string, data: any) => {
+    // Add analysis sections
+    const addAnalysisSection = (title: string, data: any) => {
       if (!data?.current) return;
 
-      // Add section title
-      requests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: `${title}\n`,
-        },
-      }, {
-        updateParagraphStyle: {
-          range: {
-            startIndex: currentIndex,
-            endIndex: currentIndex + title.length,
+      requests.push(
+        {
+          insertText: {
+            location: { index: currentIndex },
+            text: `${title}\n`,
           },
-          paragraphStyle: {
-            namedStyleType: "HEADING_2",
-          },
-          fields: "namedStyleType",
         },
-      });
+        {
+          updateParagraphStyle: {
+            range: {
+              startIndex: currentIndex,
+              endIndex: currentIndex + title.length,
+            },
+            paragraphStyle: {
+              namedStyleType: "HEADING_2",
+            },
+            fields: "namedStyleType",
+          },
+        }
+      );
+
       currentIndex += title.length + 1;
 
       if (data.period) {
+        const periodText = `Period: ${data.period}\n\n`;
         requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: `Period: ${data.period}\n\n`,
+            text: periodText,
           },
         });
-        currentIndex += `Period: ${data.period}\n\n`.length;
+        currentIndex += periodText.length;
       }
 
-      // Create metrics table
-      const metricsHeaders = ['Metric', 'Value', 'Change'];
-      const metricsRows = [
-        ['Sessions', formatNumber(data.current.sessions), formatChange(data.changes?.sessions)],
-        ['Conversions', formatNumber(data.current.conversions), formatChange(data.changes?.conversions)],
-        ['Revenue', `$${formatNumber(data.current.revenue)}`, formatChange(data.changes?.revenue)],
-      ];
-      createTable(metricsHeaders, metricsRows);
+      // Add metrics table
+      const metricsData = formatMetricsData(data);
+      const { requests: tableRequests, endIndex } = createTableCells(metricsData, currentIndex);
+      requests.push(...tableRequests);
+      currentIndex = endIndex + 1;
 
-      // Add search terms table if available
-      if (data.searchTerms?.length > 0) {
-        requests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: '\nTop Search Terms\n',
-          },
-        });
-        currentIndex += '\nTop Search Terms\n'.length;
-
-        const searchHeaders = ['Term', 'Current Clicks', 'Previous Clicks', 'Change'];
-        const searchRows = data.searchTerms.map((term: any) => [
-          term.term,
-          String(term.current.clicks),
-          String(term.previous.clicks),
-          formatChange(term.changes.clicks),
-        ]);
-        createTable(searchHeaders, searchRows);
-      }
-
+      // Add spacing after table
       requests.push({
         insertText: {
           location: { index: currentIndex },
-          text: '\n',
+          text: '\n\n',
         },
       });
-      currentIndex += 1;
+      currentIndex += 2;
     };
 
-    // Process each section
-    addSection('Weekly Analysis', report.weekly_analysis);
-    addSection('Monthly Analysis', report.monthly_analysis);
-    addSection('Quarterly Analysis', report.quarterly_analysis);
-    addSection('Year to Date Analysis', report.ytd_analysis);
-    addSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis);
+    // Process each analysis section
+    addAnalysisSection('Weekly Analysis', report.weekly_analysis);
+    addAnalysisSection('Monthly Analysis', report.monthly_analysis);
+    addAnalysisSection('Quarterly Analysis', report.quarterly_analysis);
+    addAnalysisSection('Year to Date Analysis', report.ytd_analysis);
+    addAnalysisSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis);
 
-    // Split requests into smaller batches to avoid API limits
-    const BATCH_SIZE = 100;
-    const batches = [];
-    for (let i = 0; i < requests.length; i += BATCH_SIZE) {
-      batches.push(requests.slice(i, i + BATCH_SIZE));
-    }
-
-    console.log(`Processing ${batches.length} batches of requests...`);
-    for (const batch of batches) {
-      await docs.documents.batchUpdate({
-        documentId: docId,
-        requestBody: { requests: batch },
-      });
-    }
+    // Process all requests in batches
+    await processBatchRequests(requests);
 
     console.log('Document created successfully');
     return new Response(
@@ -315,10 +257,9 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Error in create-report-doc function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(
       JSON.stringify({ 
-        error: errorMessage,
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
         details: error instanceof Error ? error.stack : undefined
       }),
       {
