@@ -1,7 +1,10 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AnalysisInsights } from "./AnalysisInsights";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SearchTerm {
   term: string;
@@ -37,6 +40,31 @@ interface AnalysisResultsProps {
 }
 
 export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
+  const [insights, setInsights] = useState<string>("");
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+
+  useEffect(() => {
+    const generateInsights = async () => {
+      if (!report || isLoading) return;
+      
+      setIsGeneratingInsights(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-insights', {
+          body: { data: report }
+        });
+
+        if (error) throw error;
+        setInsights(data.insights);
+      } catch (error) {
+        console.error('Error generating insights:', error);
+      } finally {
+        setIsGeneratingInsights(false);
+      }
+    };
+
+    generateInsights();
+  }, [report, isLoading]);
+
   if (isLoading) {
     return (
       <Card>
@@ -98,6 +126,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
   return (
     <div className="space-y-6">
+      <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
       {analyses.map((analysis) => {
         if (!analysis.data?.current) return null;
         
