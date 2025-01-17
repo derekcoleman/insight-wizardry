@@ -32,50 +32,55 @@ serve(async (req) => {
     const prevYearStart = new Date(now.getFullYear() - 2, now.getMonth(), 1);
 
     // Fetch GA4 data for each time period
-    const weeklyData = await fetchGA4Data(ga4Property, accessToken, lastWeekStart, now, mainConversionGoal);
-    const prevWeekData = await fetchGA4Data(ga4Property, accessToken, prevWeekStart, lastWeekStart, mainConversionGoal);
-    const monthlyData = await fetchGA4Data(ga4Property, accessToken, lastMonthStart, now, mainConversionGoal);
-    const prevMonthData = await fetchGA4Data(ga4Property, accessToken, prevMonthStart, lastMonthStart, mainConversionGoal);
-    const quarterlyData = await fetchGA4Data(ga4Property, accessToken, lastQuarterStart, now, mainConversionGoal);
-    const prevQuarterData = await fetchGA4Data(ga4Property, accessToken, prevQuarterStart, lastQuarterStart, mainConversionGoal);
-    const yearlyData = await fetchGA4Data(ga4Property, accessToken, lastYearStart, now, mainConversionGoal);
-    const prevYearData = await fetchGA4Data(ga4Property, accessToken, prevYearStart, lastYearStart, mainConversionGoal);
+    try {
+      const weeklyData = await fetchGA4Data(ga4Property, accessToken, lastWeekStart, now, mainConversionGoal);
+      const prevWeekData = await fetchGA4Data(ga4Property, accessToken, prevWeekStart, lastWeekStart, mainConversionGoal);
+      const monthlyData = await fetchGA4Data(ga4Property, accessToken, lastMonthStart, now, mainConversionGoal);
+      const prevMonthData = await fetchGA4Data(ga4Property, accessToken, prevMonthStart, lastMonthStart, mainConversionGoal);
+      const quarterlyData = await fetchGA4Data(ga4Property, accessToken, lastQuarterStart, now, mainConversionGoal);
+      const prevQuarterData = await fetchGA4Data(ga4Property, accessToken, prevQuarterStart, lastQuarterStart, mainConversionGoal);
+      const yearlyData = await fetchGA4Data(ga4Property, accessToken, lastYearStart, now, mainConversionGoal);
+      const prevYearData = await fetchGA4Data(ga4Property, accessToken, prevYearStart, lastYearStart, mainConversionGoal);
 
-    // Analyze the data
-    const analysis = {
-      weekly: analyzeTimePeriod(weeklyData, prevWeekData, 'week'),
-      monthly: analyzeTimePeriod(monthlyData, prevMonthData, 'month'),
-      quarterly: analyzeTimePeriod(quarterlyData, prevQuarterData, 'quarter'),
-      yearly: analyzeTimePeriod(yearlyData, prevYearData, 'year'),
-    };
+      // Analyze the data
+      const analysis = {
+        weekly: analyzeTimePeriod(weeklyData, prevWeekData, 'week'),
+        monthly: analyzeTimePeriod(monthlyData, prevMonthData, 'month'),
+        quarterly: analyzeTimePeriod(quarterlyData, prevQuarterData, 'quarter'),
+        yearly: analyzeTimePeriod(yearlyData, prevYearData, 'year'),
+      };
 
-    // Store the analysis in Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') as string;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+      // Store the analysis in Supabase
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
+      const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: report, error: insertError } = await supabase
-      .from('analytics_reports')
-      .insert({
-        ga4_property: ga4Property,
-        gsc_property: gscProperty,
-        weekly_analysis: analysis.weekly,
-        monthly_analysis: analysis.monthly,
-        quarterly_analysis: analysis.quarterly,
-        yoy_analysis: analysis.yearly,
-        status: 'completed'
-      })
-      .select()
-      .single();
+      const { data: report, error: insertError } = await supabase
+        .from('analytics_reports')
+        .insert({
+          ga4_property: ga4Property,
+          gsc_property: gscProperty,
+          weekly_analysis: analysis.weekly,
+          monthly_analysis: analysis.monthly,
+          quarterly_analysis: analysis.quarterly,
+          yoy_analysis: analysis.yearly,
+          status: 'completed'
+        })
+        .select()
+        .single();
 
-    if (insertError) {
-      console.error('Error inserting report:', insertError);
-      throw insertError;
+      if (insertError) {
+        console.error('Error inserting report:', insertError);
+        throw insertError;
+      }
+
+      return new Response(JSON.stringify({ report }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error in data fetching or analysis:', error);
+      throw error;
     }
-
-    return new Response(JSON.stringify({ report }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   } catch (error) {
     console.error('Error in analyze-ga4-data function:', error);
     return new Response(JSON.stringify({ 
@@ -90,33 +95,35 @@ serve(async (req) => {
 
 async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
   try {
+    const baseUrl = 'https://analyticsdata.googleapis.com/v1beta';
+    const url = `${baseUrl}/${propertyId}/runReport`;
+
+    console.log(`Fetching GA4 data from ${url}`);
+
     const metrics = [
       { name: 'sessions' },
       { name: mainConversionGoal || 'conversions' },
       { name: 'totalRevenue' },
     ];
 
-    const response = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/${propertyId}/runReport`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          dateRanges: [{
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0],
-          }],
-          dimensions: [
-            { name: 'sessionSource' },
-            { name: 'sessionMedium' },
-          ],
-          metrics,
-        }),
-      }
-    );
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        dateRanges: [{
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+        }],
+        dimensions: [
+          { name: 'sessionSource' },
+          { name: 'sessionMedium' },
+        ],
+        metrics,
+      }),
+    });
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -124,7 +131,9 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
       throw new Error(`GA4 API error: ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log('GA4 API Response:', data);
+    return data;
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
     throw error;
