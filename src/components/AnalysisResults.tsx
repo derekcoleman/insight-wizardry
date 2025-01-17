@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AnalysisInsights } from "./AnalysisInsights";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 interface SearchTerm {
   term: string;
@@ -82,12 +83,36 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
   if (!report) return null;
 
+  const formatDateRange = (period: string) => {
+    if (!period) return "";
+    const dates = period.match(/\d{4}-\d{2}-\d{2}/g);
+    if (!dates || dates.length !== 2) return period;
+    
+    const startDate = new Date(dates[0]);
+    const endDate = new Date(dates[1]);
+    
+    return `${format(startDate, 'MMM d, yyyy')} to ${format(endDate, 'MMM d, yyyy')}`;
+  };
+
+  const getAnalysisTitle = (type: string, period: string) => {
+    const formattedRange = formatDateRange(period);
+    const previousRange = period?.match(/vs\s*(.*)/)?.[1];
+    const formattedPreviousRange = previousRange ? formatDateRange(previousRange) : "";
+    
+    return {
+      title: type,
+      dateRange: formattedRange && formattedPreviousRange 
+        ? `${formattedRange} vs ${formattedPreviousRange}`
+        : formattedRange
+    };
+  };
+
   const analyses = [
-    { title: "Week over Week", data: report.weekly_analysis },
-    { title: "Month over Month", data: report.monthly_analysis },
-    { title: "Quarter over Quarter", data: report.quarterly_analysis },
-    { title: "Year to Date", data: report.ytd_analysis },
-    { title: "Last 28 Days Year over Year", data: report.last28_yoy_analysis },
+    { type: "Week over Week", data: report.weekly_analysis },
+    { type: "Month over Month", data: report.monthly_analysis },
+    { type: "Quarter over Quarter", data: report.quarterly_analysis },
+    { type: "Year to Date", data: report.ytd_analysis },
+    { type: "Last 28 Days Year over Year", data: report.last28_yoy_analysis },
   ].filter(analysis => analysis.data && analysis.data.current);
 
   if (analyses.length === 0) return null;
@@ -130,21 +155,17 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
       {analyses.map((analysis) => {
         if (!analysis.data?.current) return null;
         
+        const { title, dateRange } = getAnalysisTitle(analysis.type, analysis.data.period);
+        
         return (
-          <Card key={analysis.title}>
+          <Card key={title}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>{analysis.title}</CardTitle>
-                  {analysis.data.period && (
+                  <CardTitle>{title}</CardTitle>
+                  {dateRange && (
                     <p className="text-sm text-muted-foreground mt-2">
-                      {analysis.data.period.replace(/week|month|quarter|year/i, (match) => {
-                        const dates = analysis.data.period.match(/\d{4}-\d{2}-\d{2}/g);
-                        if (dates && dates.length === 2) {
-                          return `${dates[0]} to ${dates[1]}`;
-                        }
-                        return match;
-                      })}
+                      {dateRange}
                     </p>
                   )}
                 </div>
