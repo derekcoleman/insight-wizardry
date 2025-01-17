@@ -43,7 +43,6 @@ serve(async (req) => {
     const last7DaysStart = new Date(last7DaysEnd);
     last7DaysStart.setDate(last7DaysStart.getDate() - 6);
     
-    
     // Previous 7 days
     const prev7DaysEnd = new Date(last7DaysStart);
     prev7DaysEnd.setDate(prev7DaysEnd.getDate() - 1);
@@ -62,17 +61,17 @@ serve(async (req) => {
     const prev28DaysStart = new Date(prev28DaysEnd);
     prev28DaysStart.setDate(prev28DaysStart.getDate() - 27);
 
-    // Last quarter
-    const lastQuarterEnd = new Date(now);
-    lastQuarterEnd.setDate(lastQuarterEnd.getDate() - 1);
-    const lastQuarterStart = new Date(lastQuarterEnd);
-    lastQuarterStart.setMonth(lastQuarterStart.getMonth() - 3);
+    // Last 90 days
+    const last90DaysEnd = new Date(now);
+    last90DaysEnd.setDate(last90DaysEnd.getDate() - 1);
+    const last90DaysStart = new Date(last90DaysEnd);
+    last90DaysStart.setDate(last90DaysStart.getDate() - 89);
     
-    // Previous quarter
-    const prevQuarterEnd = new Date(lastQuarterStart);
-    prevQuarterEnd.setDate(prevQuarterEnd.getDate() - 1);
-    const prevQuarterStart = new Date(prevQuarterEnd);
-    prevQuarterStart.setMonth(prevQuarterStart.getMonth() - 3);
+    // Previous 90 days
+    const prev90DaysEnd = new Date(last90DaysStart);
+    prev90DaysEnd.setDate(prev90DaysEnd.getDate() - 1);
+    const prev90DaysStart = new Date(prev90DaysEnd);
+    prev90DaysStart.setDate(prev90DaysStart.getDate() - 89);
 
     // YTD
     const ytdEnd = new Date(now);
@@ -127,8 +126,8 @@ serve(async (req) => {
         fetchGA4Data(cleanPropertyId, accessToken, prev7DaysStart, prev7DaysEnd, mainConversionGoal),
         fetchGA4Data(cleanPropertyId, accessToken, last28DaysStart, last28DaysEnd, mainConversionGoal),
         fetchGA4Data(cleanPropertyId, accessToken, prev28DaysStart, prev28DaysEnd, mainConversionGoal),
-        fetchGA4Data(cleanPropertyId, accessToken, lastQuarterStart, lastQuarterEnd, mainConversionGoal),
-        fetchGA4Data(cleanPropertyId, accessToken, prevQuarterStart, prevQuarterEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, last90DaysStart, last90DaysEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prev90DaysStart, prev90DaysEnd, mainConversionGoal),
         fetchGA4Data(cleanPropertyId, accessToken, ytdStart, ytdEnd, mainConversionGoal),
         fetchGA4Data(cleanPropertyId, accessToken, prevYtdStart, prevYtdEnd, mainConversionGoal),
         fetchGA4Data(cleanPropertyId, accessToken, last28YoYStart, last28YoYEnd, mainConversionGoal),
@@ -139,8 +138,8 @@ serve(async (req) => {
           fetchGSCData(gscProperty, accessToken, prev7DaysStart, prev7DaysEnd),
           fetchGSCData(gscProperty, accessToken, last28DaysStart, last28DaysEnd),
           fetchGSCData(gscProperty, accessToken, prev28DaysStart, prev28DaysEnd),
-          fetchGSCData(gscProperty, accessToken, lastQuarterStart, lastQuarterEnd),
-          fetchGSCData(gscProperty, accessToken, prevQuarterStart, prevQuarterEnd),
+          fetchGSCData(gscProperty, accessToken, last90DaysStart, last90DaysEnd),
+          fetchGSCData(gscProperty, accessToken, prev90DaysStart, prev90DaysEnd),
           fetchGSCData(gscProperty, accessToken, ytdStart, ytdEnd),
           fetchGSCData(gscProperty, accessToken, prevYtdStart, prevYtdEnd),
           fetchGSCData(gscProperty, accessToken, last28YoYStart, last28YoYEnd),
@@ -148,7 +147,7 @@ serve(async (req) => {
           // Search Terms
           fetchGSCSearchTerms(gscProperty, accessToken, last7DaysStart, last7DaysEnd, prev7DaysStart, prev7DaysEnd),
           fetchGSCSearchTerms(gscProperty, accessToken, last28DaysStart, last28DaysEnd, prev28DaysStart, prev28DaysEnd),
-          fetchGSCSearchTerms(gscProperty, accessToken, lastQuarterStart, lastQuarterEnd, prevQuarterStart, prevQuarterEnd),
+          fetchGSCSearchTerms(gscProperty, accessToken, last90DaysStart, last90DaysEnd, prev90DaysStart, prev90DaysEnd),
           fetchGSCSearchTerms(gscProperty, accessToken, ytdStart, ytdEnd, prevYtdStart, prevYtdEnd),
           fetchGSCSearchTerms(gscProperty, accessToken, last28YoYStart, last28YoYEnd, prev28YoYStart, prev28YoYEnd)
         ] : Array(15).fill(null))
@@ -185,9 +184,9 @@ serve(async (req) => {
             prevQuarterGA4Data,
             quarterlyGSCData,
             prevQuarterGSCData,
-            'Quarter over Quarter',
-            { start: lastQuarterStart, end: lastQuarterEnd },
-            { start: prevQuarterStart, end: prevQuarterEnd }
+            'Last 90 Days',
+            { start: last90DaysStart, end: last90DaysEnd },
+            { start: prev90DaysStart, end: prev90DaysEnd }
           ),
           searchTerms: quarterlySearchTerms
         },
