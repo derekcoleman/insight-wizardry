@@ -54,20 +54,20 @@ export function extractOrganicMetrics(data: any) {
       sessions: 0,
       conversions: 0,
       revenue: 0,
-      source: 'Traffic Acquisition: Session primary channel group (Default channel group) (Organic)',
     };
   }
 
-  // Filter for organic search from the default channel grouping
+  // Filter specifically for Organic Search from the default channel grouping
   const organicRows = data.rows.filter((row: any) => 
     row.dimensionValues?.[0]?.value === 'Organic Search'
   );
+
+  console.log('Filtered organic rows:', organicRows);
 
   const metrics = {
     sessions: sumMetric(organicRows, 0),
     conversions: sumMetricForEvent(organicRows, 1, data.conversionGoal),
     revenue: sumMetric(organicRows, 2),
-    source: 'Traffic Acquisition: Session primary channel group (Default channel group) (Organic)',
   };
 
   console.log('Extracted GA4 metrics:', metrics);

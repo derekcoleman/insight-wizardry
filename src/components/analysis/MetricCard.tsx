@@ -16,7 +16,7 @@ export function MetricCard({ title, value, change, suffix = '' }: MetricCardProp
         {change >= 0 ? '↑' : '↓'} {Math.abs(change).toFixed(1)}%
       </p>
       <p className="text-xs text-muted-foreground mt-1">
-        Traffic Acquisition: Session primary channel group (Default channel group) (Organic)
+        Traffic Acquisition: Session primary channel group (Default channel group)
       </p>
     </div>
   );
