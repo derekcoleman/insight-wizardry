@@ -48,15 +48,46 @@ serve(async (req) => {
 
     // Last 28 days (yesterday to 28 days ago)
     const last28DaysEnd = new Date(now);
-    last28DaysEnd.setDate(last28DaysEnd.getDate() - 1); // End yesterday
+    last28DaysEnd.setDate(last28DaysEnd.getDate() - 1);
     const last28DaysStart = new Date(last28DaysEnd);
-    last28DaysStart.setDate(last28DaysStart.getDate() - 27); // Start 28 days before yesterday
+    last28DaysStart.setDate(last28DaysStart.getDate() - 27);
     
     // Previous 28 days
     const prev28DaysEnd = new Date(last28DaysStart);
     prev28DaysEnd.setDate(prev28DaysEnd.getDate() - 1);
     const prev28DaysStart = new Date(prev28DaysEnd);
     prev28DaysStart.setDate(prev28DaysStart.getDate() - 27);
+
+    // Last quarter (3 months, ending yesterday)
+    const lastQuarterEnd = new Date(now);
+    lastQuarterEnd.setDate(lastQuarterEnd.getDate() - 1);
+    const lastQuarterStart = new Date(lastQuarterEnd);
+    lastQuarterStart.setMonth(lastQuarterStart.getMonth() - 3);
+    
+    // Previous quarter
+    const prevQuarterEnd = new Date(lastQuarterStart);
+    prevQuarterEnd.setDate(prevQuarterEnd.getDate() - 1);
+    const prevQuarterStart = new Date(prevQuarterEnd);
+    prevQuarterStart.setMonth(prevQuarterStart.getMonth() - 3);
+
+    // YTD (Year to date)
+    const ytdEnd = new Date(now);
+    ytdEnd.setDate(ytdEnd.getDate() - 1);
+    const ytdStart = new Date(ytdEnd.getFullYear(), 0, 1);
+    
+    // Previous YTD
+    const prevYtdEnd = new Date(ytdEnd);
+    prevYtdEnd.setFullYear(prevYtdEnd.getFullYear() - 1);
+    const prevYtdStart = new Date(ytdStart);
+    prevYtdStart.setFullYear(prevYtdStart.getFullYear() - 1);
+
+    // Last 28 days YoY
+    const last28YoYEnd = new Date(last28DaysEnd);
+    const last28YoYStart = new Date(last28DaysStart);
+    const prev28YoYEnd = new Date(last28YoYEnd);
+    prev28YoYEnd.setFullYear(prev28YoYEnd.getFullYear() - 1);
+    const prev28YoYStart = new Date(last28YoYStart);
+    prev28YoYStart.setFullYear(prev28YoYStart.getFullYear() - 1);
 
     console.log('Date ranges:', {
       weekly: {
@@ -78,35 +109,86 @@ serve(async (req) => {
           start: prev28DaysStart.toISOString().split('T')[0],
           end: prev28DaysEnd.toISOString().split('T')[0]
         }
+      },
+      quarterly: {
+        current: {
+          start: lastQuarterStart.toISOString().split('T')[0],
+          end: lastQuarterEnd.toISOString().split('T')[0]
+        },
+        previous: {
+          start: prevQuarterStart.toISOString().split('T')[0],
+          end: prevQuarterEnd.toISOString().split('T')[0]
+        }
+      },
+      ytd: {
+        current: {
+          start: ytdStart.toISOString().split('T')[0],
+          end: ytdEnd.toISOString().split('T')[0]
+        },
+        previous: {
+          start: prevYtdStart.toISOString().split('T')[0],
+          end: prevYtdEnd.toISOString().split('T')[0]
+        }
+      },
+      last28YoY: {
+        current: {
+          start: last28YoYStart.toISOString().split('T')[0],
+          end: last28YoYEnd.toISOString().split('T')[0]
+        },
+        previous: {
+          start: prev28YoYStart.toISOString().split('T')[0],
+          end: prev28YoYEnd.toISOString().split('T')[0]
+        }
       }
     });
 
     try {
-      // Fetch GA4 data
+      // Fetch GA4 data for all periods
       console.log('Fetching GA4 data...');
       const weeklyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last7DaysStart, last7DaysEnd, mainConversionGoal);
       const prevWeekGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev7DaysStart, prev7DaysEnd, mainConversionGoal);
       const monthlyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last28DaysStart, last28DaysEnd, mainConversionGoal);
       const prevMonthGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev28DaysStart, prev28DaysEnd, mainConversionGoal);
+      const quarterlyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, lastQuarterStart, lastQuarterEnd, mainConversionGoal);
+      const prevQuarterGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prevQuarterStart, prevQuarterEnd, mainConversionGoal);
+      const ytdGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, ytdStart, ytdEnd, mainConversionGoal);
+      const prevYtdGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prevYtdStart, prevYtdEnd, mainConversionGoal);
+      const last28YoYGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last28YoYStart, last28YoYEnd, mainConversionGoal);
+      const prev28YoYGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev28YoYStart, prev28YoYEnd, mainConversionGoal);
 
       // Fetch GSC data if property is provided
       let weeklyGSCData = null;
       let prevWeekGSCData = null;
       let monthlyGSCData = null;
       let prevMonthGSCData = null;
+      let quarterlyGSCData = null;
+      let prevQuarterGSCData = null;
+      let ytdGSCData = null;
+      let prevYtdGSCData = null;
+      let last28YoYGSCData = null;
+      let prev28YoYGSCData = null;
       let weeklySearchTerms = null;
       let monthlySearchTerms = null;
+      let quarterlySearchTerms = null;
+      let ytdSearchTerms = null;
+      let last28YoYSearchTerms = null;
 
       if (gscProperty) {
         console.log('Fetching Search Console data...');
         
-        // Fetch total metrics
+        // Fetch total metrics for all periods
         weeklyGSCData = await fetchGSCData(gscProperty, accessToken, last7DaysStart, last7DaysEnd);
         prevWeekGSCData = await fetchGSCData(gscProperty, accessToken, prev7DaysStart, prev7DaysEnd);
         monthlyGSCData = await fetchGSCData(gscProperty, accessToken, last28DaysStart, last28DaysEnd);
         prevMonthGSCData = await fetchGSCData(gscProperty, accessToken, prev28DaysStart, prev28DaysEnd);
+        quarterlyGSCData = await fetchGSCData(gscProperty, accessToken, lastQuarterStart, lastQuarterEnd);
+        prevQuarterGSCData = await fetchGSCData(gscProperty, accessToken, prevQuarterStart, prevQuarterEnd);
+        ytdGSCData = await fetchGSCData(gscProperty, accessToken, ytdStart, ytdEnd);
+        prevYtdGSCData = await fetchGSCData(gscProperty, accessToken, prevYtdStart, prevYtdEnd);
+        last28YoYGSCData = await fetchGSCData(gscProperty, accessToken, last28YoYStart, last28YoYEnd);
+        prev28YoYGSCData = await fetchGSCData(gscProperty, accessToken, prev28YoYStart, prev28YoYEnd);
 
-        // Fetch search terms data
+        // Fetch search terms data for all periods
         weeklySearchTerms = await fetchGSCSearchTerms(
           gscProperty, 
           accessToken, 
@@ -124,7 +206,38 @@ serve(async (req) => {
           prev28DaysStart,
           prev28DaysEnd
         );
+
+        quarterlySearchTerms = await fetchGSCSearchTerms(
+          gscProperty,
+          accessToken,
+          lastQuarterStart,
+          lastQuarterEnd,
+          prevQuarterStart,
+          prevQuarterEnd
+        );
+
+        ytdSearchTerms = await fetchGSCSearchTerms(
+          gscProperty,
+          accessToken,
+          ytdStart,
+          ytdEnd,
+          prevYtdStart,
+          prevYtdEnd
+        );
+
+        last28YoYSearchTerms = await fetchGSCSearchTerms(
+          gscProperty,
+          accessToken,
+          last28YoYStart,
+          last28YoYEnd,
+          prev28YoYStart,
+          prev28YoYEnd
+        );
       }
+
+      const formatDate = (date: Date) => {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      };
 
       const analysis = {
         weekly_analysis: {
@@ -133,7 +246,7 @@ serve(async (req) => {
             prevWeekGA4Data, 
             weeklyGSCData, 
             prevWeekGSCData, 
-            'week',
+            'Week over Week',
             { start: last7DaysStart, end: last7DaysEnd },
             { start: prev7DaysStart, end: prev7DaysEnd }
           ),
@@ -145,11 +258,47 @@ serve(async (req) => {
             prevMonthGA4Data, 
             monthlyGSCData, 
             prevMonthGSCData, 
-            'month',
+            'Month over Month',
             { start: last28DaysStart, end: last28DaysEnd },
             { start: prev28DaysStart, end: prev28DaysEnd }
           ),
           searchTerms: monthlySearchTerms
+        },
+        quarterly_analysis: {
+          ...analyzeTimePeriod(
+            quarterlyGA4Data,
+            prevQuarterGA4Data,
+            quarterlyGSCData,
+            prevQuarterGSCData,
+            'Quarter over Quarter',
+            { start: lastQuarterStart, end: lastQuarterEnd },
+            { start: prevQuarterStart, end: prevQuarterEnd }
+          ),
+          searchTerms: quarterlySearchTerms
+        },
+        ytd_analysis: {
+          ...analyzeTimePeriod(
+            ytdGA4Data,
+            prevYtdGA4Data,
+            ytdGSCData,
+            prevYtdGSCData,
+            'Year to Date',
+            { start: ytdStart, end: ytdEnd },
+            { start: prevYtdStart, end: prevYtdEnd }
+          ),
+          searchTerms: ytdSearchTerms
+        },
+        last28_yoy_analysis: {
+          ...analyzeTimePeriod(
+            last28YoYGA4Data,
+            prev28YoYGA4Data,
+            last28YoYGSCData,
+            prev28YoYGSCData,
+            'Last 28 Days Year over Year',
+            { start: last28YoYStart, end: last28YoYEnd },
+            { start: prev28YoYStart, end: prev28YoYEnd }
+          ),
+          searchTerms: last28YoYSearchTerms
         }
       };
 

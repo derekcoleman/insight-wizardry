@@ -30,7 +30,8 @@ interface AnalysisResultsProps {
     weekly_analysis: any;
     monthly_analysis: any;
     quarterly_analysis: any;
-    yoy_analysis: any;
+    ytd_analysis: any;
+    last28_yoy_analysis: any;
   } | null;
   isLoading: boolean;
 }
@@ -56,8 +57,9 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   const analyses = [
     { title: "Week over Week", data: report.weekly_analysis },
     { title: "Month over Month", data: report.monthly_analysis },
-    { title: "Quarterly Analysis", data: report.quarterly_analysis },
-    { title: "Year over Year", data: report.yoy_analysis },
+    { title: "Quarter over Quarter", data: report.quarterly_analysis },
+    { title: "Year to Date", data: report.ytd_analysis },
+    { title: "Last 28 Days Year over Year", data: report.last28_yoy_analysis },
   ].filter(analysis => analysis.data && analysis.data.current);
 
   if (analyses.length === 0) return null;
