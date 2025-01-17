@@ -54,7 +54,10 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     setIsCreatingDoc(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-report-doc', {
-        body: { report }
+        body: { 
+          report,
+          insights 
+        }
       });
 
       if (error) throw error;
@@ -135,7 +138,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         <h2 className="text-2xl font-bold">Analysis Results</h2>
         <Button
           onClick={handleCreateDoc}
-          disabled={isCreatingDoc}
+          disabled={isCreatingDoc || isGeneratingInsights}
           variant="outline"
         >
           {isCreatingDoc ? (

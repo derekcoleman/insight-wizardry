@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { report } = await req.json()
+    const { report, insights } = await req.json()
     
     if (!report) {
       throw new Error('No report data provided');
@@ -66,6 +66,17 @@ serve(async (req) => {
     });
 
     let currentIndex = requests[0].insertText.text.length + 1;
+
+    // Add AI Insights if available
+    if (insights) {
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: `AI Analysis Insights\n${insights}\n\n`,
+        },
+      });
+      currentIndex += `AI Analysis Insights\n${insights}\n\n`.length;
+    }
 
     // Function to format numbers
     const formatNumber = (num: number | undefined) => {
