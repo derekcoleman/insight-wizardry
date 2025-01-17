@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Summary } from "@/components/Summary";
-import { ApiKeyInput } from "@/components/ApiKeyInput";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,7 +39,6 @@ const Index = () => {
             Transform your Google Analytics and Search Console data into concise, insightful summaries
           </p>
         </div>
-        <ApiKeyInput />
         <GoogleConnect />
         <Summary summary={summary} isLoading={isLoading} />
       </div>
