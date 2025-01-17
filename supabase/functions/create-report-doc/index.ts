@@ -19,35 +19,40 @@ serve(async (req) => {
       throw new Error('No report data provided');
     }
 
-    console.log('Initializing Google Drive API with service account');
-    const serviceAccountStr = Deno.env.get('GOOGLE_SERVICE_ACCOUNT');
+    console.log('Starting document creation process...');
     
+    // Get and validate service account
+    const serviceAccountStr = Deno.env.get('GOOGLE_SERVICE_ACCOUNT');
     if (!serviceAccountStr) {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT environment variable is not set');
+      console.error('GOOGLE_SERVICE_ACCOUNT environment variable is not set');
+      throw new Error('Google service account configuration is missing');
     }
 
     let serviceAccount;
     try {
       serviceAccount = JSON.parse(serviceAccountStr);
+      console.log('Successfully parsed service account configuration');
     } catch (error) {
       console.error('Failed to parse service account JSON:', error);
       throw new Error('Invalid service account configuration');
     }
 
+    // Validate required service account fields
     if (!serviceAccount.client_email || !serviceAccount.private_key) {
-      throw new Error('Service account is missing required fields');
+      console.error('Service account missing required fields');
+      throw new Error('Service account configuration is incomplete');
     }
 
+    console.log('Initializing Google APIs...');
     const auth = new google.auth.GoogleAuth({
       credentials: serviceAccount,
       scopes: ['https://www.googleapis.com/auth/drive.file'],
     });
 
-    console.log('Creating Google Docs and Drive instances');
     const docs = google.docs({ version: 'v1', auth });
     const drive = google.drive({ version: 'v3', auth });
 
-    console.log('Creating new document');
+    console.log('Creating new document...');
     const document = await docs.documents.create({
       requestBody: {
         title: `Analytics Report - ${new Date().toLocaleDateString()}`,
@@ -55,9 +60,12 @@ serve(async (req) => {
     });
 
     const docId = document.data.documentId;
-    if (!docId) throw new Error('Failed to create document');
+    if (!docId) {
+      console.error('Failed to get document ID from created document');
+      throw new Error('Failed to create document');
+    }
 
-    console.log('Setting document permissions');
+    console.log('Setting document permissions...');
     await drive.permissions.create({
       fileId: docId,
       requestBody: {
@@ -81,13 +89,14 @@ serve(async (req) => {
 
     // Add AI Insights if available
     if (insights) {
+      console.log('Adding AI insights to document...');
       requests.push({
         insertText: {
           location: { index: currentIndex },
-          text: `AI Analysis Insights\n${insights}\n\n`,
+          text: `AI Analysis\n\n${insights}\n\n`,
         },
       });
-      currentIndex += `AI Analysis Insights\n${insights}\n\n`.length;
+      currentIndex += `AI Analysis\n\n${insights}\n\n`.length;
     }
 
     // Function to format numbers
@@ -119,7 +128,6 @@ serve(async (req) => {
       });
       currentIndex += title.length + 1;
 
-      // Add period information
       if (data.period) {
         requests.push({
           insertText: {
@@ -130,7 +138,6 @@ serve(async (req) => {
         currentIndex += `Period: ${data.period}\n\n`.length;
       }
 
-      // Add metrics
       const metrics = [
         { label: 'Sessions', value: formatNumber(data.current.sessions), change: formatChange(data.changes?.sessions) },
         { label: 'Conversions', value: formatNumber(data.current.conversions), change: formatChange(data.changes?.conversions) },
@@ -148,7 +155,6 @@ serve(async (req) => {
         currentIndex += text.length;
       });
 
-      // Add search terms if available
       if (data.searchTerms?.length > 0) {
         requests.push({
           insertText: {
@@ -181,15 +187,14 @@ serve(async (req) => {
       return currentIndex;
     };
 
-    console.log('Adding content sections to document');
-    // Add each analysis section
+    console.log('Adding content sections...');
     addSection('Weekly Analysis', report.weekly_analysis);
     addSection('Monthly Analysis', report.monthly_analysis);
     addSection('Quarterly Analysis', report.quarterly_analysis);
     addSection('Year to Date Analysis', report.ytd_analysis);
     addSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis);
 
-    console.log('Applying updates to document');
+    console.log('Applying document updates...');
     await docs.documents.batchUpdate({
       documentId: docId,
       requestBody: {
@@ -207,7 +212,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
-    console.error('Error creating document:', error);
+    console.error('Error in create-report-doc function:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(
       JSON.stringify({ 
