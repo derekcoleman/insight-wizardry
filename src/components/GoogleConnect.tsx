@@ -34,20 +34,11 @@ export function GoogleConnect() {
     fetchConversionGoals,
   } = useGoogleServices();
 
-  // Move useGoogleLogin hook outside of the handler function
-  const goalsLogin = useGoogleLogin({
-    onSuccess: async (response) => {
-      if (selectedGaAccount) {
-        await fetchConversionGoals(selectedGaAccount, response.access_token);
-      }
-    },
-    scope: "https://www.googleapis.com/auth/analytics.readonly",
-    flow: "implicit"
-  });
-
   const handleGaAccountChange = async (value: string) => {
     setSelectedGaAccount(value);
-    goalsLogin();
+    if (value) {
+      await fetchConversionGoals(value);
+    }
   };
 
   const analyzeLogin = useGoogleLogin({

@@ -13,8 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { ga4Property, gscProperty, accessToken } = await req.json();
-    console.log('Analyzing data for:', { ga4Property, gscProperty });
+    const { ga4Property, gscProperty, accessToken, mainConversionGoal } = await req.json();
+    console.log('Analyzing data for:', { ga4Property, gscProperty, mainConversionGoal });
 
     // Initialize dates for different time periods
     const now = new Date();
@@ -28,14 +28,14 @@ serve(async (req) => {
     const prevYearStart = new Date(now.getFullYear() - 2, now.getMonth(), 1);
 
     // Fetch GA4 data for each time period
-    const weeklyData = await fetchGA4Data(ga4Property, accessToken, lastWeekStart, now);
-    const prevWeekData = await fetchGA4Data(ga4Property, accessToken, prevWeekStart, lastWeekStart);
-    const monthlyData = await fetchGA4Data(ga4Property, accessToken, lastMonthStart, now);
-    const prevMonthData = await fetchGA4Data(ga4Property, accessToken, prevMonthStart, lastMonthStart);
-    const quarterlyData = await fetchGA4Data(ga4Property, accessToken, lastQuarterStart, now);
-    const prevQuarterData = await fetchGA4Data(ga4Property, accessToken, prevQuarterStart, lastQuarterStart);
-    const yearlyData = await fetchGA4Data(ga4Property, accessToken, lastYearStart, now);
-    const prevYearData = await fetchGA4Data(ga4Property, accessToken, prevYearStart, lastYearStart);
+    const weeklyData = await fetchGA4Data(ga4Property, accessToken, lastWeekStart, now, mainConversionGoal);
+    const prevWeekData = await fetchGA4Data(ga4Property, accessToken, prevWeekStart, lastWeekStart, mainConversionGoal);
+    const monthlyData = await fetchGA4Data(ga4Property, accessToken, lastMonthStart, now, mainConversionGoal);
+    const prevMonthData = await fetchGA4Data(ga4Property, accessToken, prevMonthStart, lastMonthStart, mainConversionGoal);
+    const quarterlyData = await fetchGA4Data(ga4Property, accessToken, lastQuarterStart, now, mainConversionGoal);
+    const prevQuarterData = await fetchGA4Data(ga4Property, accessToken, prevQuarterStart, lastQuarterStart, mainConversionGoal);
+    const yearlyData = await fetchGA4Data(ga4Property, accessToken, lastYearStart, now, mainConversionGoal);
+    const prevYearData = await fetchGA4Data(ga4Property, accessToken, prevYearStart, lastYearStart, mainConversionGoal);
 
     // Analyze the data
     const analysis = {
@@ -78,7 +78,13 @@ serve(async (req) => {
   }
 });
 
-async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date) {
+async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
+  const metrics = [
+    { name: 'sessions' },
+    { name: mainConversionGoal || 'conversions' },
+    { name: 'totalRevenue' },
+  ];
+
   const response = await fetch(
     `https://analyticsdata.googleapis.com/v1beta/${propertyId}/runReport`,
     {
@@ -96,11 +102,7 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
           { name: 'sessionSource' },
           { name: 'sessionMedium' },
         ],
-        metrics: [
-          { name: 'sessions' },
-          { name: 'conversions' },
-          { name: 'totalRevenue' },
-        ],
+        metrics,
       }),
     }
   );

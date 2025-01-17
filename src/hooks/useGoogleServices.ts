@@ -21,7 +21,7 @@ interface UseGoogleServicesReturn {
   gaConnected: boolean;
   gscConnected: boolean;
   handleLogin: () => void;
-  fetchConversionGoals: (propertyId: string, accessToken: string) => Promise<void>;
+  fetchConversionGoals: (propertyId: string) => Promise<void>;
 }
 
 export function useGoogleServices(): UseGoogleServicesReturn {
@@ -32,6 +32,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   const [error, setError] = useState<string | null>(null);
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
+  const [accessToken, setAccessToken] = useState<string>("");
   const { toast } = useToast();
 
   const handleApiError = (error: any, apiName: string) => {
@@ -98,7 +99,12 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     });
   };
 
-  const fetchConversionGoals = async (propertyId: string, accessToken: string) => {
+  const fetchConversionGoals = async (propertyId: string) => {
+    if (!accessToken) {
+      console.log("No access token available for fetching conversion goals");
+      return;
+    }
+
     try {
       console.log("Fetching conversion goals for property:", propertyId);
       const response = await fetch(
@@ -116,7 +122,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       const data = await response.json();
       
-      // Add null check for metrics array
       if (!data.metrics || !Array.isArray(data.metrics)) {
         console.log("No metrics found in response:", data);
         setConversionGoals([]);
@@ -125,7 +130,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       const goals = data.metrics
         .filter((metric: any) => {
-          // Add null checks for metric properties
           if (!metric || typeof metric !== 'object') return false;
           const metricName = metric.name || '';
           return metricName.toLowerCase().includes('conversion') || 
@@ -148,6 +152,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     onSuccess: async (response) => {
       setIsLoading(true);
       setError(null);
+      setAccessToken(response.access_token);
       
       try {
         // Fetch GA4 accounts
