@@ -38,22 +38,33 @@ export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps)
             const [title, ...content] = section.trim().split('\n');
             return (
               <div key={index} className="mb-6">
-                <h3 className="text-lg font-semibold mb-3">{title}</h3>
+                <h3 className="text-lg font-semibold mb-3 mt-0">{title.trim()}</h3>
                 <ul className="list-disc pl-6 space-y-2">
                   {content
                     .filter(line => line.trim())
-                    .map((line, i) => (
-                      <li key={i}>
-                        {line.trim()
-                          .replace(/^[•-]\s*/, '')
-                          .replace(/^[0-9]+\.\s*/, '')
-                          .replace(/\*\*(.*?)\*\*/g, '$1')
-                          .replace(/###\s*/, '')
-                          .replace(/\[([^\]]+)\]/g, '$1')
-                          .replace(/\(([^)]+)\)/g, '$1')
-                          .replace(/`([^`]+)`/g, '$1')}
-                      </li>
-                    ))}
+                    .map((line, i) => {
+                      // Skip adding bullet points for lines that look like headers
+                      const isHeader = line.trim().match(/^(Key Findings|Recommended Next Steps):/);
+                      if (isHeader) {
+                        return (
+                          <h3 key={i} className="text-lg font-semibold mb-3 mt-4">
+                            {line.trim()}
+                          </h3>
+                        );
+                      }
+                      return (
+                        <li key={i}>
+                          {line.trim()
+                            .replace(/^[•-]\s*/, '')
+                            .replace(/^[0-9]+\.\s*/, '')
+                            .replace(/\*\*(.*?)\*\*/g, '$1')
+                            .replace(/###\s*/, '')
+                            .replace(/\[([^\]]+)\]/g, '$1')
+                            .replace(/\(([^)]+)\)/g, '$1')
+                            .replace(/`([^`]+)`/g, '$1')}
+                        </li>
+                      );
+                    })}
                 </ul>
               </div>
             );
