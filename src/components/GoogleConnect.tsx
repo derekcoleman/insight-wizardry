@@ -59,6 +59,11 @@ export function GoogleConnect() {
   const handleAnalyze = async () => {
     if (!selectedGaAccount || !accessToken) {
       console.log("Missing required data:", { selectedGaAccount, hasAccessToken: !!accessToken });
+      toast({
+        title: "Error",
+        description: "Please select a Google Analytics property first.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -83,7 +88,7 @@ export function GoogleConnect() {
 
       if (result.error) {
         console.error('Analysis error:', result.error);
-        throw result.error;
+        throw new Error(result.error.message || 'Failed to analyze data');
       }
       
       if (!result.data?.report) {
