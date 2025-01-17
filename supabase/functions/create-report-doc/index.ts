@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const BATCH_SIZE = 20; // Reduced batch size for API requests
+const BATCH_SIZE = 20;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -64,26 +64,26 @@ serve(async (req) => {
           requestBody: { requests: batch },
         });
         // Add a small delay between batches
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
-    // Initialize requests array
+    let currentIndex = 1;
     const requests: any[] = [];
 
-    // Add title with formatting
+    // Add title
     requests.push(
       {
         insertText: {
-          location: { index: 1 },
+          location: { index: currentIndex },
           text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`,
         },
       },
       {
         updateParagraphStyle: {
           range: {
-            startIndex: 1,
-            endIndex: 17,
+            startIndex: currentIndex,
+            endIndex: currentIndex + 17,
           },
           paragraphStyle: {
             namedStyleType: "HEADING_1",
@@ -93,16 +93,15 @@ serve(async (req) => {
         },
       }
     );
+    currentIndex += 17;
 
-    let currentIndex = 29;
-
-    // Add AI Insights section
+    // Add insights section if available
     if (insights) {
       requests.push(
         {
           insertText: {
             location: { index: currentIndex },
-            text: "AI Analysis\n\n",
+            text: "AI Analysis\n\n" + insights + "\n\n",
           },
         },
         {
@@ -118,96 +117,7 @@ serve(async (req) => {
           },
         }
       );
-      
-      currentIndex += 13;
-
-      // Process insights text with formatting
-      const formattedInsights = insights.replace(/\*\*(.*?)\*\*/g, "$1");
-      requests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: formattedInsights + "\n\n",
-        },
-      });
-
-      // Add bold formatting for sections
-      const boldMatches = [...insights.matchAll(/\*\*(.*?)\*\*/g)];
-      boldMatches.forEach(match => {
-        const startIndex = currentIndex + insights.indexOf(match[0]);
-        requests.push({
-          updateTextStyle: {
-            range: {
-              startIndex,
-              endIndex: startIndex + match[1].length,
-            },
-            textStyle: { bold: true },
-            fields: "bold",
-          },
-        });
-      });
-
-      currentIndex += formattedInsights.length + 2;
-    }
-
-    // Helper function to create table
-    function createTableRequests(headers: string[], rows: any[][], startIndex: number) {
-      const tableRequests = [];
-      
-      // Insert table
-      tableRequests.push({
-        insertTable: {
-          rows: rows.length + 1,
-          columns: headers.length,
-          location: { index: startIndex },
-        },
-      });
-
-      // Add headers with formatting
-      headers.forEach((header, i) => {
-        tableRequests.push({
-          insertText: {
-            location: { index: startIndex + 1 + i },
-            text: header,
-          },
-        });
-      });
-
-      // Add data rows
-      rows.forEach((row, rowIndex) => {
-        row.forEach((cell, cellIndex) => {
-          tableRequests.push({
-            insertText: {
-              location: { 
-                index: startIndex + headers.length + (rowIndex * headers.length) + cellIndex + 1 
-              },
-              text: String(cell),
-            },
-          });
-        });
-      });
-
-      // Style the table
-      tableRequests.push({
-        updateTableCellStyle: {
-          tableRange: {
-            tableCellLocation: {
-              tableStartLocation: { index: startIndex },
-            },
-            rowSpan: rows.length + 1,
-            columnSpan: headers.length,
-          },
-          tableCellStyle: {
-            backgroundColor: { color: { rgbColor: { red: 0.95, green: 0.95, blue: 0.95 } } },
-            paddingLeft: { magnitude: 5, unit: 'PT' },
-            paddingRight: { magnitude: 5, unit: 'PT' },
-            paddingTop: { magnitude: 5, unit: 'PT' },
-            paddingBottom: { magnitude: 5, unit: 'PT' },
-          },
-          fields: 'backgroundColor,paddingLeft,paddingRight,paddingTop,paddingBottom',
-        },
-      });
-
-      return tableRequests;
+      currentIndex += insights.length + 15;
     }
 
     // Process each analysis section
@@ -223,18 +133,19 @@ serve(async (req) => {
       if (!section.data?.current) continue;
 
       // Add section title
+      const titleText = `${section.title}\n`;
       requests.push(
         {
           insertText: {
             location: { index: currentIndex },
-            text: `${section.title}\n`,
+            text: titleText,
           },
         },
         {
           updateParagraphStyle: {
             range: {
               startIndex: currentIndex,
-              endIndex: currentIndex + section.title.length,
+              endIndex: currentIndex + titleText.length,
             },
             paragraphStyle: {
               namedStyleType: "HEADING_2",
@@ -243,61 +154,112 @@ serve(async (req) => {
           },
         }
       );
+      currentIndex += titleText.length;
 
-      currentIndex += section.title.length + 1;
-
+      // Add period information
       if (section.data.period) {
+        const periodText = `Period: ${section.data.period}\n\n`;
         requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: `Period: ${section.data.period}\n\n`,
+            text: periodText,
           },
         });
-        currentIndex += `Period: ${section.data.period}\n\n`.length;
+        currentIndex += periodText.length;
       }
 
       // Create metrics table
-      const metricsHeaders = ['Metric', 'Current Value', 'Previous Value', 'Change'];
-      const metricsRows = [
+      const tableData = [
+        ['Metric', 'Current Value', 'Previous Value', 'Change'],
         ['Sessions', section.data.current.sessions, section.data.previous.sessions, `${section.data.changes.sessions}%`],
         ['Conversions', section.data.current.conversions, section.data.previous.conversions, `${section.data.changes.conversions}%`],
         ['Revenue', `$${section.data.current.revenue}`, `$${section.data.previous.revenue}`, `${section.data.changes.revenue}%`],
       ];
 
-      const tableRequests = createTableRequests(metricsHeaders, metricsRows, currentIndex);
-      requests.push(...tableRequests);
-      currentIndex += (metricsRows.length + 1) * metricsHeaders.length + 2;
+      // Insert table structure
+      requests.push({
+        insertTable: {
+          rows: tableData.length,
+          columns: tableData[0].length,
+          location: { index: currentIndex },
+        },
+      });
+
+      // Insert table content
+      for (let i = 0; i < tableData.length; i++) {
+        for (let j = 0; j < tableData[i].length; j++) {
+          const cellText = String(tableData[i][j]);
+          requests.push({
+            insertText: {
+              location: { index: currentIndex + 1 }, // Add 1 to account for table cell creation
+              text: cellText + (j < tableData[i].length - 1 ? '\t' : '\n'),
+            },
+          });
+          currentIndex += cellText.length + 1;
+        }
+      }
+
+      // Add spacing after table
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: '\n\n',
+        },
+      });
+      currentIndex += 2;
 
       // Add search terms table if available
       if (section.data.searchTerms?.length > 0) {
         requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: '\nTop Search Terms\n',
+            text: 'Top Search Terms\n',
           },
         });
-        currentIndex += '\nTop Search Terms\n'.length;
+        currentIndex += 16;
 
-        const searchHeaders = ['Term', 'Current Clicks', 'Previous Clicks', 'Change'];
-        const searchRows = section.data.searchTerms.map((term: any) => [
-          term.term,
-          term.current.clicks,
-          term.previous.clicks,
-          `${term.changes.clicks}%`,
-        ]);
+        const searchTermsData = [
+          ['Term', 'Current Clicks', 'Previous Clicks', 'Change'],
+          ...section.data.searchTerms.map((term: any) => [
+            term.term,
+            term.current.clicks,
+            term.previous.clicks,
+            `${term.changes.clicks}%`,
+          ]),
+        ];
 
-        const searchTableRequests = createTableRequests(searchHeaders, searchRows, currentIndex);
-        requests.push(...searchTableRequests);
-        currentIndex += (searchRows.length + 1) * searchHeaders.length + 2;
+        // Insert search terms table
+        requests.push({
+          insertTable: {
+            rows: searchTermsData.length,
+            columns: searchTermsData[0].length,
+            location: { index: currentIndex },
+          },
+        });
+
+        // Insert table content
+        for (let i = 0; i < searchTermsData.length; i++) {
+          for (let j = 0; j < searchTermsData[i].length; j++) {
+            const cellText = String(searchTermsData[i][j]);
+            requests.push({
+              insertText: {
+                location: { index: currentIndex + 1 },
+                text: cellText + (j < searchTermsData[i].length - 1 ? '\t' : '\n'),
+              },
+            });
+            currentIndex += cellText.length + 1;
+          }
+        }
+
+        // Add spacing after table
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: '\n\n',
+          },
+        });
+        currentIndex += 2;
       }
-
-      requests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: '\n',
-        },
-      });
-      currentIndex += 1;
     }
 
     // Process all requests in batches
