@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 interface AnalysisResultsProps {
   report: {
@@ -34,7 +35,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     { title: "Month over Month", data: report.monthly_analysis },
     { title: "Quarterly Analysis", data: report.quarterly_analysis },
     { title: "Year over Year", data: report.yoy_analysis },
-  ].filter(analysis => analysis.data && analysis.data.current); // Only show analyses with valid data
+  ].filter(analysis => analysis.data && analysis.data.current);
 
   if (analyses.length === 0) return null;
 
@@ -46,7 +47,17 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         return (
           <Card key={analysis.title}>
             <CardHeader>
-              <CardTitle>{analysis.title}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>{analysis.title}</CardTitle>
+                <div className="flex gap-2">
+                  {analysis.data.dataSources?.ga4 && (
+                    <Badge variant="secondary">GA4</Badge>
+                  )}
+                  {analysis.data.dataSources?.gsc && (
+                    <Badge variant="secondary">Search Console</Badge>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -80,9 +91,9 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
                   </div>
                 </div>
                 {analysis.data.summary && (
-                  <p className="text-sm text-muted-foreground mt-4">
+                  <div className="text-sm text-muted-foreground mt-4 whitespace-pre-line">
                     {analysis.data.summary}
-                  </p>
+                  </div>
                 )}
               </div>
             </CardContent>
