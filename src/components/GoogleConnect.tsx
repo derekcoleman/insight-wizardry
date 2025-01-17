@@ -34,17 +34,60 @@ export function GoogleConnect() {
     fetchConversionGoals,
   } = useGoogleServices();
 
+  // Move useGoogleLogin hook outside of the handler function
+  const goalsLogin = useGoogleLogin({
+    onSuccess: async (response) => {
+      if (selectedGaAccount) {
+        await fetchConversionGoals(selectedGaAccount, response.access_token);
+      }
+    },
+    scope: "https://www.googleapis.com/auth/analytics.readonly",
+    flow: "implicit"
+  });
+
   const handleGaAccountChange = async (value: string) => {
     setSelectedGaAccount(value);
-    const googleLogin = useGoogleLogin({
-      onSuccess: async (response) => {
-        await fetchConversionGoals(value, response.access_token);
-      },
-      scope: "https://www.googleapis.com/auth/analytics.readonly",
-      flow: "implicit"
-    });
-    googleLogin();
+    goalsLogin();
   };
+
+  const analyzeLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        const result = await supabase.functions.invoke('analyze-ga4-data', {
+          body: {
+            ga4Property: selectedGaAccount,
+            gscProperty: selectedGscAccount,
+            accessToken: tokenResponse.access_token,
+            mainConversionGoal: selectedGoal || undefined,
+          },
+        });
+
+        if (result.error) throw result.error;
+        
+        setReport(result.data.report);
+        toast({
+          title: "Success",
+          description: "Analysis completed successfully",
+        });
+      } catch (error) {
+        console.error('Analysis error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to analyze data. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsAnalyzing(false);
+      }
+    },
+    flow: "implicit",
+    scope: [
+      "https://www.googleapis.com/auth/analytics.readonly",
+      "https://www.googleapis.com/auth/webmasters.readonly",
+      "https://www.googleapis.com/auth/analytics",
+      "https://www.googleapis.com/auth/analytics.edit"
+    ].join(" ")
+  });
 
   const handleAnalyze = async () => {
     if (!selectedGaAccount) {
@@ -58,46 +101,7 @@ export function GoogleConnect() {
 
     setIsAnalyzing(true);
     try {
-      const googleLogin = useGoogleLogin({
-        onSuccess: async (tokenResponse) => {
-          try {
-            const result = await supabase.functions.invoke('analyze-ga4-data', {
-              body: {
-                ga4Property: selectedGaAccount,
-                gscProperty: selectedGscAccount,
-                accessToken: tokenResponse.access_token,
-                mainConversionGoal: selectedGoal || undefined,
-              },
-            });
-
-            if (result.error) throw result.error;
-            
-            setReport(result.data.report);
-            toast({
-              title: "Success",
-              description: "Analysis completed successfully",
-            });
-          } catch (error) {
-            console.error('Analysis error:', error);
-            toast({
-              title: "Error",
-              description: "Failed to analyze data. Please try again.",
-              variant: "destructive",
-            });
-          } finally {
-            setIsAnalyzing(false);
-          }
-        },
-        flow: "implicit",
-        scope: [
-          "https://www.googleapis.com/auth/analytics.readonly",
-          "https://www.googleapis.com/auth/webmasters.readonly",
-          "https://www.googleapis.com/auth/analytics",
-          "https://www.googleapis.com/auth/analytics.edit"
-        ].join(" ")
-      });
-
-      googleLogin();
+      analyzeLogin();
     } catch (error) {
       console.error('Analysis error:', error);
       toast({
