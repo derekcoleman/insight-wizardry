@@ -476,8 +476,8 @@ function extractOrganicMetrics(data: any) {
 }
 
 function extractGSCMetrics(data: any) {
-  if (!data || !data.rows || !data.rows.length) {
-    console.log('No GSC data rows found');
+  if (!data) {
+    console.log('No GSC data provided');
     return {
       clicks: 0,
       impressions: 0,
@@ -487,24 +487,13 @@ function extractGSCMetrics(data: any) {
     };
   }
 
-  const totals = data.rows.reduce(
-    (acc: any, row: any) => ({
-      clicks: acc.clicks + (row.clicks || 0),
-      impressions: acc.impressions + (row.impressions || 0),
-      ctr: acc.ctr + (row.ctr || 0),
-      position: acc.position + (row.position || 0),
-    }),
-    { clicks: 0, impressions: 0, ctr: 0, position: 0 }
-  );
+  console.log('Extracting GSC metrics from:', data);
 
-  // Calculate averages for CTR and position
-  const rowCount = data.rows.length;
-  totals.ctr = (totals.clicks / totals.impressions) * 100;
-  totals.position = totals.position / rowCount;
-
-  console.log('Extracted GSC metrics:', totals);
   return {
-    ...totals,
+    clicks: Math.round(data.clicks || 0),
+    impressions: Math.round(data.impressions || 0),
+    ctr: data.ctr || 0,
+    position: data.position || 0,
     source: 'GSC',
   };
 }
@@ -524,12 +513,14 @@ function calculateChanges(current: any, previous: any) {
 }
 
 function generateDetailedSummary(changes: any, current: any, previous: any, period: string) {
-  const periodText = 'Month over Month (Last 28 Days vs Previous 28 Days)';
+  const periodText = period === 'month' ? 
+    'Month over Month (Last 28 Days vs Previous 28 Days)' : 
+    'Week over Week (Last 7 Days vs Previous 7 Days)';
   
   let summary = `${periodText} Organic Performance Analysis:\n\n`;
   
   // GA4 Metrics
-  if (current.source === 'GA4') {
+  if (current.sessions !== undefined) {
     summary += `Traffic and Engagement:\n`;
     summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
     
@@ -544,16 +535,29 @@ function generateDetailedSummary(changes: any, current: any, previous: any, peri
   }
   
   // GSC Metrics
-  if (current.source === 'GSC') {
+  if (current.clicks !== undefined) {
+    console.log('Adding GSC metrics to summary:', {
+      currentClicks: current.clicks,
+      previousClicks: previous.clicks,
+      currentImpressions: current.impressions,
+      previousImpressions: previous.impressions,
+      currentCtr: current.ctr,
+      previousCtr: previous.ctr,
+      currentPosition: current.position,
+      previousPosition: previous.position,
+    });
+
     summary += `\n\nSearch Console Performance:\n`;
-    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${previous.clicks.toLocaleString()} to ${current.clicks.toLocaleString()}. `;
-    summary += `Impressions ${formatChange(changes.impressions, true)} from ${previous.impressions.toLocaleString()} to ${current.impressions.toLocaleString()}. `;
+    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${Math.round(previous.clicks).toLocaleString()} to ${Math.round(current.clicks).toLocaleString()}. `;
+    summary += `Impressions ${formatChange(changes.impressions, true)} from ${Math.round(previous.impressions).toLocaleString()} to ${Math.round(current.impressions).toLocaleString()}. `;
     
-    if (current.ctr !== undefined) {
-      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${current.ctr.toFixed(1)}%. `;
+    const currentCtr = current.ctr * 100;
+    const previousCtr = previous.ctr * 100;
+    if (!isNaN(currentCtr) && !isNaN(previousCtr)) {
+      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${currentCtr.toFixed(1)}%. `;
     }
     
-    if (current.position !== undefined) {
+    if (current.position !== undefined && previous.position !== undefined) {
       summary += `The average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
     }
   }
@@ -562,7 +566,7 @@ function generateDetailedSummary(changes: any, current: any, previous: any, peri
 }
 
 function formatChange(change: number, higherIsBetter: boolean = true) {
-  if (!change) return "remained stable";
+  if (!change || isNaN(change)) return "remained stable";
   
   const direction = change > 0 ? "increased" : "decreased";
   const goodBad = higherIsBetter ? 
