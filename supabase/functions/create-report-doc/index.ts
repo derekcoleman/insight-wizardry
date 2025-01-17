@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -57,82 +59,82 @@ serve(async (req) => {
       },
     });
 
-    // Simple function to append text with basic formatting
-    const appendText = async (text: string, style?: { heading?: number, bold?: boolean }) => {
-      try {
-        await docs.documents.batchUpdate({
-          documentId: docId,
-          requestBody: {
-            requests: [{
-              insertText: {
-                location: { index: 1 },
-                text: text + '\n'
-              }
-            }]
-          }
-        });
-
-        if (style?.heading || style?.bold) {
-          const endIndex = text.length + 2; // +2 for newline
+    // Helper function to append text with retry logic
+    const appendText = async (text: string, retries = 3, baseDelay = 1000) => {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
           await docs.documents.batchUpdate({
             documentId: docId,
             requestBody: {
               requests: [{
-                updateParagraphStyle: {
-                  range: {
-                    startIndex: 1,
-                    endIndex: endIndex
-                  },
-                  paragraphStyle: {
-                    namedStyleType: style.heading === 1 ? 'HEADING_1' : 
-                                  style.heading === 2 ? 'HEADING_2' : 
-                                  'NORMAL_TEXT'
-                  },
-                  fields: 'namedStyleType'
+                insertText: {
+                  location: { index: 1 },
+                  text: text + '\n'
                 }
               }]
             }
           });
+          return;
+        } catch (error) {
+          console.error(`Error on attempt ${attempt + 1}:`, error);
+          if (error.code === 429 && attempt < retries - 1) {
+            const waitTime = baseDelay * Math.pow(2, attempt); // Exponential backoff
+            console.log(`Rate limited. Waiting ${waitTime}ms before retry...`);
+            await delay(waitTime);
+            continue;
+          }
+          throw error;
         }
-      } catch (error) {
-        console.error('Error appending text:', error);
-        throw error;
       }
     };
 
-    // Add content section by section
-    await appendText(`Analytics Report - ${new Date().toLocaleDateString()}`, { heading: 1 });
-    await appendText('\nKey Findings', { heading: 2 });
-    
-    if (insights) {
-      await appendText('\n' + insights);
-    }
+    // Add content with rate limiting
+    const addContent = async () => {
+      // Title
+      await appendText(`Analytics Report - ${new Date().toLocaleDateString()}`);
+      await delay(1000); // Basic rate limiting
 
-    // Add analysis sections
-    const periods = ['weekly', 'monthly', 'quarterly', 'ytd'];
-    for (const period of periods) {
-      const analysis = report[`${period}_analysis`];
-      if (analysis) {
-        await appendText(`\n${period.charAt(0).toUpperCase() + period.slice(1)} Analysis`, { heading: 2 });
-        await appendText(`Period: ${analysis.period || 'Not specified'}`);
-        
-        if (analysis.current) {
-          await appendText('\nCurrent Period Metrics:');
-          for (const [key, value] of Object.entries(analysis.current)) {
-            await appendText(`${key}: ${value}`);
+      // Key Findings
+      if (insights) {
+        await appendText('\nKey Findings:');
+        await delay(1000);
+        await appendText(insights);
+        await delay(1000);
+      }
+
+      // Analysis sections
+      const periods = ['weekly', 'monthly', 'quarterly', 'ytd'];
+      for (const period of periods) {
+        const analysis = report[`${period}_analysis`];
+        if (analysis) {
+          await appendText(`\n${period.charAt(0).toUpperCase() + period.slice(1)} Analysis`);
+          await delay(1000);
+          
+          await appendText(`Period: ${analysis.period || 'Not specified'}`);
+          await delay(1000);
+
+          if (analysis.current) {
+            await appendText('\nCurrent Period Metrics:');
+            for (const [key, value] of Object.entries(analysis.current)) {
+              await appendText(`${key}: ${value}`);
+              await delay(1000);
+            }
           }
-        }
-        
-        if (analysis.previous) {
-          await appendText('\nPrevious Period Metrics:');
-          for (const [key, value] of Object.entries(analysis.previous)) {
-            await appendText(`${key}: ${value}`);
+
+          if (analysis.previous) {
+            await appendText('\nPrevious Period Metrics:');
+            for (const [key, value] of Object.entries(analysis.previous)) {
+              await appendText(`${key}: ${value}`);
+              await delay(1000);
+            }
           }
         }
       }
-    }
+    };
 
+    await addContent();
     console.log('Document created successfully');
+
     return new Response(
       JSON.stringify({
         docUrl: `https://docs.google.com/document/d/${docId}/edit`,
