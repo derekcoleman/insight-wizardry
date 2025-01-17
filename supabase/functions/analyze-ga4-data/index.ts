@@ -254,8 +254,10 @@ async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Dat
         body: JSON.stringify({
           startDate: startDate.toISOString().split('T')[0],
           endDate: endDate.toISOString().split('T')[0],
+          type: 'web',
           dimensions: [], // Remove dimensions to get total aggregated data
-          rowLimit: 1 // We only need the totals
+          rowLimit: 1, // We only need the totals
+          aggregationType: 'auto'
         }),
       }
     );
@@ -269,6 +271,7 @@ async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Dat
     const data = await response.json();
     console.log('GSC API Response:', data);
 
+    // If no data is returned, return zeros but log it
     if (!data.rows || data.rows.length === 0) {
       console.log('No GSC data found for the period');
       return {
@@ -279,10 +282,11 @@ async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Dat
       };
     }
 
+    // Extract the totals from the first row
     const totals = data.rows[0];
     return {
-      clicks: totals.clicks || 0,
-      impressions: totals.impressions || 0,
+      clicks: Math.round(totals.clicks || 0),
+      impressions: Math.round(totals.impressions || 0),
       ctr: totals.ctr ? (totals.ctr * 100) : 0,
       position: totals.position || 0
     };
@@ -316,14 +320,9 @@ async function fetchGSCSearchTerms(
           startDate: currentStartDate.toISOString().split('T')[0],
           endDate: currentEndDate.toISOString().split('T')[0],
           dimensions: ['query'],
+          type: 'web',
           rowLimit: 10,
-          dimensionFilterGroups: [{
-            filters: [{
-              dimension: 'query',
-              operator: 'notContains',
-              expression: ''
-            }]
-          }]
+          aggregationType: 'auto'
         }),
       }
     );
@@ -333,6 +332,7 @@ async function fetchGSCSearchTerms(
     }
 
     const currentData = await currentResponse.json();
+    console.log('Current period search terms data:', currentData);
     
     // Fetch previous period data
     const previousResponse = await fetch(
@@ -347,14 +347,9 @@ async function fetchGSCSearchTerms(
           startDate: previousStartDate.toISOString().split('T')[0],
           endDate: previousEndDate.toISOString().split('T')[0],
           dimensions: ['query'],
+          type: 'web',
           rowLimit: 50, // Fetch more to ensure we can match with current terms
-          dimensionFilterGroups: [{
-            filters: [{
-              dimension: 'query',
-              operator: 'notContains',
-              expression: ''
-            }]
-          }]
+          aggregationType: 'auto'
         }),
       }
     );
@@ -364,6 +359,13 @@ async function fetchGSCSearchTerms(
     }
 
     const previousData = await previousResponse.json();
+    console.log('Previous period search terms data:', previousData);
+
+    // Handle case where no data is returned
+    if (!currentData.rows || currentData.rows.length === 0) {
+      console.log('No search terms data found for current period');
+      return [];
+    }
 
     // Create a map of previous period data for easy lookup
     const previousTermsMap = new Map(
@@ -371,33 +373,32 @@ async function fetchGSCSearchTerms(
     );
 
     // Process and combine the data
-    const searchTerms = (currentData.rows || []).map((currentRow: any) => {
+    const searchTerms = currentData.rows.map((currentRow: any) => {
       const term = currentRow.keys[0];
       const previousRow = previousTermsMap.get(term);
       
+      const currentClicks = Math.round(currentRow.clicks || 0);
+      const previousClicks = Math.round(previousRow?.clicks || 0);
+      const clicksChange = previousClicks === 0 
+        ? (currentClicks > 0 ? 100 : 0)
+        : ((currentClicks - previousClicks) / previousClicks * 100);
+
       return {
         term,
         current: {
-          clicks: currentRow.clicks || 0,
-          impressions: currentRow.impressions || 0,
+          clicks: currentClicks,
+          impressions: Math.round(currentRow.impressions || 0),
           ctr: (currentRow.ctr * 100).toFixed(1),
           position: currentRow.position.toFixed(1)
         },
-        previous: previousRow ? {
-          clicks: previousRow.clicks || 0,
-          impressions: previousRow.impressions || 0,
-          ctr: (previousRow.ctr * 100).toFixed(1),
-          position: previousRow.position.toFixed(1)
-        } : {
-          clicks: 0,
-          impressions: 0,
-          ctr: "0.0",
-          position: "0.0"
+        previous: {
+          clicks: previousClicks,
+          impressions: Math.round(previousRow?.impressions || 0),
+          ctr: previousRow ? (previousRow.ctr * 100).toFixed(1) : "0.0",
+          position: previousRow ? previousRow.position.toFixed(1) : "0.0"
         },
         changes: {
-          clicks: previousRow ? 
-            ((currentRow.clicks - previousRow.clicks) / previousRow.clicks * 100).toFixed(1) : 
-            "100.0",
+          clicks: clicksChange.toFixed(1),
           impressions: previousRow ? 
             ((currentRow.impressions - previousRow.impressions) / previousRow.impressions * 100).toFixed(1) : 
             "100.0",
