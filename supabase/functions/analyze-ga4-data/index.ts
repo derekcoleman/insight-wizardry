@@ -31,8 +31,18 @@ serve(async (req) => {
     const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
 
-    // Calculate date ranges for last 28 days and previous 28 days
+    // Calculate date ranges for last 7 days and previous 7 days
     const now = new Date();
+    const last7DaysEnd = new Date(now);
+    const last7DaysStart = new Date(now);
+    last7DaysStart.setDate(last7DaysStart.getDate() - 7);
+    
+    const prev7DaysEnd = new Date(last7DaysStart);
+    prev7DaysEnd.setDate(prev7DaysEnd.getDate() - 1);
+    const prev7DaysStart = new Date(prev7DaysEnd);
+    prev7DaysStart.setDate(prev7DaysStart.getDate() - 7);
+
+    // Calculate date ranges for last 28 days and previous 28 days (for monthly comparison)
     const last28DaysEnd = new Date(now);
     const last28DaysStart = new Date(now);
     last28DaysStart.setDate(last28DaysStart.getDate() - 28);
@@ -43,33 +53,57 @@ serve(async (req) => {
     prev28DaysStart.setDate(prev28DaysStart.getDate() - 28);
 
     console.log('Date ranges:', {
-      current: {
-        start: last28DaysStart.toISOString(),
-        end: last28DaysEnd.toISOString()
+      weekly: {
+        current: {
+          start: last7DaysStart.toISOString(),
+          end: last7DaysEnd.toISOString()
+        },
+        previous: {
+          start: prev7DaysStart.toISOString(),
+          end: prev7DaysEnd.toISOString()
+        }
       },
-      previous: {
-        start: prev28DaysStart.toISOString(),
-        end: prev28DaysEnd.toISOString()
+      monthly: {
+        current: {
+          start: last28DaysStart.toISOString(),
+          end: last28DaysEnd.toISOString()
+        },
+        previous: {
+          start: prev28DaysStart.toISOString(),
+          end: prev28DaysEnd.toISOString()
+        }
       }
     });
 
     try {
-      // Fetch GA4 data
-      console.log('Fetching GA4 data...');
+      // Fetch GA4 data for weekly comparison
+      console.log('Fetching GA4 data for weekly comparison...');
+      const weeklyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last7DaysStart, last7DaysEnd, mainConversionGoal);
+      const prevWeekGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev7DaysStart, prev7DaysEnd, mainConversionGoal);
+
+      // Fetch GA4 data for monthly comparison
+      console.log('Fetching GA4 data for monthly comparison...');
       const monthlyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last28DaysStart, last28DaysEnd, mainConversionGoal);
       const prevMonthGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev28DaysStart, prev28DaysEnd, mainConversionGoal);
 
       // Fetch GSC data if property is provided
+      let weeklyGSCData = null;
+      let prevWeekGSCData = null;
       let monthlyGSCData = null;
       let prevMonthGSCData = null;
 
       if (gscProperty) {
-        console.log('Fetching Search Console data...');
+        console.log('Fetching Search Console data for weekly comparison...');
+        weeklyGSCData = await fetchGSCData(gscProperty, accessToken, last7DaysStart, last7DaysEnd);
+        prevWeekGSCData = await fetchGSCData(gscProperty, accessToken, prev7DaysStart, prev7DaysEnd);
+
+        console.log('Fetching Search Console data for monthly comparison...');
         monthlyGSCData = await fetchGSCData(gscProperty, accessToken, last28DaysStart, last28DaysEnd);
         prevMonthGSCData = await fetchGSCData(gscProperty, accessToken, prev28DaysStart, prev28DaysEnd);
       }
 
       const analysis = {
+        weekly_analysis: analyzeTimePeriod(weeklyGA4Data, prevWeekGA4Data, weeklyGSCData, prevWeekGSCData, 'week'),
         monthly_analysis: analyzeTimePeriod(monthlyGA4Data, prevMonthGA4Data, monthlyGSCData, prevMonthGSCData, 'month'),
       };
 
