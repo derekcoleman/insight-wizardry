@@ -96,6 +96,7 @@ serve(async (req) => {
 
 async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
   console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+  console.log('Using conversion goal:', mainConversionGoal || 'default conversions');
   
   try {
     const response = await fetch(
@@ -119,11 +120,6 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
             { name: 'sessions' },
             { name: mainConversionGoal || 'conversions' },
             { name: 'totalRevenue' },
-            { name: 'averagePurchaseRevenue' },
-            { name: 'bounceRate' },
-            { name: 'engagedSessions' },
-            { name: 'screenPageViews' },
-            { name: 'userEngagementDuration' }
           ],
         }),
       }
@@ -137,6 +133,9 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
 
     const data = await response.json();
     console.log('GA4 API Response:', data);
+    
+    // Add conversion goal name to the response
+    data.conversionGoal = mainConversionGoal || 'Total Conversions';
     return data;
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
@@ -180,10 +179,12 @@ function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSC
     current: {
       ...extractOrganicMetrics(currentGA4Data),
       ...(currentGSCData ? extractGSCMetrics(currentGSCData) : {}),
+      conversionGoal: currentGA4Data?.conversionGoal || 'Total Conversions',
     },
     previous: {
       ...extractOrganicMetrics(previousGA4Data),
       ...(previousGSCData ? extractGSCMetrics(previousGSCData) : {}),
+      conversionGoal: previousGA4Data?.conversionGoal || 'Total Conversions',
     },
   };
 

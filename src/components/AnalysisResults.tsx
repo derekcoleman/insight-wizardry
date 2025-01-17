@@ -72,7 +72,9 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Conversions</p>
+                    <p className="text-sm font-medium">
+                      {analysis.data.current.conversionGoal || 'Conversions'}
+                    </p>
                     <p className="text-2xl font-bold">
                       {analysis.data.current.conversions?.toLocaleString() ?? '0'}
                     </p>
