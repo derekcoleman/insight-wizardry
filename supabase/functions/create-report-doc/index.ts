@@ -8,7 +8,7 @@ const corsHeaders = {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
@@ -55,14 +55,14 @@ serve(async (req) => {
       },
     });
 
-    // Helper function to create table cells with proper formatting
-    const createTableCell = (content: string, bold = false) => ({
+    // Helper function to create table cells
+    const createTableCell = (content: string, isBold = false) => ({
       content: [{
         paragraph: {
           elements: [{
             textRun: {
               content: content,
-              textStyle: bold ? { bold: true } : undefined
+              textStyle: isBold ? { bold: true } : undefined
             }
           }]
         }
@@ -71,18 +71,18 @@ serve(async (req) => {
 
     // Helper function to create a table
     const createTable = (data: any, title: string) => {
-      const tableRequests = [];
+      const requests = [];
       
       // Add section title
-      tableRequests.push({
+      requests.push({
         insertText: {
           location: { endOfSegmentLocation: {} },
           text: `${title}\n\n`
         }
       });
 
-      // Create table
-      tableRequests.push({
+      // Create table structure
+      requests.push({
         insertTable: {
           rows: 4,
           columns: 4,
@@ -90,10 +90,10 @@ serve(async (req) => {
         }
       });
 
-      // Add header row
+      // Add header cells
       const headers = ['Metric', 'Current Value', 'Previous Value', 'Change'];
       headers.forEach((header, i) => {
-        tableRequests.push({
+        requests.push({
           updateTableCellStyle: {
             tableStartLocation: { index: -1 },
             rowIndex: 0,
@@ -106,7 +106,7 @@ serve(async (req) => {
         });
       });
 
-      // Add data rows
+      // Add data cells
       const metrics = [
         ['Sessions', data.current.sessions, data.previous.sessions, `${data.changes.sessions}%`],
         ['Conversions', data.current.conversions, data.previous.conversions, `${data.changes.conversions}%`],
@@ -115,124 +115,18 @@ serve(async (req) => {
 
       metrics.forEach((row, rowIndex) => {
         row.forEach((cell, colIndex) => {
-          tableRequests.push({
-            insertText: {
-              location: { endOfSegmentLocation: {} },
-              text: cell.toString()
+          requests.push({
+            insertTableCell: {
+              tableCellLocation: {
+                tableStartLocation: { index: -1 },
+                rowIndex: rowIndex + 1,
+                columnIndex: colIndex
+              },
+              cell: createTableCell(cell.toString(), colIndex === 0)
             }
           });
         });
       });
-
-      return tableRequests;
-    };
-
-    // Helper function to convert markdown to Google Docs formatting
-    const convertMarkdownToRequests = (text: string) => {
-      const requests = [];
-      let currentIndex = 1;
-
-      // Split text into paragraphs
-      const paragraphs = text.split('\n');
-      
-      for (const paragraph of paragraphs) {
-        if (paragraph.trim() === '') {
-          requests.push({
-            insertText: {
-              location: { index: currentIndex },
-              text: '\n'
-            }
-          });
-          currentIndex += 1;
-          continue;
-        }
-
-        // Handle bullet points
-        if (paragraph.trim().startsWith('- ')) {
-          const bulletText = paragraph.trim().substring(2);
-          requests.push({
-            insertText: {
-              location: { index: currentIndex },
-              text: bulletText + '\n'
-            }
-          });
-          requests.push({
-            createParagraphBullets: {
-              range: {
-                startIndex: currentIndex,
-                endIndex: currentIndex + bulletText.length
-              },
-              bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
-            }
-          });
-          currentIndex += bulletText.length + 1;
-          continue;
-        }
-
-        // Handle bold text
-        let text = paragraph;
-        const boldMatches = text.match(/\*\*(.*?)\*\*/g);
-        if (boldMatches) {
-          let lastIndex = currentIndex;
-          let plainText = text;
-          
-          boldMatches.forEach(match => {
-            const content = match.slice(2, -2);
-            const parts = plainText.split(match);
-            
-            if (parts[0]) {
-              requests.push({
-                insertText: {
-                  location: { index: lastIndex },
-                  text: parts[0]
-                }
-              });
-              lastIndex += parts[0].length;
-            }
-
-            requests.push({
-              insertText: {
-                location: { index: lastIndex },
-                text: content
-              }
-            });
-            requests.push({
-              updateTextStyle: {
-                range: {
-                  startIndex: lastIndex,
-                  endIndex: lastIndex + content.length
-                },
-                textStyle: { bold: true },
-                fields: 'bold'
-              }
-            });
-            lastIndex += content.length;
-            
-            plainText = parts[1];
-          });
-
-          if (plainText) {
-            requests.push({
-              insertText: {
-                location: { index: lastIndex },
-                text: plainText + '\n'
-              }
-            });
-            lastIndex += plainText.length + 1;
-          }
-          currentIndex = lastIndex;
-          continue;
-        }
-
-        // Regular text
-        requests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: text + '\n'
-          }
-        });
-        currentIndex += text.length + 1;
-      }
 
       return requests;
     };
@@ -253,7 +147,7 @@ serve(async (req) => {
         updateParagraphStyle: {
           range: {
             startIndex: 1,
-            endIndex: 17
+            endIndex: 30
           },
           paragraphStyle: {
             namedStyleType: 'HEADING_1',
@@ -264,9 +158,93 @@ serve(async (req) => {
       }
     );
 
-    // Add insights with proper formatting
+    // Process insights with proper formatting
     if (insights) {
-      requests.push(...convertMarkdownToRequests(insights));
+      const sections = insights.split('\n\n');
+      let currentIndex = 30;
+
+      sections.forEach(section => {
+        if (section.startsWith('**')) {
+          // Handle headers
+          const headerText = section.replace(/\*\*/g, '');
+          requests.push({
+            insertText: {
+              location: { index: currentIndex },
+              text: headerText + '\n\n'
+            }
+          });
+          requests.push({
+            updateParagraphStyle: {
+              range: {
+                startIndex: currentIndex,
+                endIndex: currentIndex + headerText.length
+              },
+              paragraphStyle: {
+                namedStyleType: 'HEADING_2'
+              },
+              fields: 'namedStyleType'
+            }
+          });
+          currentIndex += headerText.length + 2;
+        } else if (section.startsWith('- ')) {
+          // Handle bullet points
+          const bulletPoints = section.split('\n');
+          bulletPoints.forEach(point => {
+            if (point.trim()) {
+              const cleanPoint = point.replace(/^-\s*/, '').replace(/\*\*(.*?)\*\*/g, '$1');
+              requests.push({
+                insertText: {
+                  location: { index: currentIndex },
+                  text: cleanPoint + '\n'
+                }
+              });
+              
+              // Apply bullet style
+              requests.push({
+                createParagraphBullets: {
+                  range: {
+                    startIndex: currentIndex,
+                    endIndex: currentIndex + cleanPoint.length
+                  },
+                  bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
+                }
+              });
+              
+              // Find and apply bold formatting
+              const boldMatches = point.match(/\*\*(.*?)\*\*/g);
+              if (boldMatches) {
+                boldMatches.forEach(match => {
+                  const boldText = match.replace(/\*\*/g, '');
+                  const startIdx = cleanPoint.indexOf(boldText);
+                  if (startIdx !== -1) {
+                    requests.push({
+                      updateTextStyle: {
+                        range: {
+                          startIndex: currentIndex + startIdx,
+                          endIndex: currentIndex + startIdx + boldText.length
+                        },
+                        textStyle: { bold: true },
+                        fields: 'bold'
+                      }
+                    });
+                  }
+                });
+              }
+              
+              currentIndex += cleanPoint.length + 1;
+            }
+          });
+        } else {
+          // Handle regular paragraphs
+          requests.push({
+            insertText: {
+              location: { index: currentIndex },
+              text: section + '\n\n'
+            }
+          });
+          currentIndex += section.length + 2;
+        }
+      });
     }
 
     // Add analysis sections with tables
@@ -284,15 +262,22 @@ serve(async (req) => {
     }
 
     // Process requests in batches
+    console.log('Processing document updates in batches...');
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
       const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
-      await docs.documents.batchUpdate({
-        documentId: docId,
-        requestBody: { requests: batch },
-      });
-      // Add delay between batches
-      if (i + BATCH_SIZE < requests.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      try {
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: { requests: batch },
+        });
+        // Add delay between batches
+        if (i + BATCH_SIZE < requests.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (error) {
+        console.error('Error in batch update:', error);
+        console.error('Failed batch:', JSON.stringify(batch, null, 2));
+        throw error;
       }
     }
 
