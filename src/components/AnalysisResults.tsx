@@ -1,33 +1,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AnalysisInsights } from "./AnalysisInsights";
+import { AnalysisCard } from "./analysis/AnalysisCard";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-
-interface SearchTerm {
-  term: string;
-  current: {
-    clicks: number;
-    impressions: number;
-    ctr: string;
-    position: string;
-  };
-  previous: {
-    clicks: number;
-    impressions: number;
-    ctr: string;
-    position: string;
-  };
-  changes: {
-    clicks: string;
-    impressions: string;
-    ctr: string;
-    position: string;
-  };
-}
 
 interface AnalysisResultsProps {
   report: {
@@ -117,38 +94,6 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
   if (analyses.length === 0) return null;
 
-  const renderSearchTermsTable = (searchTerms: SearchTerm[]) => {
-    if (!searchTerms || searchTerms.length === 0) return null;
-
-    return (
-      <div className="mt-6">
-        <h3 className="text-lg font-medium mb-4">Top Search Terms</h3>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Search Term</TableHead>
-              <TableHead className="text-right">Current Clicks</TableHead>
-              <TableHead className="text-right">Previous Clicks</TableHead>
-              <TableHead className="text-right">Change</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {searchTerms.map((term) => (
-              <TableRow key={term.term}>
-                <TableCell className="font-medium">{term.term}</TableCell>
-                <TableCell className="text-right">{term.current.clicks}</TableCell>
-                <TableCell className="text-right">{term.previous.clicks}</TableCell>
-                <TableCell className={`text-right ${Number(term.changes.clicks) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {Number(term.changes.clicks) >= 0 ? '↑' : '↓'} {Math.abs(Number(term.changes.clicks))}%
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
       <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
@@ -158,69 +103,12 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         const { title, dateRange } = getAnalysisTitle(analysis.type, analysis.data.period);
         
         return (
-          <Card key={title}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>{title}</CardTitle>
-                  {dateRange && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {dateRange}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {analysis.data.dataSources?.ga4 && (
-                    <Badge variant="secondary">GA4</Badge>
-                  )}
-                  {analysis.data.dataSources?.gsc && (
-                    <Badge variant="secondary">Search Console</Badge>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Organic Sessions</p>
-                    <p className="text-2xl font-bold">
-                      {analysis.data.current.sessions?.toLocaleString() ?? '0'}
-                    </p>
-                    <p className={`text-sm ${analysis.data.changes?.sessions >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {analysis.data.changes?.sessions >= 0 ? '↑' : '↓'} {Math.abs(analysis.data.changes?.sessions ?? 0).toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">
-                      Organic {analysis.data.current.conversionGoal || 'Conversions'}
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {analysis.data.current.conversions?.toLocaleString() ?? '0'}
-                    </p>
-                    <p className={`text-sm ${analysis.data.changes?.conversions >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {analysis.data.changes?.conversions >= 0 ? '↑' : '↓'} {Math.abs(analysis.data.changes?.conversions ?? 0).toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Organic Revenue</p>
-                    <p className="text-2xl font-bold">
-                      ${analysis.data.current.revenue?.toLocaleString() ?? '0'}
-                    </p>
-                    <p className={`text-sm ${analysis.data.changes?.revenue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {analysis.data.changes?.revenue >= 0 ? '↑' : '↓'} {Math.abs(analysis.data.changes?.revenue ?? 0).toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
-                {analysis.data.summary && (
-                  <div className="text-sm text-muted-foreground mt-4 whitespace-pre-line">
-                    {analysis.data.summary}
-                  </div>
-                )}
-                {analysis.data.searchTerms && renderSearchTermsTable(analysis.data.searchTerms)}
-              </div>
-            </CardContent>
-          </Card>
+          <AnalysisCard
+            key={title}
+            title={title}
+            dateRange={dateRange}
+            data={analysis.data}
+          />
         );
       })}
     </div>

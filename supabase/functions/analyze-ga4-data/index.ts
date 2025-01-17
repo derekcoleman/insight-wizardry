@@ -1,5 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { fetchGA4Data } from "./ga4-service.ts";
+import { fetchGSCData, fetchGSCSearchTerms } from "./gsc-service.ts";
+import { analyzeTimePeriod } from "./analysis-service.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,14 +34,15 @@ serve(async (req) => {
     const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
 
-    // Calculate date ranges - excluding today for more accurate comparisons
+    // Calculate date ranges
     const now = new Date();
     
     // Last 7 days (yesterday to 7 days ago)
     const last7DaysEnd = new Date(now);
-    last7DaysEnd.setDate(last7DaysEnd.getDate() - 1); // End yesterday
+    last7DaysEnd.setDate(last7DaysEnd.getDate() - 1);
     const last7DaysStart = new Date(last7DaysEnd);
-    last7DaysStart.setDate(last7DaysStart.getDate() - 6); // Start 7 days before yesterday
+    last7DaysStart.setDate(last7DaysStart.getDate() - 6);
+    
     
     // Previous 7 days
     const prev7DaysEnd = new Date(last7DaysStart);
@@ -46,7 +50,7 @@ serve(async (req) => {
     const prev7DaysStart = new Date(prev7DaysEnd);
     prev7DaysStart.setDate(prev7DaysStart.getDate() - 6);
 
-    // Last 28 days (yesterday to 28 days ago)
+    // Last 28 days
     const last28DaysEnd = new Date(now);
     last28DaysEnd.setDate(last28DaysEnd.getDate() - 1);
     const last28DaysStart = new Date(last28DaysEnd);
@@ -58,7 +62,7 @@ serve(async (req) => {
     const prev28DaysStart = new Date(prev28DaysEnd);
     prev28DaysStart.setDate(prev28DaysStart.getDate() - 27);
 
-    // Last quarter (3 months, ending yesterday)
+    // Last quarter
     const lastQuarterEnd = new Date(now);
     lastQuarterEnd.setDate(lastQuarterEnd.getDate() - 1);
     const lastQuarterStart = new Date(lastQuarterEnd);
@@ -70,7 +74,7 @@ serve(async (req) => {
     const prevQuarterStart = new Date(prevQuarterEnd);
     prevQuarterStart.setMonth(prevQuarterStart.getMonth() - 3);
 
-    // YTD (Year to date)
+    // YTD
     const ytdEnd = new Date(now);
     ytdEnd.setDate(ytdEnd.getDate() - 1);
     const ytdStart = new Date(ytdEnd.getFullYear(), 0, 1);
@@ -89,151 +93,66 @@ serve(async (req) => {
     const prev28YoYStart = new Date(last28YoYStart);
     prev28YoYStart.setFullYear(prev28YoYStart.getFullYear() - 1);
 
-    console.log('Date ranges:', {
-      weekly: {
-        current: {
-          start: last7DaysStart.toISOString().split('T')[0],
-          end: last7DaysEnd.toISOString().split('T')[0]
-        },
-        previous: {
-          start: prev7DaysStart.toISOString().split('T')[0],
-          end: prev7DaysEnd.toISOString().split('T')[0]
-        }
-      },
-      monthly: {
-        current: {
-          start: last28DaysStart.toISOString().split('T')[0],
-          end: last28DaysEnd.toISOString().split('T')[0]
-        },
-        previous: {
-          start: prev28DaysStart.toISOString().split('T')[0],
-          end: prev28DaysEnd.toISOString().split('T')[0]
-        }
-      },
-      quarterly: {
-        current: {
-          start: lastQuarterStart.toISOString().split('T')[0],
-          end: lastQuarterEnd.toISOString().split('T')[0]
-        },
-        previous: {
-          start: prevQuarterStart.toISOString().split('T')[0],
-          end: prevQuarterEnd.toISOString().split('T')[0]
-        }
-      },
-      ytd: {
-        current: {
-          start: ytdStart.toISOString().split('T')[0],
-          end: ytdEnd.toISOString().split('T')[0]
-        },
-        previous: {
-          start: prevYtdStart.toISOString().split('T')[0],
-          end: prevYtdEnd.toISOString().split('T')[0]
-        }
-      },
-      last28YoY: {
-        current: {
-          start: last28YoYStart.toISOString().split('T')[0],
-          end: last28YoYEnd.toISOString().split('T')[0]
-        },
-        previous: {
-          start: prev28YoYStart.toISOString().split('T')[0],
-          end: prev28YoYEnd.toISOString().split('T')[0]
-        }
-      }
-    });
-
     try {
-      // Fetch GA4 data for all periods
-      console.log('Fetching GA4 data...');
-      const weeklyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last7DaysStart, last7DaysEnd, mainConversionGoal);
-      const prevWeekGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev7DaysStart, prev7DaysEnd, mainConversionGoal);
-      const monthlyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last28DaysStart, last28DaysEnd, mainConversionGoal);
-      const prevMonthGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev28DaysStart, prev28DaysEnd, mainConversionGoal);
-      const quarterlyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, lastQuarterStart, lastQuarterEnd, mainConversionGoal);
-      const prevQuarterGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prevQuarterStart, prevQuarterEnd, mainConversionGoal);
-      const ytdGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, ytdStart, ytdEnd, mainConversionGoal);
-      const prevYtdGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prevYtdStart, prevYtdEnd, mainConversionGoal);
-      const last28YoYGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last28YoYStart, last28YoYEnd, mainConversionGoal);
-      const prev28YoYGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev28YoYStart, prev28YoYEnd, mainConversionGoal);
-
-      // Fetch GSC data if property is provided
-      let weeklyGSCData = null;
-      let prevWeekGSCData = null;
-      let monthlyGSCData = null;
-      let prevMonthGSCData = null;
-      let quarterlyGSCData = null;
-      let prevQuarterGSCData = null;
-      let ytdGSCData = null;
-      let prevYtdGSCData = null;
-      let last28YoYGSCData = null;
-      let prev28YoYGSCData = null;
-      let weeklySearchTerms = null;
-      let monthlySearchTerms = null;
-      let quarterlySearchTerms = null;
-      let ytdSearchTerms = null;
-      let last28YoYSearchTerms = null;
-
-      if (gscProperty) {
-        console.log('Fetching Search Console data...');
-        
-        // Fetch total metrics for all periods
-        weeklyGSCData = await fetchGSCData(gscProperty, accessToken, last7DaysStart, last7DaysEnd);
-        prevWeekGSCData = await fetchGSCData(gscProperty, accessToken, prev7DaysStart, prev7DaysEnd);
-        monthlyGSCData = await fetchGSCData(gscProperty, accessToken, last28DaysStart, last28DaysEnd);
-        prevMonthGSCData = await fetchGSCData(gscProperty, accessToken, prev28DaysStart, prev28DaysEnd);
-        quarterlyGSCData = await fetchGSCData(gscProperty, accessToken, lastQuarterStart, lastQuarterEnd);
-        prevQuarterGSCData = await fetchGSCData(gscProperty, accessToken, prevQuarterStart, prevQuarterEnd);
-        ytdGSCData = await fetchGSCData(gscProperty, accessToken, ytdStart, ytdEnd);
-        prevYtdGSCData = await fetchGSCData(gscProperty, accessToken, prevYtdStart, prevYtdEnd);
-        last28YoYGSCData = await fetchGSCData(gscProperty, accessToken, last28YoYStart, last28YoYEnd);
-        prev28YoYGSCData = await fetchGSCData(gscProperty, accessToken, prev28YoYStart, prev28YoYEnd);
-
-        // Fetch search terms data for all periods
-        weeklySearchTerms = await fetchGSCSearchTerms(
-          gscProperty, 
-          accessToken, 
-          last7DaysStart, 
-          last7DaysEnd,
-          prev7DaysStart,
-          prev7DaysEnd
-        );
-        
-        monthlySearchTerms = await fetchGSCSearchTerms(
-          gscProperty, 
-          accessToken, 
-          last28DaysStart, 
-          last28DaysEnd,
-          prev28DaysStart,
-          prev28DaysEnd
-        );
-
-        quarterlySearchTerms = await fetchGSCSearchTerms(
-          gscProperty,
-          accessToken,
-          lastQuarterStart,
-          lastQuarterEnd,
-          prevQuarterStart,
-          prevQuarterEnd
-        );
-
-        ytdSearchTerms = await fetchGSCSearchTerms(
-          gscProperty,
-          accessToken,
-          ytdStart,
-          ytdEnd,
-          prevYtdStart,
-          prevYtdEnd
-        );
-
-        last28YoYSearchTerms = await fetchGSCSearchTerms(
-          gscProperty,
-          accessToken,
-          last28YoYStart,
-          last28YoYEnd,
-          prev28YoYStart,
-          prev28YoYEnd
-        );
-      }
+      // Fetch all GA4 and GSC data
+      const [
+        weeklyGA4Data,
+        prevWeekGA4Data,
+        monthlyGA4Data,
+        prevMonthGA4Data,
+        quarterlyGA4Data,
+        prevQuarterGA4Data,
+        ytdGA4Data,
+        prevYtdGA4Data,
+        last28YoYGA4Data,
+        prev28YoYGA4Data,
+        weeklyGSCData,
+        prevWeekGSCData,
+        monthlyGSCData,
+        prevMonthGSCData,
+        quarterlyGSCData,
+        prevQuarterGSCData,
+        ytdGSCData,
+        prevYtdGSCData,
+        last28YoYGSCData,
+        prev28YoYGSCData,
+        weeklySearchTerms,
+        monthlySearchTerms,
+        quarterlySearchTerms,
+        ytdSearchTerms,
+        last28YoYSearchTerms
+      ] = await Promise.all([
+        // GA4 Data
+        fetchGA4Data(cleanPropertyId, accessToken, last7DaysStart, last7DaysEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prev7DaysStart, prev7DaysEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, last28DaysStart, last28DaysEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prev28DaysStart, prev28DaysEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, lastQuarterStart, lastQuarterEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prevQuarterStart, prevQuarterEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, ytdStart, ytdEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prevYtdStart, prevYtdEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, last28YoYStart, last28YoYEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prev28YoYStart, prev28YoYEnd, mainConversionGoal),
+        // GSC Data
+        ...(gscProperty ? [
+          fetchGSCData(gscProperty, accessToken, last7DaysStart, last7DaysEnd),
+          fetchGSCData(gscProperty, accessToken, prev7DaysStart, prev7DaysEnd),
+          fetchGSCData(gscProperty, accessToken, last28DaysStart, last28DaysEnd),
+          fetchGSCData(gscProperty, accessToken, prev28DaysStart, prev28DaysEnd),
+          fetchGSCData(gscProperty, accessToken, lastQuarterStart, lastQuarterEnd),
+          fetchGSCData(gscProperty, accessToken, prevQuarterStart, prevQuarterEnd),
+          fetchGSCData(gscProperty, accessToken, ytdStart, ytdEnd),
+          fetchGSCData(gscProperty, accessToken, prevYtdStart, prevYtdEnd),
+          fetchGSCData(gscProperty, accessToken, last28YoYStart, last28YoYEnd),
+          fetchGSCData(gscProperty, accessToken, prev28YoYStart, prev28YoYEnd),
+          // Search Terms
+          fetchGSCSearchTerms(gscProperty, accessToken, last7DaysStart, last7DaysEnd, prev7DaysStart, prev7DaysEnd),
+          fetchGSCSearchTerms(gscProperty, accessToken, last28DaysStart, last28DaysEnd, prev28DaysStart, prev28DaysEnd),
+          fetchGSCSearchTerms(gscProperty, accessToken, lastQuarterStart, lastQuarterEnd, prevQuarterStart, prevQuarterEnd),
+          fetchGSCSearchTerms(gscProperty, accessToken, ytdStart, ytdEnd, prevYtdStart, prevYtdEnd),
+          fetchGSCSearchTerms(gscProperty, accessToken, last28YoYStart, last28YoYEnd, prev28YoYStart, prev28YoYEnd)
+        ] : Array(15).fill(null))
+      ]);
 
       const analysis = {
         weekly_analysis: {
@@ -313,7 +232,6 @@ serve(async (req) => {
         status: 500,
       });
     }
-
   } catch (error) {
     console.error('Error in analyze-ga4-data function:', error);
     return new Response(JSON.stringify({ 
@@ -326,416 +244,3 @@ serve(async (req) => {
     });
   }
 });
-
-function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSCData: any, previousGSCData: any, period: string, currentDateRange: { start: Date; end: Date }, previousDateRange: { start: Date; end: Date }) {
-  const organic = {
-    current: {
-      ...extractOrganicMetrics(currentGA4Data),
-      ...(currentGSCData ? extractGSCMetrics(currentGSCData) : {}),
-      conversionGoal: currentGA4Data?.conversionGoal || 'Total Conversions',
-    },
-    previous: {
-      ...extractOrganicMetrics(previousGA4Data),
-      ...(previousGSCData ? extractGSCMetrics(previousGSCData) : {}),
-      conversionGoal: previousGA4Data?.conversionGoal || 'Total Conversions',
-    },
-  };
-
-  const changes = calculateChanges(organic.current, organic.previous);
-
-  // Format the period string to include the date ranges
-  const periodText = `${currentDateRange.start.toISOString().split('T')[0]} to ${currentDateRange.end.toISOString().split('T')[0]} vs ${previousDateRange.start.toISOString().split('T')[0]} to ${previousDateRange.end.toISOString().split('T')[0]}`;
-  
-  return {
-    period: periodText,
-    current: organic.current,
-    previous: organic.previous,
-    changes,
-    summary: generateDetailedSummary(changes, organic.current, organic.previous, periodText),
-    dataSources: {
-      ga4: Boolean(currentGA4Data),
-      gsc: Boolean(currentGSCData),
-    },
-  };
-}
-
-async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
-  console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
-  console.log('Using conversion goal:', mainConversionGoal || 'default conversions');
-  
-  try {
-    const response = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          dateRanges: [{
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0],
-          }],
-          dimensionFilter: {
-            andGroup: {
-              expressions: [
-                {
-                  filter: {
-                    fieldName: "sessionSource",
-                    stringFilter: {
-                      value: "google",
-                      matchType: "EXACT"
-                    }
-                  }
-                },
-                {
-                  filter: {
-                    fieldName: "sessionMedium",
-                    stringFilter: {
-                      value: "organic",
-                      matchType: "EXACT"
-                    }
-                  }
-                }
-              ]
-            }
-          },
-          dimensions: [
-            { name: 'sessionSource' },
-            { name: 'sessionMedium' },
-          ],
-          metrics: [
-            { name: 'sessions' },
-            { name: mainConversionGoal || 'conversions' },
-            { name: 'totalRevenue' },
-          ],
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GA4 API Error Response:', errorText);
-      throw new Error(`GA4 API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log('GA4 API Response:', data);
-    
-    // Add conversion goal name to the response
-    data.conversionGoal = mainConversionGoal || 'Total Conversions';
-    return data;
-  } catch (error) {
-    console.error('Error fetching GA4 data:', error);
-    throw error;
-  }
-}
-
-async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Date, endDate: Date) {
-  try {
-    console.log(`Fetching GSC data for ${siteUrl} from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
-    
-    const response = await fetch(
-      'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-          type: 'web',
-          dimensions: [], // Remove dimensions to get total aggregated data
-          rowLimit: 1, // We only need the totals
-          aggregationType: 'auto'
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GSC API Error Response:', errorText);
-      throw new Error(`GSC API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log('GSC API Response:', data);
-
-    // If no data is returned, return zeros but log it
-    if (!data.rows || data.rows.length === 0) {
-      console.log('No GSC data found for the period');
-      return {
-        clicks: 0,
-        impressions: 0,
-        ctr: 0,
-        position: 0
-      };
-    }
-
-    // Extract the totals from the first row
-    const totals = data.rows[0];
-    return {
-      clicks: Math.round(totals.clicks || 0),
-      impressions: Math.round(totals.impressions || 0),
-      ctr: totals.ctr ? (totals.ctr * 100) : 0,
-      position: totals.position || 0
-    };
-  } catch (error) {
-    console.error('Error fetching GSC data:', error);
-    throw error;
-  }
-}
-
-async function fetchGSCSearchTerms(
-  siteUrl: string, 
-  accessToken: string, 
-  currentStartDate: Date, 
-  currentEndDate: Date,
-  previousStartDate: Date,
-  previousEndDate: Date
-) {
-  try {
-    console.log('Fetching GSC search terms data...');
-    
-    // Fetch current period data
-    const currentResponse = await fetch(
-      'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: currentStartDate.toISOString().split('T')[0],
-          endDate: currentEndDate.toISOString().split('T')[0],
-          dimensions: ['query'],
-          type: 'web',
-          rowLimit: 10,
-          aggregationType: 'auto'
-        }),
-      }
-    );
-
-    if (!currentResponse.ok) {
-      throw new Error(`GSC API error: ${currentResponse.status}`);
-    }
-
-    const currentData = await currentResponse.json();
-    console.log('Current period search terms data:', currentData);
-    
-    // Fetch previous period data
-    const previousResponse = await fetch(
-      'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: previousStartDate.toISOString().split('T')[0],
-          endDate: previousEndDate.toISOString().split('T')[0],
-          dimensions: ['query'],
-          type: 'web',
-          rowLimit: 50, // Fetch more to ensure we can match with current terms
-          aggregationType: 'auto'
-        }),
-      }
-    );
-
-    if (!previousResponse.ok) {
-      throw new Error(`GSC API error: ${previousResponse.status}`);
-    }
-
-    const previousData = await previousResponse.json();
-    console.log('Previous period search terms data:', previousData);
-
-    // Handle case where no data is returned
-    if (!currentData.rows || currentData.rows.length === 0) {
-      console.log('No search terms data found for current period');
-      return [];
-    }
-
-    // Create a map of previous period data for easy lookup
-    const previousTermsMap = new Map(
-      previousData.rows?.map((row: any) => [row.keys[0], row]) || []
-    );
-
-    // Process and combine the data
-    const searchTerms = currentData.rows.map((currentRow: any) => {
-      const term = currentRow.keys[0];
-      const previousRow = previousTermsMap.get(term);
-      
-      const currentClicks = Math.round(currentRow.clicks || 0);
-      const previousClicks = Math.round(previousRow?.clicks || 0);
-      const clicksChange = previousClicks === 0 
-        ? (currentClicks > 0 ? 100 : 0)
-        : ((currentClicks - previousClicks) / previousClicks * 100);
-
-      return {
-        term,
-        current: {
-          clicks: currentClicks,
-          impressions: Math.round(currentRow.impressions || 0),
-          ctr: (currentRow.ctr * 100).toFixed(1),
-          position: currentRow.position.toFixed(1)
-        },
-        previous: {
-          clicks: previousClicks,
-          impressions: Math.round(previousRow?.impressions || 0),
-          ctr: previousRow ? (previousRow.ctr * 100).toFixed(1) : "0.0",
-          position: previousRow ? previousRow.position.toFixed(1) : "0.0"
-        },
-        changes: {
-          clicks: clicksChange.toFixed(1),
-          impressions: previousRow ? 
-            ((currentRow.impressions - previousRow.impressions) / previousRow.impressions * 100).toFixed(1) : 
-            "100.0",
-          ctr: previousRow ? 
-            ((currentRow.ctr - previousRow.ctr) / previousRow.ctr * 100).toFixed(1) : 
-            "100.0",
-          position: previousRow ? 
-            ((previousRow.position - currentRow.position) / previousRow.position * 100).toFixed(1) : 
-            "100.0"
-        }
-      };
-    });
-
-    console.log('Processed search terms data:', searchTerms);
-    return searchTerms;
-
-  } catch (error) {
-    console.error('Error fetching GSC search terms:', error);
-    throw error;
-  }
-}
-
-function extractOrganicMetrics(data: any) {
-  if (!data || !data.rows || !data.rows.length) {
-    console.log('No GA4 data rows found');
-    return {
-      sessions: 0,
-      conversions: 0,
-      revenue: 0,
-      source: 'GA4',
-    };
-  }
-
-  const metrics = {
-    sessions: sumMetric(data.rows, 0),
-    conversions: sumMetric(data.rows, 1),
-    revenue: sumMetric(data.rows, 2),
-    source: 'GA4',
-  };
-
-  console.log('Extracted GA4 metrics:', metrics);
-  return metrics;
-}
-
-function extractGSCMetrics(data: any) {
-  if (!data) {
-    console.log('No GSC data provided');
-    return {
-      clicks: 0,
-      impressions: 0,
-      ctr: 0,
-      position: 0,
-      source: 'GSC',
-    };
-  }
-
-  console.log('Extracting GSC metrics from:', data);
-
-  return {
-    clicks: Math.round(data.clicks || 0),
-    impressions: Math.round(data.impressions || 0),
-    ctr: data.ctr || 0,
-    position: data.position || 0,
-    source: 'GSC',
-  };
-}
-
-function calculateChanges(current: any, previous: any) {
-  const changes: any = {};
-  
-  for (const key in current) {
-    if (typeof current[key] === 'number' && typeof previous[key] === 'number') {
-      changes[key] = previous[key] === 0 
-        ? (current[key] > 0 ? 100 : 0)
-        : ((current[key] - previous[key]) / previous[key]) * 100;
-    }
-  }
-  
-  return changes;
-}
-
-function formatChange(change: number, higherIsBetter: boolean = true) {
-  if (!change || isNaN(change)) return "remained stable";
-  
-  const direction = change > 0 ? "increased" : "decreased";
-  const goodBad = higherIsBetter ? 
-    (change > 0 ? "improved" : "declined") : 
-    (change > 0 ? "declined" : "improved");
-  
-  return `${direction} by ${Math.abs(change).toFixed(1)}% (${goodBad})`;
-}
-
-function sumMetric(rows: any[], metricIndex: number) {
-  return rows.reduce((sum: number, row: any) => {
-    const value = row.metricValues?.[metricIndex]?.value;
-    return sum + (Number(value) || 0);
-  }, 0);
-}
-
-function generateDetailedSummary(changes: any, current: any, previous: any, periodText: string) {
-  let summary = `${periodText} Organic Performance Analysis:\n\n`;
-  
-  // GA4 Metrics
-  if (current.sessions !== undefined) {
-    summary += `Traffic and Engagement:\n`;
-    summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
-    
-    if (current.conversions > 0) {
-      const conversionType = current.conversionGoal || 'Total Conversions';
-      summary += `\n\nConversions:\nOrganic ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
-    }
-    
-    if (current.revenue > 0) {
-      summary += `\n\nRevenue:\nOrganic revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
-    }
-  }
-  
-  // GSC Metrics
-  if (current.clicks !== undefined) {
-    console.log('Adding GSC metrics to summary:', {
-      currentClicks: current.clicks,
-      previousClicks: previous.clicks,
-      currentImpressions: current.impressions,
-      previousImpressions: previous.impressions,
-      currentCtr: current.ctr,
-      previousCtr: previous.ctr,
-      currentPosition: current.position,
-      previousPosition: previous.position,
-    });
-
-    summary += `\n\nSearch Console Performance:\n`;
-    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${Math.round(previous.clicks).toLocaleString()} to ${Math.round(current.clicks).toLocaleString()}. `;
-    summary += `Impressions ${formatChange(changes.impressions, true)} from ${Math.round(previous.impressions).toLocaleString()} to ${Math.round(current.impressions).toLocaleString()}. `;
-    
-    const currentCtr = current.ctr * 100;
-    const previousCtr = previous.ctr * 100;
-    if (!isNaN(currentCtr) && !isNaN(previousCtr)) {
-      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${currentCtr.toFixed(1)}%. `;
-    }
-    
-    if (current.position !== undefined && previous.position !== undefined) {
-      summary += `The average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
-    }
-  }
-
-  return summary;
-}
