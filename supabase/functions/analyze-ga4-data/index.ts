@@ -29,6 +29,10 @@ serve(async (req) => {
       );
     }
 
+    // Clean up the property ID by removing any trailing slashes and the 'properties/' prefix
+    const cleanPropertyId = ga4Property.replace(/\/$/, '').split('/').pop();
+    console.log('Clean property ID:', cleanPropertyId);
+
     // Initialize dates for different time periods
     const now = new Date();
     const lastWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -39,24 +43,24 @@ serve(async (req) => {
     try {
       // Fetch weekly data
       console.log('Fetching weekly data...');
-      const weeklyData = await fetchGA4Data(ga4Property, accessToken, lastWeekStart, now, mainConversionGoal);
-      console.log('Weekly data fetched successfully');
+      const weeklyData = await fetchGA4Data(cleanPropertyId, accessToken, lastWeekStart, now, mainConversionGoal);
+      console.log('Weekly data fetched successfully:', weeklyData);
       
-      const prevWeekData = await fetchGA4Data(ga4Property, accessToken, prevWeekStart, lastWeekStart, mainConversionGoal);
+      const prevWeekData = await fetchGA4Data(cleanPropertyId, accessToken, prevWeekStart, lastWeekStart, mainConversionGoal);
       console.log('Previous week data fetched successfully');
 
       // Fetch monthly data
       console.log('Fetching monthly data...');
-      const monthlyData = await fetchGA4Data(ga4Property, accessToken, lastMonthStart, now, mainConversionGoal);
-      const prevMonthData = await fetchGA4Data(ga4Property, accessToken, prevMonthStart, lastMonthStart, mainConversionGoal);
+      const monthlyData = await fetchGA4Data(cleanPropertyId, accessToken, lastMonthStart, now, mainConversionGoal);
+      const prevMonthData = await fetchGA4Data(cleanPropertyId, accessToken, prevMonthStart, lastMonthStart, mainConversionGoal);
       console.log('Monthly data fetched successfully');
 
       // Analyze the data
       const analysis = {
         weekly_analysis: analyzeTimePeriod(weeklyData, prevWeekData, 'week'),
         monthly_analysis: analyzeTimePeriod(monthlyData, prevMonthData, 'month'),
-        quarterly_analysis: null, // To be implemented
-        yoy_analysis: null, // To be implemented
+        quarterly_analysis: null,
+        yoy_analysis: null,
       };
 
       return new Response(JSON.stringify({ report: analysis }), {
@@ -88,12 +92,10 @@ serve(async (req) => {
 });
 
 async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
-  // Clean up the property ID by removing any trailing slashes and ensuring proper format
-  const cleanPropertyId = propertyId.replace(/\/$/, '').replace('properties/', '');
   const baseUrl = 'https://analyticsdata.googleapis.com/v1beta';
-  const url = `${baseUrl}/properties/${cleanPropertyId}/runReport`;
+  const url = `${baseUrl}/properties/${propertyId}/runReport`;
 
-  console.log(`Fetching GA4 data from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+  console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
   console.log('Request URL:', url);
 
   const metrics = [
@@ -125,7 +127,7 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('GA4 API Error Response:', errorText);
-      throw new Error(`GA4 API error: ${response.statusText || 'Unknown error'} - ${errorText}`);
+      throw new Error(`GA4 API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
