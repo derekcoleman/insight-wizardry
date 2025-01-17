@@ -18,7 +18,7 @@ serve(async (req) => {
     if (!ga4Property || !accessToken) {
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required parameters: ga4Property or accessToken',
+          error: 'Missing required parameters',
           status: 'error'
         }), 
         { 
@@ -32,38 +32,84 @@ serve(async (req) => {
     console.log('Clean property ID:', cleanPropertyId);
 
     const now = new Date();
+    
+    // Weekly dates
     const lastWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const prevWeekStart = new Date(lastWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    // Monthly dates
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+    
+    // Quarterly dates
+    const lastQuarterStart = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+    const prevQuarterStart = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+    
+    // Year over Year dates
+    const lastYearSameMonth = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    const prevYearSameMonth = new Date(now.getFullYear() - 1, now.getMonth() - 1, now.getDate());
 
     try {
-      // Fetch GA4 data
-      console.log('Fetching GA4 data...');
-      const weeklyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, lastWeekStart, now, mainConversionGoal);
-      const prevWeekGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prevWeekStart, lastWeekStart, mainConversionGoal);
-      const monthlyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, lastMonthStart, now, mainConversionGoal);
-      const prevMonthGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prevMonthStart, lastMonthStart, mainConversionGoal);
+      // Fetch GA4 data for all time periods
+      console.log('Fetching GA4 data for all time periods...');
+      const [
+        weeklyGA4Data,
+        prevWeekGA4Data,
+        monthlyGA4Data,
+        prevMonthGA4Data,
+        quarterlyGA4Data,
+        prevQuarterGA4Data,
+        yoyGA4Data,
+        prevYoyGA4Data
+      ] = await Promise.all([
+        fetchGA4Data(cleanPropertyId, accessToken, lastWeekStart, now, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prevWeekStart, lastWeekStart, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, lastMonthStart, now, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prevMonthStart, lastMonthStart, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, lastQuarterStart, now, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prevQuarterStart, lastQuarterStart, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, lastYearSameMonth, now, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prevYearSameMonth, lastYearSameMonth, mainConversionGoal)
+      ]);
 
       // Fetch GSC data if property is provided
       let weeklyGSCData = null;
       let prevWeekGSCData = null;
       let monthlyGSCData = null;
       let prevMonthGSCData = null;
+      let quarterlyGSCData = null;
+      let prevQuarterGSCData = null;
+      let yoyGSCData = null;
+      let prevYoyGSCData = null;
 
       if (gscProperty) {
-        console.log('Fetching Search Console data...');
-        weeklyGSCData = await fetchGSCData(gscProperty, accessToken, lastWeekStart, now);
-        prevWeekGSCData = await fetchGSCData(gscProperty, accessToken, prevWeekStart, lastWeekStart);
-        monthlyGSCData = await fetchGSCData(gscProperty, accessToken, lastMonthStart, now);
-        prevMonthGSCData = await fetchGSCData(gscProperty, accessToken, prevMonthStart, lastMonthStart);
+        console.log('Fetching Search Console data for all time periods...');
+        [
+          weeklyGSCData,
+          prevWeekGSCData,
+          monthlyGSCData,
+          prevMonthGSCData,
+          quarterlyGSCData,
+          prevQuarterGSCData,
+          yoyGSCData,
+          prevYoyGSCData
+        ] = await Promise.all([
+          fetchGSCData(gscProperty, accessToken, lastWeekStart, now),
+          fetchGSCData(gscProperty, accessToken, prevWeekStart, lastWeekStart),
+          fetchGSCData(gscProperty, accessToken, lastMonthStart, now),
+          fetchGSCData(gscProperty, accessToken, prevMonthStart, lastMonthStart),
+          fetchGSCData(gscProperty, accessToken, lastQuarterStart, now),
+          fetchGSCData(gscProperty, accessToken, prevQuarterStart, lastQuarterStart),
+          fetchGSCData(gscProperty, accessToken, lastYearSameMonth, now),
+          fetchGSCData(gscProperty, accessToken, prevYearSameMonth, lastYearSameMonth)
+        ]);
       }
 
       const analysis = {
         weekly_analysis: analyzeTimePeriod(weeklyGA4Data, prevWeekGA4Data, weeklyGSCData, prevWeekGSCData, 'week'),
         monthly_analysis: analyzeTimePeriod(monthlyGA4Data, prevMonthGA4Data, monthlyGSCData, prevMonthGSCData, 'month'),
-        quarterly_analysis: null,
-        yoy_analysis: null,
+        quarterly_analysis: analyzeTimePeriod(quarterlyGA4Data, prevQuarterGA4Data, quarterlyGSCData, prevQuarterGSCData, 'quarter'),
+        yoy_analysis: analyzeTimePeriod(yoyGA4Data, prevYoyGA4Data, yoyGSCData, prevYoyGSCData, 'year')
       };
 
       return new Response(JSON.stringify({ report: analysis }), {
@@ -123,7 +169,9 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
             { name: 'bounceRate' },
             { name: 'engagedSessions' },
             { name: 'screenPageViews' },
-            { name: 'userEngagementDuration' }
+            { name: 'userEngagementDuration' },
+            { name: 'newUsers' },
+            { name: 'returningUsers' }
           ],
         }),
       }
@@ -213,6 +261,9 @@ function extractOrganicMetrics(data: any) {
       engagedSessions: 0,
       pageviews: 0,
       avgSessionDuration: 0,
+      conversionRate: 0,
+      newUsers: 0,
+      returningUsers: 0,
       source: 'GA4',
     };
   }
@@ -223,15 +274,22 @@ function extractOrganicMetrics(data: any) {
       row.dimensionValues?.[1]?.value === 'organic'
   ) || [];
 
+  const totalSessions = sumMetric(organicTraffic, 0);
+  const totalConversions = sumMetric(organicTraffic, 1);
+  const totalRevenue = sumMetric(organicTraffic, 2);
+
   const metrics = {
-    sessions: sumMetric(organicTraffic, 0),
-    conversions: sumMetric(organicTraffic, 1),
-    revenue: sumMetric(organicTraffic, 2),
-    averageOrderValue: sumMetric(organicTraffic, 3),
+    sessions: totalSessions,
+    conversions: totalConversions,
+    revenue: totalRevenue,
+    averageOrderValue: totalRevenue / (totalConversions || 1),
     bounceRate: sumMetric(organicTraffic, 4),
     engagedSessions: sumMetric(organicTraffic, 5),
     pageviews: sumMetric(organicTraffic, 6),
     avgSessionDuration: sumMetric(organicTraffic, 7),
+    conversionRate: (totalConversions / totalSessions) * 100 || 0,
+    newUsers: sumMetric(organicTraffic, 8),
+    returningUsers: sumMetric(organicTraffic, 9),
     source: 'GA4',
   };
 
@@ -245,6 +303,7 @@ function extractGSCMetrics(data: any) {
       impressions: 0,
       ctr: 0,
       position: 0,
+      topQueries: [],
       source: 'GSC',
     };
   }
@@ -259,10 +318,23 @@ function extractGSCMetrics(data: any) {
     { clicks: 0, impressions: 0, ctr: 0, position: 0 }
   );
 
+  // Sort queries by clicks and get top 10
+  const topQueries = [...(data.rows || [])]
+    .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
+    .slice(0, 10)
+    .map(row => ({
+      query: row.keys[0],
+      clicks: row.clicks,
+      impressions: row.impressions,
+      ctr: row.ctr,
+      position: row.position
+    }));
+
   return {
     ...totals,
     ctr: totals.ctr / (data.rows.length || 1),
     position: totals.position / (data.rows.length || 1),
+    topQueries,
     source: 'GSC',
   };
 }
@@ -282,7 +354,14 @@ function calculateChanges(current: any, previous: any) {
 }
 
 function generateDetailedSummary(changes: any, current: any, previous: any, period: string) {
-  const periodText = period === 'week' ? 'Week over Week (WoW)' : 'Month over Month (MoM)';
+  const periodMap = {
+    'week': 'Week over Week (WoW)',
+    'month': 'Month over Month (MoM)',
+    'quarter': 'Quarter over Quarter (QoQ)',
+    'year': 'Year over Year (YoY)'
+  };
+  
+  const periodText = periodMap[period] || period;
   
   let summary = `${periodText} Performance Analysis:\n\n`;
   
@@ -291,17 +370,22 @@ function generateDetailedSummary(changes: any, current: any, previous: any, peri
     summary += `Traffic and Engagement (GA4):\n`;
     summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
     
+    if (current.newUsers !== undefined) {
+      summary += `New users ${formatChange(changes.newUsers, true)} to ${current.newUsers.toLocaleString()}, while returning users ${formatChange(changes.returningUsers, true)} to ${current.returningUsers.toLocaleString()}. `;
+    }
+    
     if (current.engagedSessions > 0) {
-      summary += `Engaged sessions ${formatChange(changes.engagedSessions, true)} to ${current.engagedSessions.toLocaleString()}. `;
+      summary += `Engaged sessions ${formatChange(changes.engagedSessions, true)} to ${current.engagedSessions.toLocaleString()}, `;
     }
     
     if (current.bounceRate !== undefined) {
-      summary += `The bounce rate ${formatChange(changes.bounceRate, false)} to ${current.bounceRate.toFixed(1)}%. `;
+      summary += `with bounce rate ${formatChange(changes.bounceRate, false)} to ${current.bounceRate.toFixed(1)}%. `;
     }
     
     summary += `\n\nConversions and Revenue (GA4):\n`;
     if (current.conversions > 0) {
-      summary += `Organic conversions ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
+      summary += `Organic conversions ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}, `;
+      summary += `with a conversion rate of ${current.conversionRate.toFixed(2)}% (${formatChange(changes.conversionRate, true)}). `;
     }
     
     if (current.revenue > 0) {
@@ -316,16 +400,32 @@ function generateDetailedSummary(changes: any, current: any, previous: any, peri
   // GSC Metrics
   if (current.source === 'GSC') {
     summary += `\n\nSearch Visibility (Search Console):\n`;
-    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${previous.clicks.toLocaleString()} to ${current.clicks.toLocaleString()}. `;
-    summary += `Impressions ${formatChange(changes.impressions, true)} from ${previous.impressions.toLocaleString()} to ${current.impressions.toLocaleString()}. `;
+    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${previous.clicks.toLocaleString()} to ${current.clicks.toLocaleString()}, while impressions ${formatChange(changes.impressions, true)} from ${previous.impressions.toLocaleString()} to ${current.impressions.toLocaleString()}. `;
     
     if (current.ctr !== undefined) {
-      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${(current.ctr * 100).toFixed(1)}%. `;
+      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${(current.ctr * 100).toFixed(1)}%, `;
     }
     
     if (current.position !== undefined) {
-      summary += `The average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
+      summary += `and the average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
     }
+
+    if (current.topQueries?.length > 0) {
+      summary += `\n\nTop Performing Keywords:\n`;
+      current.topQueries.slice(0, 5).forEach((query: any, index: number) => {
+        summary += `${index + 1}. "${query.query}" with ${query.clicks} clicks (${query.impressions} impressions, CTR: ${(query.ctr * 100).toFixed(1)}%, Avg Position: ${query.position.toFixed(1)})\n`;
+      });
+    }
+  }
+
+  // Add period-specific context
+  switch (period) {
+    case 'quarter':
+      summary += `\n\nQuarterly Context:\nThis analysis compares the last 3 months of performance against the previous 3 months, providing a broader view of organic growth trends and seasonal patterns.`;
+      break;
+    case 'year':
+      summary += `\n\nYear-over-Year Context:\nThis comparison helps identify long-term growth patterns and accounts for seasonal variations by comparing the same time period across different years.`;
+      break;
   }
 
   return summary;
