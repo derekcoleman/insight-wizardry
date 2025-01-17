@@ -80,7 +80,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
       
-      const response = await fetch(
+      // First, try to fetch custom events
+      const eventsResponse = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}/metadata`,
         {
           headers: {
@@ -89,77 +90,60 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         }
       );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("GA4 API Error Response:", errorText);
-        throw new Error(`Failed to fetch conversion goals: ${response.statusText}`);
+      if (!eventsResponse.ok) {
+        const errorText = await eventsResponse.text();
+        console.error("GA4 Events API Error Response:", errorText);
+        throw new Error(`Failed to fetch events: ${eventsResponse.statusText}`);
       }
 
-      const data = await response.json();
-      console.log("Full metadata response:", data);
-      
-      if (!data.metrics) {
-        console.log("No metrics found in response");
-        setConversionGoals([]);
-        return;
-      }
+      const eventsData = await eventsResponse.json();
+      console.log("Full events metadata response:", eventsData);
 
-      // Enhanced filtering logic specifically for GA4 Key Events (formerly Goals)
-      const goals = data.metrics
+      // Get all available metrics
+      const metrics = eventsData.metrics || [];
+      console.log("Available metrics:", metrics);
+
+      // Filter for conversion events and custom events
+      const goals = metrics
         .filter((metric: any) => {
           const name = (metric.name || '').toLowerCase();
           const displayName = (metric.displayName || '').toLowerCase();
           const description = (metric.description || '').toLowerCase();
-          const category = (metric.category || '').toLowerCase();
           
           // Log each potential Key Event metric for debugging
-          console.log("Evaluating potential Key Event:", {
+          console.log("Evaluating metric:", {
             name,
             displayName,
             description,
-            category,
             type: metric.type,
             apiName: metric.apiName,
-            expression: metric.expression
+            category: metric.category,
           });
 
-          // Focus on metrics that are likely to be Key Events/Goals
+          // Focus on conversion events and custom events
           return (
-            name.includes('conversions') ||      // Direct conversion metrics
-            name.includes('event_count') ||      // Event count metrics
-            displayName.includes('conversion') || // Conversion in display name
-            displayName.includes('goal') ||      // Goal in display name
-            category === 'EVENT' ||              // Event category metrics
-            description.includes('conversion') || // Conversion in description
-            description.includes('goal') ||      // Goal in description
-            name.startsWith('eventCount') ||     // Event count metrics
-            name.includes('_conversion_') ||     // Conversion metrics
-            metric.expression?.includes('event') // Custom event metrics
+            name.includes('conversions') ||
+            name.includes('purchase') ||
+            name.startsWith('eventCount') ||
+            metric.category === 'CUSTOM' ||
+            displayName.includes('conversion') ||
+            description.includes('conversion')
           );
         })
-        .map((metric: any) => {
-          console.log("Converting metric to Key Event:", {
-            id: metric.name,
-            name: metric.displayName || metric.name,
-            category: metric.category,
-            type: metric.type
-          });
-          
-          return {
-            id: metric.name,
-            name: metric.displayName || metric.name,
-          };
-        });
+        .map((metric: any) => ({
+          id: metric.apiName || metric.name,
+          name: metric.displayName || metric.name,
+        }));
 
       console.log("Found Key Events:", goals);
       setConversionGoals(goals);
       
       if (goals.length === 0) {
-        console.log("No Key Events found after filtering");
+        console.log("No Key Events found");
         toast({
           title: "No Key Events Found",
-          description: "No Key Events (formerly Goals) were found in this GA4 property. Please verify your GA4 configuration.",
-          variant: "default",
+          description: "No Key Events were found in this GA4 property. Please verify your GA4 configuration and ensure you have set up conversion events.",
+          variant: "destructive",
         });
       } else {
         console.log(`Found ${goals.length} Key Events`);
