@@ -36,37 +36,45 @@ export function GoogleConnect() {
   } = useGoogleServices();
 
   const handleGaAccountChange = async (value: string) => {
-    setSelectedGaAccount(value);
-    if (value) {
-      console.log("Fetching conversion goals for GA4 property:", value);
-      await fetchConversionGoals(value);
+    try {
+      setSelectedGaAccount(value);
+      if (value) {
+        console.log("Fetching conversion goals for GA4 property:", value);
+        await fetchConversionGoals(value);
+        
+        // Automatically start analysis after fetching conversion goals
+        if (accessToken) {
+          await handleAnalyze(value);
+        }
+      }
+    } catch (error) {
+      console.error("Error handling GA account change:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch conversion goals. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleAnalyze = async () => {
-    if (!selectedGaAccount) {
-      toast({
-        title: "Error",
-        description: "Please select a GA4 property",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!accessToken) {
-      toast({
-        title: "Error",
-        description: "No access token available. Please reconnect to Google.",
-        variant: "destructive",
-      });
+  const handleAnalyze = async (gaProperty: string) => {
+    if (!gaProperty || !accessToken) {
+      console.log("Missing required data:", { gaProperty, hasAccessToken: !!accessToken });
       return;
     }
 
     setIsAnalyzing(true);
     try {
+      console.log("Starting analysis with:", {
+        ga4Property: gaProperty,
+        gscProperty: selectedGscAccount,
+        hasAccessToken: !!accessToken,
+        mainConversionGoal: selectedGoal,
+      });
+
       const result = await supabase.functions.invoke('analyze-ga4-data', {
         body: {
-          ga4Property: selectedGaAccount,
+          ga4Property: gaProperty,
           gscProperty: selectedGscAccount,
           accessToken: accessToken,
           mainConversionGoal: selectedGoal || undefined,
@@ -146,25 +154,6 @@ export function GoogleConnect() {
               onValueChange={setSelectedGscAccount}
               placeholder="Select Search Console property"
             />
-          )}
-
-          {(selectedGaAccount || selectedGscAccount) && (
-            <CardContent className="pt-4">
-              <Button
-                onClick={handleAnalyze}
-                disabled={isAnalyzing || !selectedGaAccount || !accessToken}
-                className="w-full"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Analyzing Data...
-                  </>
-                ) : (
-                  "Continue with Analysis"
-                )}
-              </Button>
-            </CardContent>
           )}
         </CardContent>
       </Card>

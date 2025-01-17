@@ -76,8 +76,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
     try {
       console.log("Fetching conversion goals for property:", propertyId);
+      
+      // Clean up the property ID
+      const cleanPropertyId = propertyId.replace(/^properties\//, '');
+      console.log("Clean property ID:", cleanPropertyId);
+      
       const response = await fetch(
-        `https://analyticsdata.googleapis.com/v1beta/${propertyId}/metadata`,
+        `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}/metadata`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -86,7 +91,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch conversion goals: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("GA4 API Error Response:", errorText);
+        throw new Error(`Failed to fetch conversion goals: ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
