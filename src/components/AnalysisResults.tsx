@@ -103,7 +103,14 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
           <Card key={analysis.title}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>{analysis.title}</CardTitle>
+                <div>
+                  <CardTitle>{analysis.title}</CardTitle>
+                  {analysis.data.period && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {analysis.data.period}
+                    </p>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   {analysis.data.dataSources?.ga4 && (
                     <Badge variant="secondary">GA4</Badge>
