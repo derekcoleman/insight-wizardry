@@ -24,7 +24,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -35,8 +35,15 @@ serve(async (req) => {
             4. Specific, actionable recommendations
             
             Format your response in two sections:
-            "Key Findings:" (bullet points of the most important insights)
-            "Recommended Next Steps:" (bullet points of specific actions to take)`,
+            Key Findings:
+            • List your findings as bullet points
+            • Focus on the most important insights
+            • Keep each point clear and concise
+            
+            Recommended Next Steps:
+            • List specific actions to take
+            • Make recommendations actionable and clear
+            • Prioritize high-impact activities`,
           },
           {
             role: "user",

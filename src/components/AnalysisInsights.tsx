@@ -43,7 +43,13 @@ export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps)
                   {content
                     .filter(line => line.trim())
                     .map((line, i) => (
-                      <li key={i}>{line.trim().replace(/^[•-]\s*/, '').replace(/\*\*(.*?)\*\*/g, '$1')}</li>
+                      <li key={i}>
+                        {line.trim()
+                          .replace(/^[•-]\s*/, '')
+                          .replace(/^[0-9]+\.\s*/, '')
+                          .replace(/\*\*(.*?)\*\*/g, '$1')
+                          .replace(/###\s*/, '')}
+                      </li>
                     ))}
                 </ul>
               </div>
