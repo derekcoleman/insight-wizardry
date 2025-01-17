@@ -115,14 +115,25 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       const data = await response.json();
+      
+      // Add null check for metrics array
+      if (!data.metrics || !Array.isArray(data.metrics)) {
+        console.log("No metrics found in response:", data);
+        setConversionGoals([]);
+        return;
+      }
+
       const goals = data.metrics
-        .filter((metric: any) => 
-          metric.name.toLowerCase().includes('conversion') || 
-          metric.name.toLowerCase().includes('goal')
-        )
+        .filter((metric: any) => {
+          // Add null checks for metric properties
+          if (!metric || typeof metric !== 'object') return false;
+          const metricName = metric.name || '';
+          return metricName.toLowerCase().includes('conversion') || 
+                 metricName.toLowerCase().includes('goal');
+        })
         .map((metric: any) => ({
-          id: metric.name,
-          name: metric.displayName || metric.name,
+          id: metric.name || '',
+          name: metric.displayName || metric.name || 'Unnamed Goal',
         }));
 
       console.log("Fetched conversion goals:", goals);
