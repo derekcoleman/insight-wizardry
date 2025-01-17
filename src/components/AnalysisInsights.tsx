@@ -34,11 +34,21 @@ export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps)
       </CardHeader>
       <CardContent>
         <div className="prose max-w-none">
-          {sections.map((section, index) => (
-            <div key={index} className="mb-6">
-              <div className="whitespace-pre-wrap">{section.trim()}</div>
-            </div>
-          ))}
+          {sections.map((section, index) => {
+            const [title, ...content] = section.trim().split('\n');
+            return (
+              <div key={index} className="mb-6">
+                <h3 className="text-lg font-semibold mb-3">{title}</h3>
+                <ul className="list-disc pl-6 space-y-2">
+                  {content
+                    .filter(line => line.trim())
+                    .map((line, i) => (
+                      <li key={i}>{line.trim().replace(/^[•-]\s*/, '')}</li>
+                    ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       </CardContent>
     </Card>

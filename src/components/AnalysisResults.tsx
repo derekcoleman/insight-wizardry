@@ -137,7 +137,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
                 <div>
                   <CardTitle>{analysis.title}</CardTitle>
                   {analysis.data.period && (
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-muted-foreground mt-2">
                       {analysis.data.period}
                     </p>
                   )}
