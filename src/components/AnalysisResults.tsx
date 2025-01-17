@@ -34,53 +34,61 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     { title: "Month over Month", data: report.monthly_analysis },
     { title: "Quarterly Analysis", data: report.quarterly_analysis },
     { title: "Year over Year", data: report.yoy_analysis },
-  ];
+  ].filter(analysis => analysis.data && analysis.data.current); // Only show analyses with valid data
+
+  if (analyses.length === 0) return null;
 
   return (
     <div className="space-y-6">
-      {analyses.map((analysis) => (
-        <Card key={analysis.title}>
-          <CardHeader>
-            <CardTitle>{analysis.title}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Organic Sessions</p>
-                  <p className="text-2xl font-bold">
-                    {analysis.data.current.sessions.toLocaleString()}
-                  </p>
-                  <p className={`text-sm ${analysis.data.changes.sessions >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {analysis.data.changes.sessions >= 0 ? '↑' : '↓'} {Math.abs(analysis.data.changes.sessions).toFixed(1)}%
-                  </p>
+      {analyses.map((analysis) => {
+        if (!analysis.data?.current) return null;
+        
+        return (
+          <Card key={analysis.title}>
+            <CardHeader>
+              <CardTitle>{analysis.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Organic Sessions</p>
+                    <p className="text-2xl font-bold">
+                      {analysis.data.current.sessions?.toLocaleString() ?? '0'}
+                    </p>
+                    <p className={`text-sm ${analysis.data.changes?.sessions >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {analysis.data.changes?.sessions >= 0 ? '↑' : '↓'} {Math.abs(analysis.data.changes?.sessions ?? 0).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Conversions</p>
+                    <p className="text-2xl font-bold">
+                      {analysis.data.current.conversions?.toLocaleString() ?? '0'}
+                    </p>
+                    <p className={`text-sm ${analysis.data.changes?.conversions >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {analysis.data.changes?.conversions >= 0 ? '↑' : '↓'} {Math.abs(analysis.data.changes?.conversions ?? 0).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Revenue</p>
+                    <p className="text-2xl font-bold">
+                      ${analysis.data.current.revenue?.toLocaleString() ?? '0'}
+                    </p>
+                    <p className={`text-sm ${analysis.data.changes?.revenue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {analysis.data.changes?.revenue >= 0 ? '↑' : '↓'} {Math.abs(analysis.data.changes?.revenue ?? 0).toFixed(1)}%
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Conversions</p>
-                  <p className="text-2xl font-bold">
-                    {analysis.data.current.conversions.toLocaleString()}
+                {analysis.data.summary && (
+                  <p className="text-sm text-muted-foreground mt-4">
+                    {analysis.data.summary}
                   </p>
-                  <p className={`text-sm ${analysis.data.changes.conversions >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {analysis.data.changes.conversions >= 0 ? '↑' : '↓'} {Math.abs(analysis.data.changes.conversions).toFixed(1)}%
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Revenue</p>
-                  <p className="text-2xl font-bold">
-                    ${analysis.data.current.revenue.toLocaleString()}
-                  </p>
-                  <p className={`text-sm ${analysis.data.changes.revenue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {analysis.data.changes.revenue >= 0 ? '↑' : '↓'} {Math.abs(analysis.data.changes.revenue).toFixed(1)}%
-                  </p>
-                </div>
+                )}
               </div>
-              <p className="text-sm text-muted-foreground mt-4">
-                {analysis.data.summary}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
