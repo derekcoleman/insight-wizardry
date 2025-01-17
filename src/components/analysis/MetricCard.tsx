@@ -15,6 +15,9 @@ export function MetricCard({ title, value, change, suffix = '' }: MetricCardProp
       <p className={`text-sm ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
         {change >= 0 ? '↑' : '↓'} {Math.abs(change).toFixed(1)}%
       </p>
+      <p className="text-xs text-muted-foreground mt-1">
+        Traffic Acquisition: Session primary channel group (Default channel group) (Organic)
+      </p>
     </div>
   );
 }

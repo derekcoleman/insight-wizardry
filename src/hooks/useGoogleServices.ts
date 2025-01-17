@@ -70,93 +70,86 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const fetchConversionGoals = async (propertyId: string) => {
     if (!accessToken) {
-      console.log("No access token available for fetching conversion metrics");
+      console.log("No access token available for fetching events");
       return;
     }
 
     try {
-      console.log("Fetching conversion metrics for property:", propertyId);
+      console.log("Fetching events for property:", propertyId);
       
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
       
+      // Fetch all available events
       const response = await fetch(
-        `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}/metadata`,
+        `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
         {
+          method: 'POST',
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            dateRanges: [{
+              startDate: '30daysAgo',
+              endDate: 'today',
+            }],
+            dimensions: [
+              { name: 'eventName' },
+            ],
+            metrics: [
+              { name: 'eventCount' },
+            ],
+          }),
         }
       );
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error("GA4 API Error Response:", errorText);
-        throw new Error(`Failed to fetch conversion metrics: ${response.statusText}`);
+        throw new Error(`Failed to fetch events: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log("Full metadata response:", data);
+      console.log("Events data response:", data);
+
+      // Extract unique event names and sort them
+      const uniqueEvents = new Set<string>();
+      data.rows?.forEach((row: any) => {
+        const eventName = row.dimensionValues?.[0]?.value;
+        if (eventName) {
+          uniqueEvents.add(eventName);
+        }
+      });
+
+      const eventsList = Array.from(uniqueEvents).sort();
       
-      if (!data.metrics) {
-        console.log("No metrics found in response");
-        setConversionGoals([]);
-        return;
-      }
+      // Create the goals list with Total Events as the first option
+      const goals = [
+        { id: 'Total Events', name: 'Total Events' },
+        ...eventsList.map(event => ({
+          id: event,
+          name: event
+        }))
+      ];
 
-      const goals = data.metrics
-        .filter((metric: any) => {
-          if (!metric || typeof metric !== 'object') {
-            console.log("Invalid metric object:", metric);
-            return false;
-          }
-
-          const metricName = metric.name || '';
-          const displayName = metric.displayName || '';
-          const category = metric.category || '';
-          const apiName = metric.apiName || '';
-
-          console.log("Evaluating metric:", {
-            name: metricName,
-            displayName: displayName,
-            category: category,
-            apiName: apiName,
-          });
-
-          const isConversion = 
-            (metricName && metricName.toLowerCase().includes('conversion')) || 
-            (category === 'CONVERSION') ||
-            (metric.customEvent === true && displayName.toLowerCase().includes('conversion'));
-
-          console.log(`Metric ${metricName} - Is Conversion: ${isConversion}`);
-
-          return isConversion;
-        })
-        .map((metric: any) => ({
-          id: metric.apiName || metric.name,
-          name: metric.displayName || metric.name,
-        }));
-
-      console.log("Found conversion metrics:", goals);
+      console.log("Available events:", goals);
       setConversionGoals(goals);
       
       if (goals.length === 0) {
-        console.log("No conversion metrics found after filtering");
         toast({
-          title: "No Conversion Metrics Found",
-          description: "No conversion metrics were found in this GA4 property. Please verify your GA4 configuration.",
+          title: "No Events Found",
+          description: "No events were found in this GA4 property",
           variant: "destructive",
         });
       } else {
-        console.log(`Found ${goals.length} conversion metrics`);
         toast({
-          title: "Conversion Metrics Found",
-          description: `Found ${goals.length} conversion metrics in this GA4 property`,
-          variant: "default",
+          title: "Events Found",
+          description: `Found ${goals.length - 1} events in this GA4 property`,
         });
       }
-    } catch (error) {
-      console.error("Error fetching conversion metrics:", error);
+    } catch (error: any) {
+      console.error("Error fetching events:", error);
       handleApiError(error, "Google Analytics");
       setConversionGoals([]);
     }
