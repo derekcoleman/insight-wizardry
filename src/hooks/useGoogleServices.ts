@@ -106,20 +106,29 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       const goals = data.metrics
         .filter((metric: any) => {
+          if (!metric || typeof metric !== 'object') {
+            console.log("Invalid metric object:", metric);
+            return false;
+          }
+
+          const metricName = metric.name || '';
+          const displayName = metric.displayName || '';
+          const category = metric.category || '';
+          const apiName = metric.apiName || '';
+
           console.log("Evaluating metric:", {
-            name: metric.name,
-            displayName: metric.displayName,
-            category: metric.category,
-            apiName: metric.apiName,
+            name: metricName,
+            displayName: displayName,
+            category: category,
+            apiName: apiName,
           });
 
           const isConversion = 
-            metric.name.includes('conversions') || 
-            metric.name.includes('conversion_rate') ||
-            metric.category === 'CONVERSION' ||
-            (metric.customEvent === true && metric.name.toLowerCase().includes('conversion'));
+            (metricName && metricName.toLowerCase().includes('conversion')) || 
+            (category === 'CONVERSION') ||
+            (metric.customEvent === true && displayName.toLowerCase().includes('conversion'));
 
-          console.log(`Metric ${metric.name} - Is Conversion: ${isConversion}`);
+          console.log(`Metric ${metricName} - Is Conversion: ${isConversion}`);
 
           return isConversion;
         })
