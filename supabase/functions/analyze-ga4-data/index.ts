@@ -31,14 +31,12 @@ serve(async (req) => {
     const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
 
-    // Calculate date ranges
+    // Calculate date ranges - now including today
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
     
-    // Last 7 days (ending yesterday)
+    // Last 7 days (including today)
     const last7DaysEnd = new Date(now);
-    last7DaysEnd.setDate(last7DaysEnd.getDate() - 1);
-    const last7DaysStart = new Date(last7DaysEnd);
+    const last7DaysStart = new Date(now);
     last7DaysStart.setDate(last7DaysStart.getDate() - 6);
     
     // Previous 7 days
@@ -47,10 +45,9 @@ serve(async (req) => {
     const prev7DaysStart = new Date(prev7DaysEnd);
     prev7DaysStart.setDate(prev7DaysStart.getDate() - 6);
 
-    // Last 28 days (ending yesterday)
+    // Last 28 days (including today)
     const last28DaysEnd = new Date(now);
-    last28DaysEnd.setDate(last28DaysEnd.getDate() - 1);
-    const last28DaysStart = new Date(last28DaysEnd);
+    const last28DaysStart = new Date(now);
     last28DaysStart.setDate(last28DaysStart.getDate() - 27);
     
     // Previous 28 days
