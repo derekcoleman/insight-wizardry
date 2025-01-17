@@ -46,18 +46,30 @@ serve(async (req) => {
     console.log('Initializing Google APIs...');
     const auth = new google.auth.GoogleAuth({
       credentials: serviceAccount,
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
+      scopes: [
+        'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/documents'
+      ],
     });
 
     const docs = google.docs({ version: 'v1', auth });
     const drive = google.drive({ version: 'v3', auth });
 
     console.log('Creating new document...');
-    const document = await docs.documents.create({
-      requestBody: {
-        title: `Analytics Report - ${new Date().toLocaleDateString()}`,
-      },
-    });
+    let document;
+    try {
+      document = await docs.documents.create({
+        requestBody: {
+          title: `Analytics Report - ${new Date().toLocaleDateString()}`,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating document:', error);
+      if (error.code === 403) {
+        throw new Error('Google Docs API is not enabled. Please enable it in the Google Cloud Console.');
+      }
+      throw error;
+    }
 
     const docId = document.data.documentId;
     if (!docId) {
@@ -66,13 +78,21 @@ serve(async (req) => {
     }
 
     console.log('Setting document permissions...');
-    await drive.permissions.create({
-      fileId: docId,
-      requestBody: {
-        role: 'reader',
-        type: 'anyone',
-      },
-    });
+    try {
+      await drive.permissions.create({
+        fileId: docId,
+        requestBody: {
+          role: 'reader',
+          type: 'anyone',
+        },
+      });
+    } catch (error) {
+      console.error('Error setting document permissions:', error);
+      if (error.code === 403) {
+        throw new Error('Google Drive API is not enabled. Please enable it in the Google Cloud Console.');
+      }
+      throw error;
+    }
 
     // Format the content
     const requests = [];
@@ -195,12 +215,17 @@ serve(async (req) => {
     addSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis);
 
     console.log('Applying document updates...');
-    await docs.documents.batchUpdate({
-      documentId: docId,
-      requestBody: {
-        requests,
-      },
-    });
+    try {
+      await docs.documents.batchUpdate({
+        documentId: docId,
+        requestBody: {
+          requests,
+        },
+      });
+    } catch (error) {
+      console.error('Error updating document content:', error);
+      throw error;
+    }
 
     console.log('Document created successfully');
     return new Response(
