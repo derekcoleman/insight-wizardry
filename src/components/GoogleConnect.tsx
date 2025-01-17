@@ -12,13 +12,11 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { PropertySelector } from "@/components/PropertySelector";
 import { ConversionGoalSelector } from "@/components/ConversionGoalSelector";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
-import { ServiceSelector } from "@/components/ServiceSelector";
 
 export function GoogleConnect() {
   const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
   const [selectedGoal, setSelectedGoal] = useState<string>("");
-  const [selectedService, setSelectedService] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -77,7 +75,6 @@ export function GoogleConnect() {
         gscProperty: selectedGscAccount,
         hasAccessToken: !!accessToken,
         mainConversionGoal: selectedGoal,
-        serviceFocus: selectedService,
       });
 
       const result = await supabase.functions.invoke('analyze-ga4-data', {
@@ -86,7 +83,6 @@ export function GoogleConnect() {
           gscProperty: selectedGscAccount,
           accessToken: accessToken,
           mainConversionGoal: selectedGoal || undefined,
-          serviceFocus: selectedService || undefined,
         },
       });
 
@@ -154,13 +150,6 @@ export function GoogleConnect() {
               goals={conversionGoals}
               value={selectedGoal}
               onValueChange={setSelectedGoal}
-            />
-          )}
-
-          {gaAccounts.length > 0 && (
-            <ServiceSelector
-              value={selectedService}
-              onValueChange={setSelectedService}
             />
           )}
 

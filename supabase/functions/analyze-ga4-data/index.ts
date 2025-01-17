@@ -15,8 +15,8 @@ serve(async (req) => {
   }
 
   try {
-    const { ga4Property, gscProperty, accessToken, mainConversionGoal, serviceFocus } = await req.json();
-    console.log('Analyzing data for:', { ga4Property, gscProperty, mainConversionGoal, serviceFocus });
+    const { ga4Property, gscProperty, accessToken, mainConversionGoal } = await req.json();
+    console.log('Analyzing data for:', { ga4Property, gscProperty, mainConversionGoal });
 
     if (!ga4Property || !accessToken) {
       return new Response(
@@ -122,17 +122,17 @@ serve(async (req) => {
         ytdSearchTerms,
         last28YoYSearchTerms
       ] = await Promise.all([
-        // GA4 Data with serviceFocus parameter
-        fetchGA4Data(cleanPropertyId, accessToken, last7DaysStart, last7DaysEnd, mainConversionGoal, serviceFocus),
-        fetchGA4Data(cleanPropertyId, accessToken, prev7DaysStart, prev7DaysEnd, mainConversionGoal, serviceFocus),
-        fetchGA4Data(cleanPropertyId, accessToken, last28DaysStart, last28DaysEnd, mainConversionGoal, serviceFocus),
-        fetchGA4Data(cleanPropertyId, accessToken, prev28DaysStart, prev28DaysEnd, mainConversionGoal, serviceFocus),
-        fetchGA4Data(cleanPropertyId, accessToken, lastQuarterStart, lastQuarterEnd, mainConversionGoal, serviceFocus),
-        fetchGA4Data(cleanPropertyId, accessToken, prevQuarterStart, prevQuarterEnd, mainConversionGoal, serviceFocus),
-        fetchGA4Data(cleanPropertyId, accessToken, ytdStart, ytdEnd, mainConversionGoal, serviceFocus),
-        fetchGA4Data(cleanPropertyId, accessToken, prevYtdStart, prevYtdEnd, mainConversionGoal, serviceFocus),
-        fetchGA4Data(cleanPropertyId, accessToken, last28YoYStart, last28YoYEnd, mainConversionGoal, serviceFocus),
-        fetchGA4Data(cleanPropertyId, accessToken, prev28YoYStart, prev28YoYEnd, mainConversionGoal, serviceFocus),
+        // GA4 Data
+        fetchGA4Data(cleanPropertyId, accessToken, last7DaysStart, last7DaysEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prev7DaysStart, prev7DaysEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, last28DaysStart, last28DaysEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prev28DaysStart, prev28DaysEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, lastQuarterStart, lastQuarterEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prevQuarterStart, prevQuarterEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, ytdStart, ytdEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prevYtdStart, prevYtdEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, last28YoYStart, last28YoYEnd, mainConversionGoal),
+        fetchGA4Data(cleanPropertyId, accessToken, prev28YoYStart, prev28YoYEnd, mainConversionGoal),
         // GSC Data
         ...(gscProperty ? [
           fetchGSCData(gscProperty, accessToken, last7DaysStart, last7DaysEnd),
