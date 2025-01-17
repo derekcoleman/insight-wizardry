@@ -25,7 +25,7 @@ export function analyzeTimePeriod(
 
   const changes = calculateChanges(organic.current, organic.previous);
 
-  // Format the period string to include the date ranges
+  // Format the period string to include the date ranges without duplication
   const periodText = `${formatDate(currentDateRange.start)} to ${formatDate(currentDateRange.end)} vs ${formatDate(previousDateRange.start)} to ${formatDate(previousDateRange.end)}`;
   
   return {
