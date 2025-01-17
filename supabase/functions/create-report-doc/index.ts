@@ -35,12 +35,6 @@ serve(async (req) => {
       throw new Error('Invalid service account configuration');
     }
 
-    if (!serviceAccount.client_email || !serviceAccount.private_key) {
-      console.error('Service account missing required fields');
-      throw new Error('Service account configuration is incomplete');
-    }
-
-    console.log('Initializing Google APIs...');
     const auth = new google.auth.GoogleAuth({
       credentials: serviceAccount,
       scopes: [
@@ -61,7 +55,6 @@ serve(async (req) => {
 
     const docId = document.data.documentId;
     if (!docId) {
-      console.error('Failed to get document ID from created document');
       throw new Error('Failed to create document');
     }
 
@@ -77,14 +70,13 @@ serve(async (req) => {
     const requests = [];
     let currentIndex = 1;
 
-    // Add title with heading style
+    // Add title
     requests.push({
       insertText: {
         location: { index: currentIndex },
         text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`,
       },
-    });
-    requests.push({
+    }, {
       updateParagraphStyle: {
         range: {
           startIndex: currentIndex,
@@ -92,22 +84,22 @@ serve(async (req) => {
         },
         paragraphStyle: {
           namedStyleType: "HEADING_1",
+          alignment: "CENTER"
         },
-        fields: "namedStyleType",
+        fields: "namedStyleType,alignment",
       },
     });
 
     currentIndex += `Analytics Report\n${new Date().toLocaleDateString()}\n\n`.length;
 
-    // Add AI Insights if available with formatting
+    // Add AI Insights with formatting
     if (insights) {
       requests.push({
         insertText: {
           location: { index: currentIndex },
           text: "AI Analysis\n\n",
         },
-      });
-      requests.push({
+      }, {
         updateParagraphStyle: {
           range: {
             startIndex: currentIndex,
@@ -121,7 +113,6 @@ serve(async (req) => {
       });
       currentIndex += "AI Analysis\n\n".length;
 
-      // Convert markdown bold and italic
       const formattedInsights = insights.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1");
       requests.push({
         insertText: {
@@ -129,38 +120,22 @@ serve(async (req) => {
           text: formattedInsights + "\n\n",
         },
       });
-      
-      // Apply bold formatting
+
+      // Batch formatting requests for bold and italic text
       const boldMatches = [...insights.matchAll(/\*\*(.*?)\*\*/g)];
-      boldMatches.forEach(match => {
-        const startOffset = insights.indexOf(match[0]);
-        requests.push({
+      if (boldMatches.length > 0) {
+        const boldRequests = boldMatches.map(match => ({
           updateTextStyle: {
             range: {
-              startIndex: currentIndex + startOffset,
-              endIndex: currentIndex + startOffset + match[1].length,
+              startIndex: currentIndex + insights.indexOf(match[0]),
+              endIndex: currentIndex + insights.indexOf(match[0]) + match[1].length,
             },
             textStyle: { bold: true },
             fields: "bold",
           },
-        });
-      });
-
-      // Apply italic formatting
-      const italicMatches = [...insights.matchAll(/\*(.*?)\*/g)];
-      italicMatches.forEach(match => {
-        const startOffset = insights.indexOf(match[0]);
-        requests.push({
-          updateTextStyle: {
-            range: {
-              startIndex: currentIndex + startOffset,
-              endIndex: currentIndex + startOffset + match[1].length,
-            },
-            textStyle: { italic: true },
-            fields: "italic",
-          },
-        });
-      });
+        }));
+        requests.push(...boldRequests);
+      }
 
       currentIndex += formattedInsights.length + 2;
     }
@@ -180,17 +155,72 @@ serve(async (req) => {
       return `${sign}${Number(change).toFixed(1)}%`;
     };
 
-    const addSection = (title: string, data: any) => {
-      if (!data?.current) return currentIndex;
+    const createTable = (headers: string[], rows: string[][]) => {
+      const table = {
+        insertTable: {
+          rows: rows.length + 1,
+          columns: headers.length,
+          location: { index: currentIndex },
+        },
+      };
+      requests.push(table);
 
-      // Add section title with heading style
+      // Add headers
+      headers.forEach((header, i) => {
+        requests.push({
+          insertText: {
+            location: { index: currentIndex + 1 + i },
+            text: header,
+          },
+        });
+      });
+
+      // Add data rows
+      rows.forEach((row, rowIndex) => {
+        row.forEach((cell, cellIndex) => {
+          requests.push({
+            insertText: {
+              location: { index: currentIndex + headers.length + (rowIndex * headers.length) + cellIndex + 1 },
+              text: cell,
+            },
+          });
+        });
+      });
+
+      // Style the table
+      requests.push({
+        updateTableCellStyle: {
+          tableRange: {
+            tableCellLocation: {
+              tableStartLocation: { index: currentIndex },
+            },
+            rowSpan: rows.length + 1,
+            columnSpan: headers.length,
+          },
+          tableCellStyle: {
+            backgroundColor: { color: { rgbColor: { red: 0.95, green: 0.95, blue: 0.95 } } },
+            paddingLeft: { magnitude: 5, unit: 'PT' },
+            paddingRight: { magnitude: 5, unit: 'PT' },
+            paddingTop: { magnitude: 5, unit: 'PT' },
+            paddingBottom: { magnitude: 5, unit: 'PT' },
+          },
+          fields: 'backgroundColor,paddingLeft,paddingRight,paddingTop,paddingBottom',
+        },
+      });
+
+      currentIndex += (rows.length + 1) * headers.length + 2;
+    };
+
+    const addSection = (title: string, data: any) => {
+      if (!data?.current) return;
+
+      // Add section title
       requests.push({
         insertText: {
           location: { index: currentIndex },
           text: `${title}\n`,
         },
-      });
-      requests.push({
+      }, {
         updateParagraphStyle: {
           range: {
             startIndex: currentIndex,
@@ -214,79 +244,16 @@ serve(async (req) => {
         currentIndex += `Period: ${data.period}\n\n`.length;
       }
 
-      // Create a table for metrics
-      const metrics = [
-        { label: 'Sessions', value: formatNumber(data.current.sessions), change: formatChange(data.changes?.sessions) },
-        { label: 'Conversions', value: formatNumber(data.current.conversions), change: formatChange(data.changes?.conversions) },
-        { label: 'Revenue', value: `$${formatNumber(data.current.revenue)}`, change: formatChange(data.changes?.revenue) },
+      // Create metrics table
+      const metricsHeaders = ['Metric', 'Value', 'Change'];
+      const metricsRows = [
+        ['Sessions', formatNumber(data.current.sessions), formatChange(data.changes?.sessions)],
+        ['Conversions', formatNumber(data.current.conversions), formatChange(data.changes?.conversions)],
+        ['Revenue', `$${formatNumber(data.current.revenue)}`, formatChange(data.changes?.revenue)],
       ];
+      createTable(metricsHeaders, metricsRows);
 
-      // Insert table
-      requests.push({
-        insertTable: {
-          location: { index: currentIndex },
-          rows: metrics.length + 1,
-          columns: 3,
-        },
-      });
-
-      // Add table headers
-      const headers = ['Metric', 'Value', 'Change'];
-      headers.forEach((header, i) => {
-        requests.push({
-          insertText: {
-            location: { index: currentIndex + 1 + i },
-            text: header,
-          },
-        });
-      });
-
-      // Add table data
-      metrics.forEach((metric, rowIndex) => {
-        const rowStart = currentIndex + headers.length + (rowIndex * 3);
-        requests.push({
-          insertText: {
-            location: { index: rowStart + 1 },
-            text: metric.label,
-          },
-        });
-        requests.push({
-          insertText: {
-            location: { index: rowStart + 2 },
-            text: metric.value,
-          },
-        });
-        requests.push({
-          insertText: {
-            location: { index: rowStart + 3 },
-            text: metric.change,
-          },
-        });
-      });
-
-      // Update table style
-      requests.push({
-        updateTableCellStyle: {
-          tableRange: {
-            tableCellLocation: {
-              tableStartLocation: { index: currentIndex },
-            },
-            rowSpan: metrics.length + 1,
-            columnSpan: 3,
-          },
-          tableCellStyle: {
-            backgroundColor: { color: { rgbColor: { red: 0.95, green: 0.95, blue: 0.95 } } },
-            paddingLeft: { magnitude: 5, unit: 'PT' },
-            paddingRight: { magnitude: 5, unit: 'PT' },
-            paddingTop: { magnitude: 5, unit: 'PT' },
-            paddingBottom: { magnitude: 5, unit: 'PT' },
-          },
-          fields: 'backgroundColor,paddingLeft,paddingRight,paddingTop,paddingBottom',
-        },
-      });
-
-      currentIndex += (metrics.length + 1) * 3 + 2;
-
+      // Add search terms table if available
       if (data.searchTerms?.length > 0) {
         requests.push({
           insertText: {
@@ -296,56 +263,14 @@ serve(async (req) => {
         });
         currentIndex += '\nTop Search Terms\n'.length;
 
-        // Create search terms table
-        requests.push({
-          insertTable: {
-            location: { index: currentIndex },
-            rows: data.searchTerms.length + 1,
-            columns: 4,
-          },
-        });
-
-        // Add table headers
         const searchHeaders = ['Term', 'Current Clicks', 'Previous Clicks', 'Change'];
-        searchHeaders.forEach((header, i) => {
-          requests.push({
-            insertText: {
-              location: { index: currentIndex + 1 + i },
-              text: header,
-            },
-          });
-        });
-
-        // Add search terms data
-        data.searchTerms.forEach((term: any, rowIndex: number) => {
-          const rowStart = currentIndex + searchHeaders.length + (rowIndex * 4);
-          requests.push({
-            insertText: {
-              location: { index: rowStart + 1 },
-              text: term.term,
-            },
-          });
-          requests.push({
-            insertText: {
-              location: { index: rowStart + 2 },
-              text: String(term.current.clicks),
-            },
-          });
-          requests.push({
-            insertText: {
-              location: { index: rowStart + 3 },
-              text: String(term.previous.clicks),
-            },
-          });
-          requests.push({
-            insertText: {
-              location: { index: rowStart + 4 },
-              text: formatChange(term.changes.clicks),
-            },
-          });
-        });
-
-        currentIndex += (data.searchTerms.length + 1) * 4 + 2;
+        const searchRows = data.searchTerms.map((term: any) => [
+          term.term,
+          String(term.current.clicks),
+          String(term.previous.clicks),
+          formatChange(term.changes.clicks),
+        ]);
+        createTable(searchHeaders, searchRows);
       }
 
       requests.push({
@@ -355,24 +280,29 @@ serve(async (req) => {
         },
       });
       currentIndex += 1;
-
-      return currentIndex;
     };
 
-    console.log('Adding content sections...');
+    // Process each section
     addSection('Weekly Analysis', report.weekly_analysis);
     addSection('Monthly Analysis', report.monthly_analysis);
     addSection('Quarterly Analysis', report.quarterly_analysis);
     addSection('Year to Date Analysis', report.ytd_analysis);
     addSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis);
 
-    console.log('Applying document updates...');
-    await docs.documents.batchUpdate({
-      documentId: docId,
-      requestBody: {
-        requests,
-      },
-    });
+    // Split requests into smaller batches to avoid API limits
+    const BATCH_SIZE = 100;
+    const batches = [];
+    for (let i = 0; i < requests.length; i += BATCH_SIZE) {
+      batches.push(requests.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`Processing ${batches.length} batches of requests...`);
+    for (const batch of batches) {
+      await docs.documents.batchUpdate({
+        documentId: docId,
+        requestBody: { requests: batch },
+      });
+    }
 
     console.log('Document created successfully');
     return new Response(
