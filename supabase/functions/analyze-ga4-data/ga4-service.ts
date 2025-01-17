@@ -6,7 +6,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
   console.log('Clean property ID:', cleanPropertyId);
   
   try {
-    // First request: Get session data
+    // First request: Get session data using sessionDefaultChannelGrouping
     const sessionResponse = await fetch(
       `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
       {
@@ -21,11 +21,10 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
             endDate: endDate.toISOString().split('T')[0],
           }],
           dimensions: [
-            { name: 'sessionSource' },
-            { name: 'sessionMedium' },
+            { name: 'sessionDefaultChannelGrouping' }
           ],
           metrics: [
-            { name: 'sessions' },
+            { name: 'sessions' }
           ],
         }),
       }
@@ -91,8 +90,8 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
 }
 
 export function extractOrganicMetrics(data: any) {
-  if (!data || !data.rows || !data.rows.length) {
-    console.log('No GA4 data rows found');
+  if (!data || !data.sessionData?.rows || !data.sessionData.rows.length) {
+    console.log('No GA4 session data rows found');
     return {
       sessions: 0,
       conversions: 0,
@@ -100,13 +99,12 @@ export function extractOrganicMetrics(data: any) {
     };
   }
 
-  // Calculate organic sessions from session data
-  const organicSessions = data.sessionData?.rows?.reduce((total: number, row: any) => {
-    const source = row.dimensionValues?.[0]?.value?.toLowerCase();
-    const medium = row.dimensionValues?.[1]?.value?.toLowerCase();
+  // Calculate organic sessions from session data using default channel grouping
+  const organicSessions = data.sessionData.rows.reduce((total: number, row: any) => {
+    const channelGrouping = row.dimensionValues?.[0]?.value?.toLowerCase();
     
-    // Check if it's organic search traffic
-    if (medium === 'organic' || source === 'google' || source === 'bing' || source === 'yahoo') {
+    // Check if it's organic search traffic from default channel grouping
+    if (channelGrouping === 'organic search') {
       return total + Number(row.metricValues?.[0]?.value || 0);
     }
     return total;
@@ -115,11 +113,11 @@ export function extractOrganicMetrics(data: any) {
   console.log('Organic sessions calculated:', organicSessions);
 
   // Filter for organic search traffic in event data
-  const organicRows = data.rows.filter((row: any) => {
+  const organicRows = data.rows?.filter((row: any) => {
     const source = row.dimensionValues?.[0]?.value?.toLowerCase();
     const medium = row.dimensionValues?.[1]?.value?.toLowerCase();
     return medium === 'organic' || source === 'google' || source === 'bing' || source === 'yahoo';
-  });
+  }) || [];
 
   console.log('Organic event rows:', organicRows);
 
@@ -128,7 +126,7 @@ export function extractOrganicMetrics(data: any) {
   
   // Calculate revenue
   const revenue = organicRows.reduce((total: number, row: any) => {
-    return total + Number(row.metricValues[1].value || 0);
+    return total + Number(row.metricValues?.[1]?.value || 0);
   }, 0);
 
   const metrics = {
