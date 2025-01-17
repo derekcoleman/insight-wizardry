@@ -309,38 +309,26 @@ function calculateChanges(current: any, previous: any) {
 function generateDetailedSummary(changes: any, current: any, previous: any, period: string) {
   const periodText = period === 'week' ? 'Week over Week (WoW)' : 'Month over Month (MoM)';
   
-  let summary = `${periodText} Performance Analysis:\n\n`;
+  let summary = `${periodText} Organic Performance Analysis:\n\n`;
   
   // GA4 Metrics
   if (current.source === 'GA4') {
-    summary += `Traffic and Engagement (GA4):\n`;
+    summary += `Traffic and Engagement:\n`;
     summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
     
-    if (current.engagedSessions > 0) {
-      summary += `Engaged sessions ${formatChange(changes.engagedSessions, true)} to ${current.engagedSessions.toLocaleString()}. `;
-    }
-    
-    if (current.bounceRate !== undefined) {
-      summary += `The bounce rate ${formatChange(changes.bounceRate, false)} to ${current.bounceRate.toFixed(1)}%. `;
-    }
-    
-    summary += `\n\nConversions and Revenue (GA4):\n`;
     if (current.conversions > 0) {
-      summary += `Organic conversions ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
+      const conversionType = current.conversionGoal || 'Total Conversions';
+      summary += `\n\nConversions:\nOrganic ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
     }
     
     if (current.revenue > 0) {
-      summary += `Organic revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
-      
-      if (current.averageOrderValue > 0) {
-        summary += `The average order value (AOV) ${formatChange(changes.averageOrderValue, true)} from $${previous.averageOrderValue.toLocaleString()} to $${current.averageOrderValue.toLocaleString()}. `;
-      }
+      summary += `\n\nRevenue:\nOrganic revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
     }
   }
   
   // GSC Metrics
   if (current.source === 'GSC') {
-    summary += `\n\nSearch Visibility (Search Console):\n`;
+    summary += `\n\nSearch Console Performance:\n`;
     summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${previous.clicks.toLocaleString()} to ${current.clicks.toLocaleString()}. `;
     summary += `Impressions ${formatChange(changes.impressions, true)} from ${previous.impressions.toLocaleString()} to ${current.impressions.toLocaleString()}. `;
     
