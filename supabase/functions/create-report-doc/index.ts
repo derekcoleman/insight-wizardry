@@ -55,20 +55,20 @@ serve(async (req) => {
       },
     });
 
-    // Process document creation in smaller batches
+    let currentIndex = 1;
     const requests = [];
 
     // Add title
     requests.push({
       insertText: {
-        location: { index: 1 },
+        location: { index: currentIndex },
         text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`
       }
     });
 
     requests.push({
       updateParagraphStyle: {
-        range: { startIndex: 1, endIndex: 30 },
+        range: { startIndex: currentIndex, endIndex: currentIndex + 30 },
         paragraphStyle: {
           namedStyleType: 'HEADING_1',
           alignment: 'CENTER'
@@ -77,110 +77,85 @@ serve(async (req) => {
       }
     });
 
-    // Process insights section
-    if (insights) {
-      const sections = insights.split('\n\n');
-      let currentIndex = 31;
+    currentIndex += 30;
 
+    // Add insights if available
+    if (insights) {
+      // Add Key Findings section
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: "Key Findings:\n\n"
+        }
+      });
+
+      requests.push({
+        updateParagraphStyle: {
+          range: { startIndex: currentIndex, endIndex: currentIndex + 14 },
+          paragraphStyle: { namedStyleType: 'HEADING_2' },
+          fields: 'namedStyleType'
+        }
+      });
+
+      currentIndex += 14;
+
+      // Process insights text
+      const sections = insights.split('\n\n');
       for (const section of sections) {
-        if (section.startsWith('Key Findings:') || section.startsWith('Recommended Next Steps:')) {
-          // Add section header
+        if (section.trim()) {
           requests.push({
             insertText: {
               location: { index: currentIndex },
-              text: section.split(':')[0] + ':\n\n'
+              text: section + '\n\n'
             }
           });
-
-          requests.push({
-            updateParagraphStyle: {
-              range: {
-                startIndex: currentIndex,
-                endIndex: currentIndex + section.split(':')[0].length + 2
-              },
-              paragraphStyle: { namedStyleType: 'HEADING_2' },
-              fields: 'namedStyleType'
-            }
-          });
-
-          currentIndex += section.split(':')[0].length + 3;
-        } else if (section.trim().startsWith('-')) {
-          // Process bullet points
-          const bulletPoints = section.split('\n').filter(line => line.trim());
-          
-          for (const point of bulletPoints) {
-            const cleanPoint = point.replace(/^-\s*/, '').trim();
-            
-            requests.push({
-              insertText: {
-                location: { index: currentIndex },
-                text: cleanPoint + '\n'
-              }
-            });
-
-            // Add bullet style
-            requests.push({
-              createParagraphBullets: {
-                range: {
-                  startIndex: currentIndex,
-                  endIndex: currentIndex + cleanPoint.length
-                },
-                bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
-              }
-            });
-
-            currentIndex += cleanPoint.length + 1;
-          }
+          currentIndex += section.length + 2;
         }
       }
     }
 
-    // Add analysis sections
+    // Process analysis sections
     const addAnalysisSection = (title: string, data: any) => {
+      // Add section title
       requests.push({
         insertText: {
-          location: { endOfSegmentLocation: {} },
-          text: `\n${title}\n\n`
+          location: { index: currentIndex },
+          text: `${title}\n\n`
         }
       });
+      currentIndex += title.length + 2;
 
       // Create table
-      requests.push({
-        insertTable: {
-          rows: 4,
-          columns: 4,
-          location: { endOfSegmentLocation: {} }
-        }
-      });
-
-      // Add headers
-      const headers = ['Metric', 'Current', 'Previous', 'Change'];
-      headers.forEach((header, i) => {
-        requests.push({
-          insertText: {
-            location: { endOfSegmentLocation: {} },
-            text: header + (i < headers.length - 1 ? '\t' : '\n')
-          }
-        });
-      });
-
-      // Add data rows
-      const metrics = [
-        ['Sessions', data.current.sessions, data.previous.sessions, `${data.changes.sessions}%`],
-        ['Conversions', data.current.conversions, data.previous.conversions, `${data.changes.conversions}%`],
+      const tableRows = [
+        ['Metric', 'Current', 'Previous', 'Change'],
+        ['Sessions', data.current.sessions.toString(), data.previous.sessions.toString(), `${data.changes.sessions}%`],
+        ['Conversions', data.current.conversions.toString(), data.previous.conversions.toString(), `${data.changes.conversions}%`],
         ['Revenue', `$${data.current.revenue}`, `$${data.previous.revenue}`, `${data.changes.revenue}%`]
       ];
 
-      metrics.forEach(row => {
-        row.forEach((cell, i) => {
+      // Insert table
+      requests.push({
+        insertTable: {
+          rows: tableRows.length,
+          columns: tableRows[0].length,
+          location: { index: currentIndex }
+        }
+      });
+
+      // Insert table content
+      tableRows.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
           requests.push({
             insertText: {
-              location: { endOfSegmentLocation: {} },
-              text: cell + (i < row.length - 1 ? '\t' : '\n')
+              location: { index: currentIndex },
+              text: cell + (colIndex < row.length - 1 ? '\t' : '\n')
             }
           });
+          currentIndex += cell.length + 1;
         });
       });
+
+      currentIndex += 2; // Add extra spacing after table
     };
 
     // Add analysis sections
