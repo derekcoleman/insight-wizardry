@@ -18,11 +18,10 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
           }],
           dimensions: [
             { name: 'sessionDefaultChannelGroup' },
-            { name: 'eventName' },
           ],
           metrics: [
             { name: 'sessions' },
-            { name: 'eventCount' },
+            { name: mainConversionGoal || 'conversions' },
             { name: 'totalRevenue' },
           ],
         }),
@@ -38,9 +37,8 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
     const data = await response.json();
     console.log('GA4 API Response:', data);
     
-    // Add conversion goal name and source description to the response
-    data.conversionGoal = mainConversionGoal || 'Total Events';
-    data.source = 'Traffic Acquisition: Session primary channel group (Default channel group)';
+    // Add conversion goal name to the response
+    data.conversionGoal = mainConversionGoal || 'Total Conversions';
     return data;
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
@@ -55,7 +53,7 @@ export function extractOrganicMetrics(data: any) {
       sessions: 0,
       conversions: 0,
       revenue: 0,
-      source: data?.source || 'GA4',
+      source: 'GA4',
     };
   }
 
@@ -64,12 +62,11 @@ export function extractOrganicMetrics(data: any) {
     row.dimensionValues?.[0]?.value === 'Organic Search'
   );
 
-  // Calculate total sessions and revenue for organic traffic
   const metrics = {
     sessions: sumMetric(organicRows, 0),
-    conversions: sumEventMetric(organicRows, data.conversionGoal),
+    conversions: sumMetric(organicRows, 1),
     revenue: sumMetric(organicRows, 2),
-    source: data.source || 'GA4',
+    source: 'GA4',
   };
 
   console.log('Extracted GA4 metrics:', metrics);
@@ -80,18 +77,5 @@ function sumMetric(rows: any[], metricIndex: number) {
   return rows.reduce((sum: number, row: any) => {
     const value = row.metricValues?.[metricIndex]?.value;
     return sum + (Number(value) || 0);
-  }, 0);
-}
-
-function sumEventMetric(rows: any[], eventName: string) {
-  if (!eventName || eventName === 'Total Events') {
-    return sumMetric(rows, 1); // Return total event count
-  }
-
-  return rows.reduce((sum: number, row: any) => {
-    if (row.dimensionValues?.[1]?.value === eventName) {
-      return sum + (Number(row.metricValues?.[1]?.value) || 0);
-    }
-    return sum;
   }, 0);
 }
