@@ -16,6 +16,10 @@ serve(async (req) => {
     const { ga4Property, gscProperty, accessToken, mainConversionGoal } = await req.json();
     console.log('Analyzing data for:', { ga4Property, gscProperty, mainConversionGoal });
 
+    if (!ga4Property || !accessToken) {
+      throw new Error('Missing required parameters');
+    }
+
     // Initialize dates for different time periods
     const now = new Date();
     const lastWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -64,14 +68,20 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('Error inserting report:', insertError);
+      throw insertError;
+    }
 
     return new Response(JSON.stringify({ report }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Error in analyze-ga4-data function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'An unknown error occurred',
+      details: error instanceof Error ? error.stack : undefined
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -79,78 +89,95 @@ serve(async (req) => {
 });
 
 async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
-  const metrics = [
-    { name: 'sessions' },
-    { name: mainConversionGoal || 'conversions' },
-    { name: 'totalRevenue' },
-  ];
+  try {
+    const metrics = [
+      { name: 'sessions' },
+      { name: mainConversionGoal || 'conversions' },
+      { name: 'totalRevenue' },
+    ];
 
-  const response = await fetch(
-    `https://analyticsdata.googleapis.com/v1beta/${propertyId}/runReport`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        dateRanges: [{
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-        }],
-        dimensions: [
-          { name: 'sessionSource' },
-          { name: 'sessionMedium' },
-        ],
-        metrics,
-      }),
+    const response = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/${propertyId}/runReport`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateRanges: [{
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+          }],
+          dimensions: [
+            { name: 'sessionSource' },
+            { name: 'sessionMedium' },
+          ],
+          metrics,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('GA4 API Error Response:', errorData);
+      throw new Error(`GA4 API error: ${response.statusText}`);
     }
-  );
 
-  if (!response.ok) {
-    throw new Error(`GA4 API error: ${response.statusText}`);
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching GA4 data:', error);
+    throw error;
   }
-
-  return await response.json();
 }
 
 function analyzeTimePeriod(currentData: any, previousData: any, period: string) {
-  // Extract organic traffic metrics
-  const organic = {
-    current: extractOrganicMetrics(currentData),
-    previous: extractOrganicMetrics(previousData),
-  };
+  try {
+    // Extract organic traffic metrics
+    const organic = {
+      current: extractOrganicMetrics(currentData),
+      previous: extractOrganicMetrics(previousData),
+    };
 
-  // Calculate changes
-  const changes = {
-    sessions: calculatePercentageChange(
-      organic.current.sessions,
-      organic.previous.sessions
-    ),
-    conversions: calculatePercentageChange(
-      organic.current.conversions,
-      organic.previous.conversions
-    ),
-    revenue: calculatePercentageChange(
-      organic.current.revenue,
-      organic.previous.revenue
-    ),
-  };
+    // Calculate changes
+    const changes = {
+      sessions: calculatePercentageChange(
+        organic.current.sessions,
+        organic.previous.sessions
+      ),
+      conversions: calculatePercentageChange(
+        organic.current.conversions,
+        organic.previous.conversions
+      ),
+      revenue: calculatePercentageChange(
+        organic.current.revenue,
+        organic.previous.revenue
+      ),
+    };
 
-  return {
-    period,
-    current: organic.current,
-    previous: organic.previous,
-    changes,
-    summary: generateSummary(changes, period),
-  };
+    return {
+      period,
+      current: organic.current,
+      previous: organic.previous,
+      changes,
+      summary: generateSummary(changes, period),
+    };
+  } catch (error) {
+    console.error(`Error analyzing ${period} data:`, error);
+    throw error;
+  }
 }
 
 function extractOrganicMetrics(data: any) {
-  const organicTraffic = data.rows?.filter(
+  if (!data || !data.rows) {
+    console.warn('No data available for metric extraction');
+    return { sessions: 0, conversions: 0, revenue: 0 };
+  }
+
+  const organicTraffic = data.rows.filter(
     (row: any) => 
-      row.dimensionValues[0].value === 'google' && 
-      row.dimensionValues[1].value === 'organic'
+      row.dimensionValues?.[0]?.value === 'google' && 
+      row.dimensionValues?.[1]?.value === 'organic'
   ) || [];
 
   return {
@@ -161,9 +188,10 @@ function extractOrganicMetrics(data: any) {
 }
 
 function sumMetric(rows: any[], metricIndex: number) {
-  return rows.reduce((sum: number, row: any) => 
-    sum + Number(row.metricValues[metricIndex].value), 0
-  );
+  return rows.reduce((sum: number, row: any) => {
+    const value = row.metricValues?.[metricIndex]?.value;
+    return sum + (Number(value) || 0);
+  }, 0);
 }
 
 function calculatePercentageChange(current: number, previous: number) {

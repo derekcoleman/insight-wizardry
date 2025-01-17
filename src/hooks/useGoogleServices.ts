@@ -121,9 +121,10 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       const data = await response.json();
+      console.log("Metadata response:", data);
       
-      if (!data.metrics || !Array.isArray(data.metrics)) {
-        console.log("No metrics found in response:", data);
+      if (!data.metrics) {
+        console.log("No metrics found in response");
         setConversionGoals([]);
         return;
       }
@@ -133,7 +134,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           if (!metric || typeof metric !== 'object') return false;
           const metricName = metric.name || '';
           return metricName.toLowerCase().includes('conversion') || 
-                 metricName.toLowerCase().includes('goal');
+                 metricName.toLowerCase().includes('goal') ||
+                 metricName.toLowerCase().includes('event');
         })
         .map((metric: any) => ({
           id: metric.name || '',
