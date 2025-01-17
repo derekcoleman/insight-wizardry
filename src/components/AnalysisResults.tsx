@@ -138,7 +138,13 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
                   <CardTitle>{analysis.title}</CardTitle>
                   {analysis.data.period && (
                     <p className="text-sm text-muted-foreground mt-2">
-                      {analysis.data.period}
+                      {analysis.data.period.replace(/week|month|quarter|year/i, (match) => {
+                        const dates = analysis.data.period.match(/\d{4}-\d{2}-\d{2}/g);
+                        if (dates && dates.length === 2) {
+                          return `${dates[0]} to ${dates[1]}`;
+                        }
+                        return match;
+                      })}
                     </p>
                   )}
                 </div>
