@@ -38,6 +38,7 @@ export function GoogleConnect() {
   const handleGaAccountChange = async (value: string) => {
     setSelectedGaAccount(value);
     if (value) {
+      console.log("Fetching conversion goals for GA4 property:", value);
       await fetchConversionGoals(value);
     }
   };
