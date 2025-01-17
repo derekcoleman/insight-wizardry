@@ -130,10 +130,10 @@ serve(async (req) => {
     };
 
     // Function to format percentage changes
-    const formatChange = (change: number | undefined) => {
-      if (change === undefined || isNaN(change)) return 'N/A';
+    const formatChange = (change: number | undefined | null) => {
+      if (change === undefined || change === null || isNaN(change)) return 'N/A';
       const sign = change >= 0 ? '+' : '';
-      return `${sign}${change.toFixed(1)}%`;
+      return `${sign}${Number(change).toFixed(1)}%`;
     };
 
     // Function to add a section
