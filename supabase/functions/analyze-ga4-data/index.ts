@@ -33,44 +33,48 @@ serve(async (req) => {
 
     // Calculate date ranges for last 7 days and previous 7 days
     const now = new Date();
+    now.setHours(0, 0, 0, 0); // Set to start of day for consistent comparisons
+    
     const last7DaysEnd = new Date(now);
-    const last7DaysStart = new Date(now);
-    last7DaysStart.setDate(last7DaysStart.getDate() - 7);
+    last7DaysEnd.setDate(last7DaysEnd.getDate() - 1); // Yesterday
+    const last7DaysStart = new Date(last7DaysEnd);
+    last7DaysStart.setDate(last7DaysStart.getDate() - 6); // Last 7 days including yesterday
     
     const prev7DaysEnd = new Date(last7DaysStart);
     prev7DaysEnd.setDate(prev7DaysEnd.getDate() - 1);
     const prev7DaysStart = new Date(prev7DaysEnd);
-    prev7DaysStart.setDate(prev7DaysStart.getDate() - 7);
+    prev7DaysStart.setDate(prev7DaysStart.getDate() - 6);
 
-    // Calculate date ranges for last 28 days and previous 28 days (for monthly comparison)
+    // Calculate date ranges for last 28 days and previous 28 days
     const last28DaysEnd = new Date(now);
-    const last28DaysStart = new Date(now);
-    last28DaysStart.setDate(last28DaysStart.getDate() - 28);
+    last28DaysEnd.setDate(last28DaysEnd.getDate() - 1); // Yesterday
+    const last28DaysStart = new Date(last28DaysEnd);
+    last28DaysStart.setDate(last28DaysStart.getDate() - 27); // Last 28 days including yesterday
     
     const prev28DaysEnd = new Date(last28DaysStart);
     prev28DaysEnd.setDate(prev28DaysEnd.getDate() - 1);
     const prev28DaysStart = new Date(prev28DaysEnd);
-    prev28DaysStart.setDate(prev28DaysStart.getDate() - 28);
+    prev28DaysStart.setDate(prev28DaysStart.getDate() - 27);
 
     console.log('Date ranges:', {
       weekly: {
         current: {
-          start: last7DaysStart.toISOString(),
-          end: last7DaysEnd.toISOString()
+          start: last7DaysStart.toISOString().split('T')[0],
+          end: last7DaysEnd.toISOString().split('T')[0]
         },
         previous: {
-          start: prev7DaysStart.toISOString(),
-          end: prev7DaysEnd.toISOString()
+          start: prev7DaysStart.toISOString().split('T')[0],
+          end: prev7DaysEnd.toISOString().split('T')[0]
         }
       },
       monthly: {
         current: {
-          start: last28DaysStart.toISOString(),
-          end: last28DaysEnd.toISOString()
+          start: last28DaysStart.toISOString().split('T')[0],
+          end: last28DaysEnd.toISOString().split('T')[0]
         },
         previous: {
-          start: prev28DaysStart.toISOString(),
-          end: prev28DaysEnd.toISOString()
+          start: prev28DaysStart.toISOString().split('T')[0],
+          end: prev28DaysEnd.toISOString().split('T')[0]
         }
       }
     });
@@ -95,11 +99,17 @@ serve(async (req) => {
       if (gscProperty) {
         console.log('Fetching Search Console data for weekly comparison...');
         weeklyGSCData = await fetchGSCData(gscProperty, accessToken, last7DaysStart, last7DaysEnd);
+        console.log('Weekly GSC Data:', weeklyGSCData);
+        
         prevWeekGSCData = await fetchGSCData(gscProperty, accessToken, prev7DaysStart, prev7DaysEnd);
+        console.log('Previous Week GSC Data:', prevWeekGSCData);
 
         console.log('Fetching Search Console data for monthly comparison...');
         monthlyGSCData = await fetchGSCData(gscProperty, accessToken, last28DaysStart, last28DaysEnd);
+        console.log('Monthly GSC Data:', monthlyGSCData);
+        
         prevMonthGSCData = await fetchGSCData(gscProperty, accessToken, prev28DaysStart, prev28DaysEnd);
+        console.log('Previous Month GSC Data:', prevMonthGSCData);
       }
 
       const analysis = {
@@ -210,7 +220,7 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
 
 async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Date, endDate: Date) {
   try {
-    console.log(`Fetching GSC data for ${siteUrl} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`Fetching GSC data for ${siteUrl} from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
     
     const response = await fetch(
       'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
@@ -223,8 +233,9 @@ async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Dat
         body: JSON.stringify({
           startDate: startDate.toISOString().split('T')[0],
           endDate: endDate.toISOString().split('T')[0],
-          dimensions: ['query'],
-          rowLimit: 25000, // Increased to get more complete data
+          dimensions: [], // Remove dimensions to get total aggregated data
+          rowLimit: 1, // We only need the totals
+          aggregationType: 'auto' // Let GSC determine the best aggregation
         }),
       }
     );
@@ -237,7 +248,28 @@ async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Dat
 
     const data = await response.json();
     console.log('GSC API Response:', data);
-    return data;
+
+    // If no data is returned, return zeros
+    if (!data.rows || data.rows.length === 0) {
+      console.log('No GSC data found for the period');
+      return {
+        clicks: 0,
+        impressions: 0,
+        ctr: 0,
+        position: 0
+      };
+    }
+
+    // Return the totals directly from the first (and only) row
+    const totals = data.rows[0];
+    console.log('GSC totals:', totals);
+    
+    return {
+      clicks: totals.clicks || 0,
+      impressions: totals.impressions || 0,
+      ctr: totals.ctr ? (totals.ctr * 100) : 0, // Convert to percentage
+      position: totals.position || 0
+    };
   } catch (error) {
     console.error('Error fetching GSC data:', error);
     throw error;
