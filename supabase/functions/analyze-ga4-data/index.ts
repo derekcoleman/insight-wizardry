@@ -126,11 +126,27 @@ serve(async (req) => {
 
       const analysis = {
         weekly_analysis: {
-          ...analyzeTimePeriod(weeklyGA4Data, prevWeekGA4Data, weeklyGSCData, prevWeekGSCData, 'week'),
+          ...analyzeTimePeriod(
+            weeklyGA4Data, 
+            prevWeekGA4Data, 
+            weeklyGSCData, 
+            prevWeekGSCData, 
+            'week',
+            { start: last7DaysStart, end: last7DaysEnd },
+            { start: prev7DaysStart, end: prev7DaysEnd }
+          ),
           searchTerms: weeklySearchTerms
         },
         monthly_analysis: {
-          ...analyzeTimePeriod(monthlyGA4Data, prevMonthGA4Data, monthlyGSCData, prevMonthGSCData, 'month'),
+          ...analyzeTimePeriod(
+            monthlyGA4Data, 
+            prevMonthGA4Data, 
+            monthlyGSCData, 
+            prevMonthGSCData, 
+            'month',
+            { start: last28DaysStart, end: last28DaysEnd },
+            { start: prev28DaysStart, end: prev28DaysEnd }
+          ),
           searchTerms: monthlySearchTerms
         }
       };
@@ -162,6 +178,95 @@ serve(async (req) => {
     });
   }
 });
+
+function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSCData: any, previousGSCData: any, period: string, currentDateRange: { start: Date; end: Date }, previousDateRange: { start: Date; end: Date }) {
+  const organic = {
+    current: {
+      ...extractOrganicMetrics(currentGA4Data),
+      ...(currentGSCData ? extractGSCMetrics(currentGSCData) : {}),
+      conversionGoal: currentGA4Data?.conversionGoal || 'Total Conversions',
+    },
+    previous: {
+      ...extractOrganicMetrics(previousGA4Data),
+      ...(previousGSCData ? extractGSCMetrics(previousGSCData) : {}),
+      conversionGoal: previousGA4Data?.conversionGoal || 'Total Conversions',
+    },
+  };
+
+  console.log('Analyzed data:', organic);
+
+  const changes = calculateChanges(organic.current, organic.previous);
+  console.log('Calculated changes:', changes);
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  
+  const periodText = period === 'month' ? 
+    `${formatDate(currentDateRange.start)} to ${formatDate(currentDateRange.end)} vs ${formatDate(previousDateRange.start)} to ${formatDate(previousDateRange.end)}` : 
+    `${formatDate(currentDateRange.start)} to ${formatDate(currentDateRange.end)} vs ${formatDate(previousDateRange.start)} to ${formatDate(previousDateRange.end)}`;
+  
+  return {
+    period,
+    current: organic.current,
+    previous: organic.previous,
+    changes,
+    summary: generateDetailedSummary(changes, organic.current, organic.previous, periodText),
+    dataSources: {
+      ga4: Boolean(currentGA4Data),
+      gsc: Boolean(currentGSCData),
+    },
+  };
+}
+
+function generateDetailedSummary(changes: any, current: any, previous: any, periodText: string) {
+  let summary = `${periodText} Organic Performance Analysis:\n\n`;
+  
+  // GA4 Metrics
+  if (current.sessions !== undefined) {
+    summary += `Traffic and Engagement:\n`;
+    summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
+    
+    if (current.conversions > 0) {
+      const conversionType = current.conversionGoal || 'Total Conversions';
+      summary += `\n\nConversions:\nOrganic ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
+    }
+    
+    if (current.revenue > 0) {
+      summary += `\n\nRevenue:\nOrganic revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
+    }
+  }
+  
+  // GSC Metrics
+  if (current.clicks !== undefined) {
+    console.log('Adding GSC metrics to summary:', {
+      currentClicks: current.clicks,
+      previousClicks: previous.clicks,
+      currentImpressions: current.impressions,
+      previousImpressions: previous.impressions,
+      currentCtr: current.ctr,
+      previousCtr: previous.ctr,
+      currentPosition: current.position,
+      previousPosition: previous.position,
+    });
+
+    summary += `\n\nSearch Console Performance:\n`;
+    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${Math.round(previous.clicks).toLocaleString()} to ${Math.round(current.clicks).toLocaleString()}. `;
+    summary += `Impressions ${formatChange(changes.impressions, true)} from ${Math.round(previous.impressions).toLocaleString()} to ${Math.round(current.impressions).toLocaleString()}. `;
+    
+    const currentCtr = current.ctr * 100;
+    const previousCtr = previous.ctr * 100;
+    if (!isNaN(currentCtr) && !isNaN(previousCtr)) {
+      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${currentCtr.toFixed(1)}%. `;
+    }
+    
+    if (current.position !== undefined && previous.position !== undefined) {
+      summary += `The average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
+    }
+  }
+
+  return summary;
+}
 
 async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
   console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
@@ -418,38 +523,6 @@ async function fetchGSCSearchTerms(
   }
 }
 
-function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSCData: any, previousGSCData: any, period: string) {
-  const organic = {
-    current: {
-      ...extractOrganicMetrics(currentGA4Data),
-      ...(currentGSCData ? extractGSCMetrics(currentGSCData) : {}),
-      conversionGoal: currentGA4Data?.conversionGoal || 'Total Conversions',
-    },
-    previous: {
-      ...extractOrganicMetrics(previousGA4Data),
-      ...(previousGSCData ? extractGSCMetrics(previousGSCData) : {}),
-      conversionGoal: previousGA4Data?.conversionGoal || 'Total Conversions',
-    },
-  };
-
-  console.log('Analyzed data:', organic);
-
-  const changes = calculateChanges(organic.current, organic.previous);
-  console.log('Calculated changes:', changes);
-  
-  return {
-    period,
-    current: organic.current,
-    previous: organic.previous,
-    changes,
-    summary: generateDetailedSummary(changes, organic.current, organic.previous, period),
-    dataSources: {
-      ga4: Boolean(currentGA4Data),
-      gsc: Boolean(currentGSCData),
-    },
-  };
-}
-
 function extractOrganicMetrics(data: any) {
   if (!data || !data.rows || !data.rows.length) {
     console.log('No GA4 data rows found');
@@ -507,59 +580,6 @@ function calculateChanges(current: any, previous: any) {
   }
   
   return changes;
-}
-
-function generateDetailedSummary(changes: any, current: any, previous: any, period: string) {
-  const periodText = period === 'month' ? 
-    'Month over Month (Last 28 Days vs Previous 28 Days)' : 
-    'Week over Week (Last 7 Days vs Previous 7 Days)';
-  
-  let summary = `${periodText} Organic Performance Analysis:\n\n`;
-  
-  // GA4 Metrics
-  if (current.sessions !== undefined) {
-    summary += `Traffic and Engagement:\n`;
-    summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
-    
-    if (current.conversions > 0) {
-      const conversionType = current.conversionGoal || 'Total Conversions';
-      summary += `\n\nConversions:\nOrganic ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
-    }
-    
-    if (current.revenue > 0) {
-      summary += `\n\nRevenue:\nOrganic revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
-    }
-  }
-  
-  // GSC Metrics
-  if (current.clicks !== undefined) {
-    console.log('Adding GSC metrics to summary:', {
-      currentClicks: current.clicks,
-      previousClicks: previous.clicks,
-      currentImpressions: current.impressions,
-      previousImpressions: previous.impressions,
-      currentCtr: current.ctr,
-      previousCtr: previous.ctr,
-      currentPosition: current.position,
-      previousPosition: previous.position,
-    });
-
-    summary += `\n\nSearch Console Performance:\n`;
-    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${Math.round(previous.clicks).toLocaleString()} to ${Math.round(current.clicks).toLocaleString()}. `;
-    summary += `Impressions ${formatChange(changes.impressions, true)} from ${Math.round(previous.impressions).toLocaleString()} to ${Math.round(current.impressions).toLocaleString()}. `;
-    
-    const currentCtr = current.ctr * 100;
-    const previousCtr = previous.ctr * 100;
-    if (!isNaN(currentCtr) && !isNaN(previousCtr)) {
-      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${currentCtr.toFixed(1)}%. `;
-    }
-    
-    if (current.position !== undefined && previous.position !== undefined) {
-      summary += `The average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
-    }
-  }
-
-  return summary;
 }
 
 function formatChange(change: number, higherIsBetter: boolean = true) {
