@@ -2,11 +2,12 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
   console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
   console.log('Using event metric:', mainConversionGoal || 'Total Events');
   
-  const cleanPropertyId = propertyId.replace('properties/', '');
+  const cleanPropertyId = propertyId.replace(/^properties\//, '');
+  console.log('Clean property ID:', cleanPropertyId);
   
   try {
     const response = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/${cleanPropertyId}:runReport`,
+      `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
       {
         method: 'POST',
         headers: {
