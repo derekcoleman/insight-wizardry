@@ -18,6 +18,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
           }],
           dimensions: [
             { name: 'sessionDefaultChannelGroup' },
+            { name: 'eventName' },
           ],
           metrics: [
             { name: 'sessions' },
@@ -65,7 +66,7 @@ export function extractOrganicMetrics(data: any) {
 
   const metrics = {
     sessions: sumMetric(organicRows, 0),
-    conversions: sumMetric(organicRows, 1),
+    conversions: sumMetricForEvent(organicRows, 1, data.conversionGoal),
     revenue: sumMetric(organicRows, 2),
   };
 
@@ -81,9 +82,11 @@ function sumMetric(rows: any[], metricIndex: number) {
 }
 
 function sumMetricForEvent(rows: any[], metricIndex: number, eventName: string) {
-  if (eventName === 'Total Events') {
+  if (!eventName || eventName === 'Total Events') {
     return sumMetric(rows, metricIndex);
   }
+  
+  // Filter rows for the specific event and sum its count
   return rows.reduce((sum: number, row: any) => {
     if (row.dimensionValues?.[1]?.value === eventName) {
       const value = row.metricValues?.[metricIndex]?.value;
