@@ -20,10 +20,22 @@ serve(async (req) => {
     }
 
     console.log('Initializing Google Drive API with service account');
-    const serviceAccount = JSON.parse(Deno.env.get('GOOGLE_SERVICE_ACCOUNT') || '');
+    const serviceAccountStr = Deno.env.get('GOOGLE_SERVICE_ACCOUNT');
     
-    if (!serviceAccount.client_email || !serviceAccount.private_key) {
+    if (!serviceAccountStr) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT environment variable is not set');
+    }
+
+    let serviceAccount;
+    try {
+      serviceAccount = JSON.parse(serviceAccountStr);
+    } catch (error) {
+      console.error('Failed to parse service account JSON:', error);
       throw new Error('Invalid service account configuration');
+    }
+
+    if (!serviceAccount.client_email || !serviceAccount.private_key) {
+      throw new Error('Service account is missing required fields');
     }
 
     const auth = new google.auth.GoogleAuth({
@@ -80,13 +92,24 @@ serve(async (req) => {
 
     // Function to format numbers
     const formatNumber = (num: number | undefined) => {
-      if (num === undefined) return 'N/A';
-      return num.toLocaleString();
+      if (num === undefined || isNaN(num)) return 'N/A';
+      return new Intl.NumberFormat('en-US', {
+        maximumFractionDigits: 2,
+        notation: 'compact',
+        compactDisplay: 'short'
+      }).format(num);
+    };
+
+    // Function to format percentage changes
+    const formatChange = (change: number | undefined) => {
+      if (change === undefined || isNaN(change)) return 'N/A';
+      const sign = change >= 0 ? '+' : '';
+      return `${sign}${change.toFixed(1)}%`;
     };
 
     // Function to add a section
     const addSection = (title: string, data: any) => {
-      if (!data) return currentIndex;
+      if (!data?.current) return currentIndex;
 
       requests.push({
         insertText: {
@@ -108,47 +131,43 @@ serve(async (req) => {
       }
 
       // Add metrics
-      if (data.current) {
-        const metrics = [
-          { label: 'Sessions', value: formatNumber(data.current.sessions), change: data.changes?.sessions },
-          { label: 'Conversions', value: formatNumber(data.current.conversions), change: data.changes?.conversions },
-          { label: 'Revenue', value: formatNumber(data.current.revenue), change: data.changes?.revenue },
-        ];
+      const metrics = [
+        { label: 'Sessions', value: formatNumber(data.current.sessions), change: formatChange(data.changes?.sessions) },
+        { label: 'Conversions', value: formatNumber(data.current.conversions), change: formatChange(data.changes?.conversions) },
+        { label: 'Revenue', value: `$${formatNumber(data.current.revenue)}`, change: formatChange(data.changes?.revenue) },
+      ];
 
-        metrics.forEach(metric => {
-          if (metric.value !== undefined) {
-            const text = `${metric.label}: ${metric.value} (${metric.change >= 0 ? '+' : ''}${metric.change}%)\n`;
-            requests.push({
-              insertText: {
-                location: { index: currentIndex },
-                text,
-              },
-            });
-            currentIndex += text.length;
-          }
+      metrics.forEach(metric => {
+        const text = `${metric.label}: ${metric.value} (${metric.change})\n`;
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text,
+          },
         });
+        currentIndex += text.length;
+      });
 
-        // Add search terms if available
-        if (data.searchTerms && data.searchTerms.length > 0) {
+      // Add search terms if available
+      if (data.searchTerms?.length > 0) {
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: '\nTop Search Terms:\n',
+          },
+        });
+        currentIndex += '\nTop Search Terms:\n'.length;
+
+        data.searchTerms.forEach((term: any) => {
+          const termText = `${term.term}: ${formatNumber(term.current.clicks)} clicks (${formatChange(term.changes.clicks)})\n`;
           requests.push({
             insertText: {
               location: { index: currentIndex },
-              text: '\nTop Search Terms:\n',
+              text: termText,
             },
           });
-          currentIndex += '\nTop Search Terms:\n'.length;
-
-          data.searchTerms.forEach((term: any) => {
-            const termText = `${term.term}: ${term.current.clicks} clicks (${term.changes.clicks}% change)\n`;
-            requests.push({
-              insertText: {
-                location: { index: currentIndex },
-                text: termText,
-              },
-            });
-            currentIndex += termText.length;
-          });
-        }
+          currentIndex += termText.length;
+        });
       }
 
       requests.push({
@@ -189,9 +208,10 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Error creating document:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'An unknown error occurred',
+        error: errorMessage,
         details: error instanceof Error ? error.stack : undefined
       }),
       {
