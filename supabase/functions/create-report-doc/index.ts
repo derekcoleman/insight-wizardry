@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const BATCH_SIZE = 20; // Reduced batch size for API requests
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -22,31 +24,19 @@ serve(async (req) => {
     
     const serviceAccountStr = Deno.env.get('GOOGLE_SERVICE_ACCOUNT');
     if (!serviceAccountStr) {
-      console.error('GOOGLE_SERVICE_ACCOUNT environment variable is not set');
       throw new Error('Google service account configuration is missing');
     }
 
-    let serviceAccount;
-    try {
-      serviceAccount = JSON.parse(serviceAccountStr);
-      console.log('Successfully parsed service account configuration');
-    } catch (error) {
-      console.error('Failed to parse service account JSON:', error);
-      throw new Error('Invalid service account configuration');
-    }
-
+    const serviceAccount = JSON.parse(serviceAccountStr);
     const auth = new google.auth.GoogleAuth({
       credentials: serviceAccount,
-      scopes: [
-        'https://www.googleapis.com/auth/drive.file',
-        'https://www.googleapis.com/auth/documents'
-      ],
+      scopes: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/documents']
     });
 
     const docs = google.docs({ version: 'v1', auth });
     const drive = google.drive({ version: 'v3', auth });
 
-    console.log('Creating new document...');
+    // Create document
     const document = await docs.documents.create({
       requestBody: {
         title: `Analytics Report - ${new Date().toLocaleDateString()}`,
@@ -54,11 +44,9 @@ serve(async (req) => {
     });
 
     const docId = document.data.documentId;
-    if (!docId) {
-      throw new Error('Failed to create document');
-    }
+    if (!docId) throw new Error('Failed to create document');
 
-    console.log('Setting document permissions...');
+    // Set document permissions
     await drive.permissions.create({
       fileId: docId,
       requestBody: {
@@ -67,53 +55,74 @@ serve(async (req) => {
       },
     });
 
-    const requests = [];
-    let currentIndex = 1;
+    // Helper function to process requests in batches
+    async function processBatchRequests(requests: any[]) {
+      for (let i = 0; i < requests.length; i += BATCH_SIZE) {
+        const batch = requests.slice(i, i + BATCH_SIZE);
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: { requests: batch },
+        });
+        // Add a small delay between batches
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
 
-    // Add title
-    requests.push({
-      insertText: {
-        location: { index: currentIndex },
-        text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`,
-      },
-    }, {
-      updateParagraphStyle: {
-        range: {
-          startIndex: currentIndex,
-          endIndex: currentIndex + "Analytics Report".length,
-        },
-        paragraphStyle: {
-          namedStyleType: "HEADING_1",
-          alignment: "CENTER"
-        },
-        fields: "namedStyleType,alignment",
-      },
-    });
+    // Initialize requests array
+    const requests: any[] = [];
 
-    currentIndex += `Analytics Report\n${new Date().toLocaleDateString()}\n\n`.length;
-
-    // Add AI Insights with formatting
-    if (insights) {
-      requests.push({
+    // Add title with formatting
+    requests.push(
+      {
         insertText: {
-          location: { index: currentIndex },
-          text: "AI Analysis\n\n",
+          location: { index: 1 },
+          text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`,
         },
-      }, {
+      },
+      {
         updateParagraphStyle: {
           range: {
-            startIndex: currentIndex,
-            endIndex: currentIndex + "AI Analysis".length,
+            startIndex: 1,
+            endIndex: 17,
           },
           paragraphStyle: {
-            namedStyleType: "HEADING_2",
+            namedStyleType: "HEADING_1",
+            alignment: "CENTER",
           },
-          fields: "namedStyleType",
+          fields: "namedStyleType,alignment",
         },
-      });
-      currentIndex += "AI Analysis\n\n".length;
+      }
+    );
 
-      const formattedInsights = insights.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1");
+    let currentIndex = 29;
+
+    // Add AI Insights section
+    if (insights) {
+      requests.push(
+        {
+          insertText: {
+            location: { index: currentIndex },
+            text: "AI Analysis\n\n",
+          },
+        },
+        {
+          updateParagraphStyle: {
+            range: {
+              startIndex: currentIndex,
+              endIndex: currentIndex + 11,
+            },
+            paragraphStyle: {
+              namedStyleType: "HEADING_2",
+            },
+            fields: "namedStyleType",
+          },
+        }
+      );
+      
+      currentIndex += 13;
+
+      // Process insights text with formatting
+      const formattedInsights = insights.replace(/\*\*(.*?)\*\*/g, "$1");
       requests.push({
         insertText: {
           location: { index: currentIndex },
@@ -121,55 +130,43 @@ serve(async (req) => {
         },
       });
 
-      // Batch formatting requests for bold and italic text
+      // Add bold formatting for sections
       const boldMatches = [...insights.matchAll(/\*\*(.*?)\*\*/g)];
-      if (boldMatches.length > 0) {
-        const boldRequests = boldMatches.map(match => ({
+      boldMatches.forEach(match => {
+        const startIndex = currentIndex + insights.indexOf(match[0]);
+        requests.push({
           updateTextStyle: {
             range: {
-              startIndex: currentIndex + insights.indexOf(match[0]),
-              endIndex: currentIndex + insights.indexOf(match[0]) + match[1].length,
+              startIndex,
+              endIndex: startIndex + match[1].length,
             },
             textStyle: { bold: true },
             fields: "bold",
           },
-        }));
-        requests.push(...boldRequests);
-      }
+        });
+      });
 
       currentIndex += formattedInsights.length + 2;
     }
 
-    const formatNumber = (num: number | undefined) => {
-      if (num === undefined || isNaN(num)) return 'N/A';
-      return new Intl.NumberFormat('en-US', {
-        maximumFractionDigits: 2,
-        notation: 'compact',
-        compactDisplay: 'short'
-      }).format(num);
-    };
-
-    const formatChange = (change: number | undefined | null) => {
-      if (change === undefined || change === null || isNaN(change)) return 'N/A';
-      const sign = change >= 0 ? '+' : '';
-      return `${sign}${Number(change).toFixed(1)}%`;
-    };
-
-    const createTable = (headers: string[], rows: string[][]) => {
-      const table = {
+    // Helper function to create table
+    function createTableRequests(headers: string[], rows: any[][], startIndex: number) {
+      const tableRequests = [];
+      
+      // Insert table
+      tableRequests.push({
         insertTable: {
           rows: rows.length + 1,
           columns: headers.length,
-          location: { index: currentIndex },
+          location: { index: startIndex },
         },
-      };
-      requests.push(table);
+      });
 
-      // Add headers
+      // Add headers with formatting
       headers.forEach((header, i) => {
-        requests.push({
+        tableRequests.push({
           insertText: {
-            location: { index: currentIndex + 1 + i },
+            location: { index: startIndex + 1 + i },
             text: header,
           },
         });
@@ -178,21 +175,23 @@ serve(async (req) => {
       // Add data rows
       rows.forEach((row, rowIndex) => {
         row.forEach((cell, cellIndex) => {
-          requests.push({
+          tableRequests.push({
             insertText: {
-              location: { index: currentIndex + headers.length + (rowIndex * headers.length) + cellIndex + 1 },
-              text: cell,
+              location: { 
+                index: startIndex + headers.length + (rowIndex * headers.length) + cellIndex + 1 
+              },
+              text: String(cell),
             },
           });
         });
       });
 
       // Style the table
-      requests.push({
+      tableRequests.push({
         updateTableCellStyle: {
           tableRange: {
             tableCellLocation: {
-              tableStartLocation: { index: currentIndex },
+              tableStartLocation: { index: startIndex },
             },
             rowSpan: rows.length + 1,
             columnSpan: headers.length,
@@ -208,53 +207,69 @@ serve(async (req) => {
         },
       });
 
-      currentIndex += (rows.length + 1) * headers.length + 2;
-    };
+      return tableRequests;
+    }
 
-    const addSection = (title: string, data: any) => {
-      if (!data?.current) return;
+    // Process each analysis section
+    const sections = [
+      { title: "Weekly Analysis", data: report.weekly_analysis },
+      { title: "Monthly Analysis", data: report.monthly_analysis },
+      { title: "Quarterly Analysis", data: report.quarterly_analysis },
+      { title: "Year to Date Analysis", data: report.ytd_analysis },
+      { title: "Last 28 Days Year over Year Analysis", data: report.last28_yoy_analysis },
+    ];
+
+    for (const section of sections) {
+      if (!section.data?.current) continue;
 
       // Add section title
-      requests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: `${title}\n`,
-        },
-      }, {
-        updateParagraphStyle: {
-          range: {
-            startIndex: currentIndex,
-            endIndex: currentIndex + title.length,
+      requests.push(
+        {
+          insertText: {
+            location: { index: currentIndex },
+            text: `${section.title}\n`,
           },
-          paragraphStyle: {
-            namedStyleType: "HEADING_2",
-          },
-          fields: "namedStyleType",
         },
-      });
-      currentIndex += title.length + 1;
+        {
+          updateParagraphStyle: {
+            range: {
+              startIndex: currentIndex,
+              endIndex: currentIndex + section.title.length,
+            },
+            paragraphStyle: {
+              namedStyleType: "HEADING_2",
+            },
+            fields: "namedStyleType",
+          },
+        }
+      );
 
-      if (data.period) {
+      currentIndex += section.title.length + 1;
+
+      if (section.data.period) {
         requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: `Period: ${data.period}\n\n`,
+            text: `Period: ${section.data.period}\n\n`,
           },
         });
-        currentIndex += `Period: ${data.period}\n\n`.length;
+        currentIndex += `Period: ${section.data.period}\n\n`.length;
       }
 
       // Create metrics table
-      const metricsHeaders = ['Metric', 'Value', 'Change'];
+      const metricsHeaders = ['Metric', 'Current Value', 'Previous Value', 'Change'];
       const metricsRows = [
-        ['Sessions', formatNumber(data.current.sessions), formatChange(data.changes?.sessions)],
-        ['Conversions', formatNumber(data.current.conversions), formatChange(data.changes?.conversions)],
-        ['Revenue', `$${formatNumber(data.current.revenue)}`, formatChange(data.changes?.revenue)],
+        ['Sessions', section.data.current.sessions, section.data.previous.sessions, `${section.data.changes.sessions}%`],
+        ['Conversions', section.data.current.conversions, section.data.previous.conversions, `${section.data.changes.conversions}%`],
+        ['Revenue', `$${section.data.current.revenue}`, `$${section.data.previous.revenue}`, `${section.data.changes.revenue}%`],
       ];
-      createTable(metricsHeaders, metricsRows);
+
+      const tableRequests = createTableRequests(metricsHeaders, metricsRows, currentIndex);
+      requests.push(...tableRequests);
+      currentIndex += (metricsRows.length + 1) * metricsHeaders.length + 2;
 
       // Add search terms table if available
-      if (data.searchTerms?.length > 0) {
+      if (section.data.searchTerms?.length > 0) {
         requests.push({
           insertText: {
             location: { index: currentIndex },
@@ -264,13 +279,16 @@ serve(async (req) => {
         currentIndex += '\nTop Search Terms\n'.length;
 
         const searchHeaders = ['Term', 'Current Clicks', 'Previous Clicks', 'Change'];
-        const searchRows = data.searchTerms.map((term: any) => [
+        const searchRows = section.data.searchTerms.map((term: any) => [
           term.term,
-          String(term.current.clicks),
-          String(term.previous.clicks),
-          formatChange(term.changes.clicks),
+          term.current.clicks,
+          term.previous.clicks,
+          `${term.changes.clicks}%`,
         ]);
-        createTable(searchHeaders, searchRows);
+
+        const searchTableRequests = createTableRequests(searchHeaders, searchRows, currentIndex);
+        requests.push(...searchTableRequests);
+        currentIndex += (searchRows.length + 1) * searchHeaders.length + 2;
       }
 
       requests.push({
@@ -280,29 +298,11 @@ serve(async (req) => {
         },
       });
       currentIndex += 1;
-    };
-
-    // Process each section
-    addSection('Weekly Analysis', report.weekly_analysis);
-    addSection('Monthly Analysis', report.monthly_analysis);
-    addSection('Quarterly Analysis', report.quarterly_analysis);
-    addSection('Year to Date Analysis', report.ytd_analysis);
-    addSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis);
-
-    // Split requests into smaller batches to avoid API limits
-    const BATCH_SIZE = 100;
-    const batches = [];
-    for (let i = 0; i < requests.length; i += BATCH_SIZE) {
-      batches.push(requests.slice(i, i + BATCH_SIZE));
     }
 
-    console.log(`Processing ${batches.length} batches of requests...`);
-    for (const batch of batches) {
-      await docs.documents.batchUpdate({
-        documentId: docId,
-        requestBody: { requests: batch },
-      });
-    }
+    // Process all requests in batches
+    console.log(`Processing ${requests.length} requests in batches of ${BATCH_SIZE}...`);
+    await processBatchRequests(requests);
 
     console.log('Document created successfully');
     return new Response(
@@ -315,10 +315,9 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Error in create-report-doc function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(
       JSON.stringify({ 
-        error: errorMessage,
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
         details: error instanceof Error ? error.stack : undefined
       }),
       {
