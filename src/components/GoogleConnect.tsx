@@ -20,6 +20,7 @@ export function GoogleConnect() {
   const [selectedGoal, setSelectedGoal] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const {
@@ -38,11 +39,12 @@ export function GoogleConnect() {
   const handleGaAccountChange = async (value: string) => {
     try {
       setSelectedGaAccount(value);
+      setAnalysisError(null); // Reset any previous errors
+      
       if (value) {
         console.log("Fetching conversion goals for GA4 property:", value);
         await fetchConversionGoals(value);
         
-        // Automatically start analysis after fetching conversion goals
         if (accessToken) {
           await handleAnalyze(value);
         }
@@ -64,6 +66,7 @@ export function GoogleConnect() {
     }
 
     setIsAnalyzing(true);
+    setAnalysisError(null);
     try {
       console.log("Starting analysis with:", {
         ga4Property: gaProperty,
@@ -86,6 +89,10 @@ export function GoogleConnect() {
         throw result.error;
       }
       
+      if (!result.data?.report) {
+        throw new Error('No report data received from analysis');
+      }
+
       setReport(result.data.report);
       toast({
         title: "Success",
@@ -93,11 +100,13 @@ export function GoogleConnect() {
       });
     } catch (error) {
       console.error('Analysis error:', error);
+      setAnalysisError(error instanceof Error ? error.message : 'Failed to analyze data');
       toast({
         title: "Error",
         description: "Failed to analyze data. Please try again.",
         variant: "destructive",
       });
+      setReport(null);
     } finally {
       setIsAnalyzing(false);
     }
@@ -154,6 +163,14 @@ export function GoogleConnect() {
               onValueChange={setSelectedGscAccount}
               placeholder="Select Search Console property"
             />
+          )}
+
+          {analysisError && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Analysis Error</AlertTitle>
+              <AlertDescription>{analysisError}</AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
