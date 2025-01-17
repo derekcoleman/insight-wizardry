@@ -77,7 +77,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     try {
       console.log("Fetching conversion goals for property:", propertyId);
       
-      // Clean up the property ID by removing 'properties/' prefix if present
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
       
@@ -97,7 +96,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       const data = await response.json();
-      console.log("Metadata response:", data);
+      console.log("Full metadata response:", data);
       
       if (!data.metrics) {
         console.log("No metrics found in response");
@@ -105,18 +104,32 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         return;
       }
 
-      // Filter and map conversion-related metrics
+      // Updated filtering logic to capture more event types
       const goals = data.metrics
         .filter((metric: any) => {
           const name = (metric.name || '').toLowerCase();
           const displayName = (metric.displayName || '').toLowerCase();
+          const description = (metric.description || '').toLowerCase();
+          
+          // Log each metric for debugging
+          console.log("Evaluating metric:", {
+            name,
+            displayName,
+            description,
+            category: metric.category,
+            apiName: metric.apiName
+          });
+
+          // Expanded criteria to catch more event types
           return (
-            name.includes('conversions') ||
-            name.includes('event_count') ||
-            displayName.includes('conversion') ||
-            displayName.includes('goal') ||
-            displayName.includes('purchase') ||
-            displayName.includes('transaction')
+            name.includes('event_') ||           // Catch all event metrics
+            name.includes('conversions') ||      // Conversion metrics
+            displayName.includes('event') ||     // Events in display name
+            displayName.includes('conversion') || // Conversions in display name
+            description.includes('event') ||     // Events mentioned in description
+            metric.category === 'EVENT' ||       // Event category metrics
+            name.includes('goal_') ||            // Goal metrics
+            displayName.includes('goal')         // Goals in display name
           );
         })
         .map((metric: any) => ({
@@ -124,15 +137,18 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           name: metric.displayName || metric.name,
         }));
 
-      console.log("Filtered conversion goals:", goals);
+      console.log("Found events/goals:", goals);
       setConversionGoals(goals);
       
       if (goals.length === 0) {
+        console.log("No goals found after filtering");
         toast({
-          title: "No conversion goals found",
-          description: "No conversion goals were found for this property",
+          title: "No events found",
+          description: "Please check if events are configured in your GA4 property",
           variant: "default",
         });
+      } else {
+        console.log(`Found ${goals.length} events/goals`);
       }
     } catch (error) {
       console.error("Error fetching conversion goals:", error);
