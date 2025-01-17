@@ -36,93 +36,80 @@ serve(async (req) => {
         weekly: analyzeTimePeriod(weeklyData, prevWeekData, 'week'),
       };
 
-      // Store the analysis in Supabase
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
-      
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Missing Supabase configuration');
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
-      const { data: report, error: insertError } = await supabase
-        .from('analytics_reports')
-        .insert({
-          ga4_property: ga4Property,
-          gsc_property: gscProperty,
-          weekly_analysis: analysis.weekly,
-          status: 'completed'
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('Error inserting report:', insertError);
-        throw insertError;
-      }
-
-      return new Response(JSON.stringify({ report }), {
+      return new Response(JSON.stringify({ report: analysis }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
       });
     } catch (error) {
       console.error('Error in data fetching or analysis:', error);
-      throw error;
+      return new Response(JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'An error occurred during data analysis',
+        details: error instanceof Error ? error.stack : undefined
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
     }
   } catch (error) {
     console.error('Error in analyze-ga4-data function:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'An unknown error occurred',
-        details: error instanceof Error ? error.stack : undefined
-      }), 
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'An unknown error occurred',
+      details: error instanceof Error ? error.stack : undefined
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
   }
 });
 
 async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
   const baseUrl = 'https://analyticsdata.googleapis.com/v1beta';
-  const url = `${baseUrl}/${propertyId}/runReport`;
+  
+  // Remove any trailing slashes and ensure proper property ID format
+  const cleanPropertyId = propertyId.replace(/\/$/, '');
+  const url = `${baseUrl}/${cleanPropertyId}/runReport`;
 
-  console.log(`Fetching GA4 data from ${startDate} to ${endDate}`);
+  console.log(`Fetching GA4 data from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+  console.log('Request URL:', url);
 
   const metrics = [
     { name: 'sessions' },
     { name: mainConversionGoal || 'conversions' },
   ];
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      dateRanges: [{
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-      }],
-      dimensions: [
-        { name: 'sessionSource' },
-        { name: 'sessionMedium' },
-      ],
-      metrics,
-    }),
-  });
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        dateRanges: [{
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+        }],
+        dimensions: [
+          { name: 'sessionSource' },
+          { name: 'sessionMedium' },
+        ],
+        metrics,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    console.error('GA4 API Error Response:', errorData);
-    throw new Error(`GA4 API error: ${response.statusText}`);
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('GA4 API Error Response:', errorData);
+      throw new Error(`GA4 API error: ${response.statusText || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    console.log('GA4 API Response:', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching GA4 data:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  console.log('GA4 API Response:', data);
-  return data;
 }
 
 function analyzeTimePeriod(currentData: any, previousData: any, period: string) {
