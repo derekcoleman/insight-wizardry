@@ -30,7 +30,7 @@ serve(async (req) => {
     }
 
     // Clean up the property ID by removing any trailing slashes and the 'properties/' prefix
-    const cleanPropertyId = ga4Property.replace(/\/$/, '').split('/').pop();
+    const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
 
     // Initialize dates for different time periods
@@ -92,37 +92,34 @@ serve(async (req) => {
 });
 
 async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
-  const baseUrl = 'https://analyticsdata.googleapis.com/v1beta';
-  const url = `${baseUrl}/properties/${propertyId}/runReport`;
-
   console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
-  console.log('Request URL:', url);
-
-  const metrics = [
-    { name: 'sessions' },
-    { name: mainConversionGoal || 'conversions' },
-    { name: 'totalRevenue' }
-  ];
-
+  
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        dateRanges: [{
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0],
-        }],
-        dimensions: [
-          { name: 'sessionSource' },
-          { name: 'sessionMedium' },
-        ],
-        metrics,
-      }),
-    });
+    const response = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateRanges: [{
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+          }],
+          dimensions: [
+            { name: 'sessionSource' },
+            { name: 'sessionMedium' },
+          ],
+          metrics: [
+            { name: 'sessions' },
+            { name: mainConversionGoal || 'conversions' },
+            { name: 'totalRevenue' }
+          ],
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
