@@ -39,7 +39,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
     const sessionData = await sessionResponse.json();
     console.log('GA4 Session API Response:', sessionData);
 
-    // Second request: Get event data
+    // Second request: Get event data with sessionDefaultChannelGrouping
     const eventResponse = await fetch(
       `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
       {
@@ -54,8 +54,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
             endDate: endDate.toISOString().split('T')[0],
           }],
           dimensions: [
-            { name: 'sessionSource' },
-            { name: 'sessionMedium' },
+            { name: 'sessionDefaultChannelGrouping' },
             { name: 'eventName' },
           ],
           metrics: [
@@ -75,14 +74,11 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
     const eventData = await eventResponse.json();
     console.log('GA4 Event API Response:', eventData);
 
-    // Combine the data
-    const combinedData = {
-      ...eventData,
-      sessionData: sessionData,
+    return {
+      sessionData,
+      rows: eventData.rows || [],
       conversionGoal: mainConversionGoal || 'Total Events',
     };
-
-    return combinedData;
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
     throw error;
@@ -112,11 +108,10 @@ export function extractOrganicMetrics(data: any) {
 
   console.log('Organic sessions calculated:', organicSessions);
 
-  // Filter for organic search traffic in event data
+  // Filter for organic search traffic in event data using sessionDefaultChannelGrouping
   const organicRows = data.rows?.filter((row: any) => {
-    const source = row.dimensionValues?.[0]?.value?.toLowerCase();
-    const medium = row.dimensionValues?.[1]?.value?.toLowerCase();
-    return medium === 'organic' || source === 'google' || source === 'bing' || source === 'yahoo';
+    const channelGrouping = row.dimensionValues?.[0]?.value?.toLowerCase();
+    return channelGrouping === 'organic search';
   }) || [];
 
   console.log('Organic event rows:', organicRows);
@@ -149,7 +144,7 @@ function sumMetricForEvent(rows: any[], metricIndex: number, eventName: string) 
   
   // Filter rows for the specific event and sum its count
   return rows.reduce((sum: number, row: any) => {
-    if (row.dimensionValues?.[2]?.value === eventName) {
+    if (row.dimensionValues?.[1]?.value === eventName) {
       const value = row.metricValues?.[metricIndex]?.value;
       return sum + (Number(value) || 0);
     }
