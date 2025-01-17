@@ -17,6 +17,10 @@ export function ConversionGoalSelector({
   value,
   onValueChange,
 }: ConversionGoalSelectorProps) {
+  if (!goals || goals.length === 0) {
+    return null;
+  }
+
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium flex items-center gap-2">
@@ -27,7 +31,7 @@ export function ConversionGoalSelector({
         value={value}
         onValueChange={onValueChange}
       >
-        <SelectTrigger>
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Choose a key event to track" />
         </SelectTrigger>
         <SelectContent>

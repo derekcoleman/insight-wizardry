@@ -77,7 +77,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     try {
       console.log("Fetching conversion goals for property:", propertyId);
       
-      // Clean up the property ID
+      // Clean up the property ID by removing 'properties/' prefix if present
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
       
@@ -93,7 +93,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("GA4 API Error Response:", errorText);
-        throw new Error(`Failed to fetch conversion goals: ${response.statusText} - ${errorText}`);
+        throw new Error(`Failed to fetch conversion goals: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -105,26 +105,39 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         return;
       }
 
+      // Filter and map conversion-related metrics
       const goals = data.metrics
         .filter((metric: any) => {
-          if (!metric || typeof metric !== 'object') return false;
-          const metricName = (metric.name || '').toLowerCase();
-          return metricName.includes('conversion') || 
-                 metricName.includes('goal') ||
-                 metricName.includes('event') ||
-                 metricName.includes('transaction') ||
-                 metricName.includes('revenue');
+          const name = (metric.name || '').toLowerCase();
+          const displayName = (metric.displayName || '').toLowerCase();
+          return (
+            name.includes('conversions') ||
+            name.includes('event_count') ||
+            displayName.includes('conversion') ||
+            displayName.includes('goal') ||
+            displayName.includes('purchase') ||
+            displayName.includes('transaction')
+          );
         })
         .map((metric: any) => ({
-          id: metric.name || '',
-          name: metric.displayName || metric.name || 'Unnamed Goal',
+          id: metric.name,
+          name: metric.displayName || metric.name,
         }));
 
-      console.log("Fetched conversion goals:", goals);
+      console.log("Filtered conversion goals:", goals);
       setConversionGoals(goals);
+      
+      if (goals.length === 0) {
+        toast({
+          title: "No conversion goals found",
+          description: "No conversion goals were found for this property",
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error("Error fetching conversion goals:", error);
       handleApiError(error, "Google Analytics");
+      setConversionGoals([]);
     }
   };
 
