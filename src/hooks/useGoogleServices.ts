@@ -70,12 +70,12 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const fetchConversionGoals = async (propertyId: string) => {
     if (!accessToken) {
-      console.log("No access token available for fetching conversion goals");
+      console.log("No access token available for fetching conversion metrics");
       return;
     }
 
     try {
-      console.log("Fetching conversion goals for property:", propertyId);
+      console.log("Fetching conversion metrics for property:", propertyId);
       
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
@@ -92,7 +92,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("GA4 API Error Response:", errorText);
-        throw new Error(`Failed to fetch conversion goals: ${response.statusText}`);
+        throw new Error(`Failed to fetch conversion metrics: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -104,10 +104,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         return;
       }
 
-      // Enhanced filtering logic to identify Key Events
       const goals = data.metrics
         .filter((metric: any) => {
-          // Log each metric for debugging
           console.log("Evaluating metric:", {
             name: metric.name,
             displayName: metric.displayName,
@@ -115,43 +113,41 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             apiName: metric.apiName,
           });
 
-          // Check if this is a custom event or conversion
-          const isCustomEvent = metric.customEvent === true;
           const isConversion = 
             metric.name.includes('conversions') || 
             metric.name.includes('conversion_rate') ||
-            metric.category === 'CONVERSION';
+            metric.category === 'CONVERSION' ||
+            (metric.customEvent === true && metric.name.toLowerCase().includes('conversion'));
 
-          // Log the decision
-          console.log(`Metric ${metric.name} - Custom Event: ${isCustomEvent}, Conversion: ${isConversion}`);
+          console.log(`Metric ${metric.name} - Is Conversion: ${isConversion}`);
 
-          return isCustomEvent || isConversion;
+          return isConversion;
         })
         .map((metric: any) => ({
           id: metric.apiName || metric.name,
           name: metric.displayName || metric.name,
         }));
 
-      console.log("Found Key Events:", goals);
+      console.log("Found conversion metrics:", goals);
       setConversionGoals(goals);
       
       if (goals.length === 0) {
-        console.log("No Key Events found after filtering");
+        console.log("No conversion metrics found after filtering");
         toast({
-          title: "No Key Events Found",
-          description: "No Key Events were found in this GA4 property. Please verify your GA4 configuration.",
+          title: "No Conversion Metrics Found",
+          description: "No conversion metrics were found in this GA4 property. Please verify your GA4 configuration.",
           variant: "destructive",
         });
       } else {
-        console.log(`Found ${goals.length} Key Events`);
+        console.log(`Found ${goals.length} conversion metrics`);
         toast({
-          title: "Key Events Found",
-          description: `Found ${goals.length} Key Events in this GA4 property`,
+          title: "Conversion Metrics Found",
+          description: `Found ${goals.length} conversion metrics in this GA4 property`,
           variant: "default",
         });
       }
     } catch (error) {
-      console.error("Error fetching Key Events:", error);
+      console.error("Error fetching conversion metrics:", error);
       handleApiError(error, "Google Analytics");
       setConversionGoals([]);
     }
@@ -164,14 +160,12 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setAccessToken(response.access_token);
       
       try {
-        // Reset states before fetching new data
         setGaAccounts([]);
         setGscAccounts([]);
         setConversionGoals([]);
         setGaConnected(false);
         setGscConnected(false);
 
-        // Fetch GA4 accounts
         try {
           console.log("Fetching GA4 accounts...");
           const gaResponse = await fetch(
@@ -194,7 +188,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             throw new Error("No GA4 accounts found");
           }
 
-          // Fetch properties for all accounts
           console.log("Fetching GA4 properties for all accounts...");
           const allProperties = [];
           
