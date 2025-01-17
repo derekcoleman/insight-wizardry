@@ -7,7 +7,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { supabase } from "@/integrations/supabase/client";
-import { useGoogleLogin } from "@react-oauth/google";
 import { useGoogleServices } from "@/hooks/useGoogleServices";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { PropertySelector } from "@/components/PropertySelector";
@@ -39,15 +38,12 @@ export function GoogleConnect() {
   const handleGaAccountChange = async (value: string) => {
     try {
       setSelectedGaAccount(value);
-      setAnalysisError(null); // Reset any previous errors
+      setAnalysisError(null);
+      setReport(null); // Reset report when changing account
       
       if (value) {
         console.log("Fetching conversion goals for GA4 property:", value);
         await fetchConversionGoals(value);
-        
-        if (accessToken) {
-          await handleAnalyze(value);
-        }
       }
     } catch (error) {
       console.error("Error handling GA account change:", error);
@@ -59,9 +55,9 @@ export function GoogleConnect() {
     }
   };
 
-  const handleAnalyze = async (gaProperty: string) => {
-    if (!gaProperty || !accessToken) {
-      console.log("Missing required data:", { gaProperty, hasAccessToken: !!accessToken });
+  const handleAnalyze = async () => {
+    if (!selectedGaAccount || !accessToken) {
+      console.log("Missing required data:", { selectedGaAccount, hasAccessToken: !!accessToken });
       return;
     }
 
@@ -69,7 +65,7 @@ export function GoogleConnect() {
     setAnalysisError(null);
     try {
       console.log("Starting analysis with:", {
-        ga4Property: gaProperty,
+        ga4Property: selectedGaAccount,
         gscProperty: selectedGscAccount,
         hasAccessToken: !!accessToken,
         mainConversionGoal: selectedGoal,
@@ -77,7 +73,7 @@ export function GoogleConnect() {
 
       const result = await supabase.functions.invoke('analyze-ga4-data', {
         body: {
-          ga4Property: gaProperty,
+          ga4Property: selectedGaAccount,
           gscProperty: selectedGscAccount,
           accessToken: accessToken,
           mainConversionGoal: selectedGoal || undefined,
@@ -163,6 +159,17 @@ export function GoogleConnect() {
               onValueChange={setSelectedGscAccount}
               placeholder="Select Search Console property"
             />
+          )}
+
+          {selectedGaAccount && (
+            <Button 
+              onClick={handleAnalyze}
+              disabled={isAnalyzing}
+              className="w-full"
+            >
+              {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Analyze Data
+            </Button>
           )}
 
           {analysisError && (

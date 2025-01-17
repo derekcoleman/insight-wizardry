@@ -105,7 +105,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         return;
       }
 
-      // Include all relevant metrics as potential conversion goals
       const goals = data.metrics
         .filter((metric: any) => {
           if (!metric || typeof metric !== 'object') return false;
@@ -136,6 +135,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setAccessToken(response.access_token);
       
       try {
+        // Reset states before fetching new data
+        setGaAccounts([]);
+        setGscAccounts([]);
+        setConversionGoals([]);
+        setGaConnected(false);
+        setGscConnected(false);
+
         // Fetch GA4 accounts
         try {
           console.log("Fetching GA4 accounts...");
