@@ -38,8 +38,9 @@ export function GoogleConnect() {
   const handleGaAccountChange = async (value: string) => {
     try {
       setSelectedGaAccount(value);
+      setSelectedGoal(""); // Reset goal when changing account
       setAnalysisError(null);
-      setReport(null); // Reset report when changing account
+      setReport(null);
       
       if (value) {
         console.log("Fetching conversion goals for GA4 property:", value);

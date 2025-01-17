@@ -21,14 +21,14 @@ export function ConversionGoalSelector({
     <div className="space-y-2">
       <label className="text-sm font-medium flex items-center gap-2">
         <Target className="h-4 w-4" />
-        Select Main Conversion Goal (Optional)
+        Select Key Event (Optional)
       </label>
       <Select
         value={value}
         onValueChange={onValueChange}
       >
         <SelectTrigger>
-          <SelectValue placeholder="Select conversion goal" />
+          <SelectValue placeholder="Choose a key event to track" />
         </SelectTrigger>
         <SelectContent>
           {goals.map((goal) => (
