@@ -31,39 +31,46 @@ serve(async (req) => {
     const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
 
+    // Calculate date ranges for last 28 days and previous 28 days
     const now = new Date();
-    const lastWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const prevWeekStart = new Date(lastWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+    const last28DaysEnd = new Date(now);
+    const last28DaysStart = new Date(now);
+    last28DaysStart.setDate(last28DaysStart.getDate() - 28);
+    
+    const prev28DaysEnd = new Date(last28DaysStart);
+    prev28DaysEnd.setDate(prev28DaysEnd.getDate() - 1);
+    const prev28DaysStart = new Date(prev28DaysEnd);
+    prev28DaysStart.setDate(prev28DaysStart.getDate() - 28);
+
+    console.log('Date ranges:', {
+      current: {
+        start: last28DaysStart.toISOString(),
+        end: last28DaysEnd.toISOString()
+      },
+      previous: {
+        start: prev28DaysStart.toISOString(),
+        end: prev28DaysEnd.toISOString()
+      }
+    });
 
     try {
       // Fetch GA4 data
       console.log('Fetching GA4 data...');
-      const weeklyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, lastWeekStart, now, mainConversionGoal);
-      const prevWeekGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prevWeekStart, lastWeekStart, mainConversionGoal);
-      const monthlyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, lastMonthStart, now, mainConversionGoal);
-      const prevMonthGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prevMonthStart, lastMonthStart, mainConversionGoal);
+      const monthlyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last28DaysStart, last28DaysEnd, mainConversionGoal);
+      const prevMonthGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev28DaysStart, prev28DaysEnd, mainConversionGoal);
 
       // Fetch GSC data if property is provided
-      let weeklyGSCData = null;
-      let prevWeekGSCData = null;
       let monthlyGSCData = null;
       let prevMonthGSCData = null;
 
       if (gscProperty) {
         console.log('Fetching Search Console data...');
-        weeklyGSCData = await fetchGSCData(gscProperty, accessToken, lastWeekStart, now);
-        prevWeekGSCData = await fetchGSCData(gscProperty, accessToken, prevWeekStart, lastWeekStart);
-        monthlyGSCData = await fetchGSCData(gscProperty, accessToken, lastMonthStart, now);
-        prevMonthGSCData = await fetchGSCData(gscProperty, accessToken, prevMonthStart, lastMonthStart);
+        monthlyGSCData = await fetchGSCData(gscProperty, accessToken, last28DaysStart, last28DaysEnd);
+        prevMonthGSCData = await fetchGSCData(gscProperty, accessToken, prev28DaysStart, prev28DaysEnd);
       }
 
       const analysis = {
-        weekly_analysis: analyzeTimePeriod(weeklyGA4Data, prevWeekGA4Data, weeklyGSCData, prevWeekGSCData, 'week'),
         monthly_analysis: analyzeTimePeriod(monthlyGA4Data, prevMonthGA4Data, monthlyGSCData, prevMonthGSCData, 'month'),
-        quarterly_analysis: null,
-        yoy_analysis: null,
       };
 
       return new Response(JSON.stringify({ report: analysis }), {
@@ -169,6 +176,8 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
 
 async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Date, endDate: Date) {
   try {
+    console.log(`Fetching GSC data for ${siteUrl} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    
     const response = await fetch(
       'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
       {
@@ -181,16 +190,19 @@ async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Dat
           startDate: startDate.toISOString().split('T')[0],
           endDate: endDate.toISOString().split('T')[0],
           dimensions: ['query'],
-          rowLimit: 25,
+          rowLimit: 25000, // Increased to get more complete data
         }),
       }
     );
 
     if (!response.ok) {
-      throw new Error(`GSC API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('GSC API Error Response:', errorText);
+      throw new Error(`GSC API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('GSC API Response:', data);
     return data;
   } catch (error) {
     console.error('Error fetching GSC data:', error);
@@ -212,7 +224,10 @@ function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSC
     },
   };
 
+  console.log('Analyzed data:', organic);
+
   const changes = calculateChanges(organic.current, organic.previous);
+  console.log('Calculated changes:', changes);
   
   return {
     period,
@@ -228,43 +243,30 @@ function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSC
 }
 
 function extractOrganicMetrics(data: any) {
-  if (!data || !data.rows) {
+  if (!data || !data.rows || !data.rows.length) {
+    console.log('No GA4 data rows found');
     return {
       sessions: 0,
       conversions: 0,
       revenue: 0,
-      averageOrderValue: 0,
-      bounceRate: 0,
-      engagedSessions: 0,
-      pageviews: 0,
-      avgSessionDuration: 0,
       source: 'GA4',
     };
   }
 
-  const organicTraffic = data.rows.filter(
-    (row: any) => 
-      row.dimensionValues?.[0]?.value === 'google' && 
-      row.dimensionValues?.[1]?.value === 'organic'
-  ) || [];
-
   const metrics = {
-    sessions: sumMetric(organicTraffic, 0),
-    conversions: sumMetric(organicTraffic, 1),
-    revenue: sumMetric(organicTraffic, 2),
-    averageOrderValue: sumMetric(organicTraffic, 3),
-    bounceRate: sumMetric(organicTraffic, 4),
-    engagedSessions: sumMetric(organicTraffic, 5),
-    pageviews: sumMetric(organicTraffic, 6),
-    avgSessionDuration: sumMetric(organicTraffic, 7),
+    sessions: sumMetric(data.rows, 0),
+    conversions: sumMetric(data.rows, 1),
+    revenue: sumMetric(data.rows, 2),
     source: 'GA4',
   };
 
+  console.log('Extracted GA4 metrics:', metrics);
   return metrics;
 }
 
 function extractGSCMetrics(data: any) {
-  if (!data || !data.rows) {
+  if (!data || !data.rows || !data.rows.length) {
+    console.log('No GSC data rows found');
     return {
       clicks: 0,
       impressions: 0,
@@ -284,10 +286,14 @@ function extractGSCMetrics(data: any) {
     { clicks: 0, impressions: 0, ctr: 0, position: 0 }
   );
 
+  // Calculate averages for CTR and position
+  const rowCount = data.rows.length;
+  totals.ctr = (totals.clicks / totals.impressions) * 100;
+  totals.position = totals.position / rowCount;
+
+  console.log('Extracted GSC metrics:', totals);
   return {
     ...totals,
-    ctr: totals.ctr / (data.rows.length || 1),
-    position: totals.position / (data.rows.length || 1),
     source: 'GSC',
   };
 }
@@ -307,7 +313,7 @@ function calculateChanges(current: any, previous: any) {
 }
 
 function generateDetailedSummary(changes: any, current: any, previous: any, period: string) {
-  const periodText = period === 'week' ? 'Week over Week (WoW)' : 'Month over Month (MoM)';
+  const periodText = 'Month over Month (Last 28 Days vs Previous 28 Days)';
   
   let summary = `${periodText} Organic Performance Analysis:\n\n`;
   
@@ -333,7 +339,7 @@ function generateDetailedSummary(changes: any, current: any, previous: any, peri
     summary += `Impressions ${formatChange(changes.impressions, true)} from ${previous.impressions.toLocaleString()} to ${current.impressions.toLocaleString()}. `;
     
     if (current.ctr !== undefined) {
-      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${(current.ctr * 100).toFixed(1)}%. `;
+      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${current.ctr.toFixed(1)}%. `;
     }
     
     if (current.position !== undefined) {
