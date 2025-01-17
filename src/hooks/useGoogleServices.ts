@@ -22,6 +22,7 @@ interface UseGoogleServicesReturn {
   gscConnected: boolean;
   handleLogin: () => void;
   fetchConversionGoals: (propertyId: string) => Promise<void>;
+  accessToken: string | null;
 }
 
 export function useGoogleServices(): UseGoogleServicesReturn {
@@ -32,7 +33,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   const [error, setError] = useState<string | null>(null);
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
-  const [accessToken, setAccessToken] = useState<string>("");
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleApiError = (error: any, apiName: string) => {
@@ -269,5 +270,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     gscConnected,
     handleLogin: () => login(),
     fetchConversionGoals,
+    accessToken,
   };
 }

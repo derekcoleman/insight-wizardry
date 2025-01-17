@@ -32,6 +32,7 @@ export function GoogleConnect() {
     gscConnected,
     handleLogin,
     fetchConversionGoals,
+    accessToken,
   } = useGoogleServices();
 
   const handleGaAccountChange = async (value: string) => {
@@ -40,45 +41,6 @@ export function GoogleConnect() {
       await fetchConversionGoals(value);
     }
   };
-
-  const analyzeLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      try {
-        const result = await supabase.functions.invoke('analyze-ga4-data', {
-          body: {
-            ga4Property: selectedGaAccount,
-            gscProperty: selectedGscAccount,
-            accessToken: tokenResponse.access_token,
-            mainConversionGoal: selectedGoal || undefined,
-          },
-        });
-
-        if (result.error) throw result.error;
-        
-        setReport(result.data.report);
-        toast({
-          title: "Success",
-          description: "Analysis completed successfully",
-        });
-      } catch (error) {
-        console.error('Analysis error:', error);
-        toast({
-          title: "Error",
-          description: "Failed to analyze data. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsAnalyzing(false);
-      }
-    },
-    flow: "implicit",
-    scope: [
-      "https://www.googleapis.com/auth/analytics.readonly",
-      "https://www.googleapis.com/auth/webmasters.readonly",
-      "https://www.googleapis.com/auth/analytics",
-      "https://www.googleapis.com/auth/analytics.edit"
-    ].join(" ")
-  });
 
   const handleAnalyze = async () => {
     if (!selectedGaAccount) {
@@ -90,9 +52,36 @@ export function GoogleConnect() {
       return;
     }
 
+    if (!accessToken) {
+      toast({
+        title: "Error",
+        description: "No access token available. Please reconnect to Google.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
     try {
-      analyzeLogin();
+      const result = await supabase.functions.invoke('analyze-ga4-data', {
+        body: {
+          ga4Property: selectedGaAccount,
+          gscProperty: selectedGscAccount,
+          accessToken: accessToken,
+          mainConversionGoal: selectedGoal || undefined,
+        },
+      });
+
+      if (result.error) {
+        console.error('Analysis error:', result.error);
+        throw result.error;
+      }
+      
+      setReport(result.data.report);
+      toast({
+        title: "Success",
+        description: "Analysis completed successfully",
+      });
     } catch (error) {
       console.error('Analysis error:', error);
       toast({
@@ -100,6 +89,7 @@ export function GoogleConnect() {
         description: "Failed to analyze data. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsAnalyzing(false);
     }
   };
@@ -161,7 +151,7 @@ export function GoogleConnect() {
             <CardContent className="pt-4">
               <Button
                 onClick={handleAnalyze}
-                disabled={isAnalyzing || !selectedGaAccount}
+                disabled={isAnalyzing || !selectedGaAccount || !accessToken}
                 className="w-full"
               >
                 {isAnalyzing ? (

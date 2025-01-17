@@ -17,7 +17,16 @@ serve(async (req) => {
     console.log('Analyzing data for:', { ga4Property, gscProperty, mainConversionGoal });
 
     if (!ga4Property || !accessToken) {
-      throw new Error('Missing required parameters: ga4Property or accessToken');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required parameters: ga4Property or accessToken',
+          status: 'error'
+        }), 
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Initialize dates for different time periods
