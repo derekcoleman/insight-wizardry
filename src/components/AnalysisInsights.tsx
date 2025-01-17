@@ -48,7 +48,10 @@ export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps)
                           .replace(/^[•-]\s*/, '')
                           .replace(/^[0-9]+\.\s*/, '')
                           .replace(/\*\*(.*?)\*\*/g, '$1')
-                          .replace(/###\s*/, '')}
+                          .replace(/###\s*/, '')
+                          .replace(/\[([^\]]+)\]/g, '$1')
+                          .replace(/\(([^)]+)\)/g, '$1')
+                          .replace(/`([^`]+)`/g, '$1')}
                       </li>
                     ))}
                 </ul>

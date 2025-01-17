@@ -235,10 +235,6 @@ serve(async (req) => {
         );
       }
 
-      const formatDate = (date: Date) => {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      };
-
       const analysis = {
         weekly_analysis: {
           ...analyzeTimePeriod(
@@ -345,21 +341,13 @@ function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSC
     },
   };
 
-  console.log('Analyzed data:', organic);
-
   const changes = calculateChanges(organic.current, organic.previous);
-  console.log('Calculated changes:', changes);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-  
-  const periodText = period === 'month' ? 
-    `${formatDate(currentDateRange.start)} to ${formatDate(currentDateRange.end)} vs ${formatDate(previousDateRange.start)} to ${formatDate(previousDateRange.end)}` : 
-    `${formatDate(currentDateRange.start)} to ${formatDate(currentDateRange.end)} vs ${formatDate(previousDateRange.start)} to ${formatDate(previousDateRange.end)}`;
+  // Format the period string to include the date ranges
+  const periodText = `${currentDateRange.start.toISOString().split('T')[0]} to ${currentDateRange.end.toISOString().split('T')[0]} vs ${previousDateRange.start.toISOString().split('T')[0]} to ${previousDateRange.end.toISOString().split('T')[0]}`;
   
   return {
-    period,
+    period: periodText,
     current: organic.current,
     previous: organic.previous,
     changes,
@@ -369,55 +357,6 @@ function analyzeTimePeriod(currentGA4Data: any, previousGA4Data: any, currentGSC
       gsc: Boolean(currentGSCData),
     },
   };
-}
-
-function generateDetailedSummary(changes: any, current: any, previous: any, periodText: string) {
-  let summary = `${periodText} Organic Performance Analysis:\n\n`;
-  
-  // GA4 Metrics
-  if (current.sessions !== undefined) {
-    summary += `Traffic and Engagement:\n`;
-    summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
-    
-    if (current.conversions > 0) {
-      const conversionType = current.conversionGoal || 'Total Conversions';
-      summary += `\n\nConversions:\nOrganic ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
-    }
-    
-    if (current.revenue > 0) {
-      summary += `\n\nRevenue:\nOrganic revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
-    }
-  }
-  
-  // GSC Metrics
-  if (current.clicks !== undefined) {
-    console.log('Adding GSC metrics to summary:', {
-      currentClicks: current.clicks,
-      previousClicks: previous.clicks,
-      currentImpressions: current.impressions,
-      previousImpressions: previous.impressions,
-      currentCtr: current.ctr,
-      previousCtr: previous.ctr,
-      currentPosition: current.position,
-      previousPosition: previous.position,
-    });
-
-    summary += `\n\nSearch Console Performance:\n`;
-    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${Math.round(previous.clicks).toLocaleString()} to ${Math.round(current.clicks).toLocaleString()}. `;
-    summary += `Impressions ${formatChange(changes.impressions, true)} from ${Math.round(previous.impressions).toLocaleString()} to ${Math.round(current.impressions).toLocaleString()}. `;
-    
-    const currentCtr = current.ctr * 100;
-    const previousCtr = previous.ctr * 100;
-    if (!isNaN(currentCtr) && !isNaN(previousCtr)) {
-      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${currentCtr.toFixed(1)}%. `;
-    }
-    
-    if (current.position !== undefined && previous.position !== undefined) {
-      summary += `The average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
-    }
-  }
-
-  return summary;
 }
 
 async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
@@ -750,4 +689,53 @@ function sumMetric(rows: any[], metricIndex: number) {
     const value = row.metricValues?.[metricIndex]?.value;
     return sum + (Number(value) || 0);
   }, 0);
+}
+
+function generateDetailedSummary(changes: any, current: any, previous: any, periodText: string) {
+  let summary = `${periodText} Organic Performance Analysis:\n\n`;
+  
+  // GA4 Metrics
+  if (current.sessions !== undefined) {
+    summary += `Traffic and Engagement:\n`;
+    summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
+    
+    if (current.conversions > 0) {
+      const conversionType = current.conversionGoal || 'Total Conversions';
+      summary += `\n\nConversions:\nOrganic ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
+    }
+    
+    if (current.revenue > 0) {
+      summary += `\n\nRevenue:\nOrganic revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
+    }
+  }
+  
+  // GSC Metrics
+  if (current.clicks !== undefined) {
+    console.log('Adding GSC metrics to summary:', {
+      currentClicks: current.clicks,
+      previousClicks: previous.clicks,
+      currentImpressions: current.impressions,
+      previousImpressions: previous.impressions,
+      currentCtr: current.ctr,
+      previousCtr: previous.ctr,
+      currentPosition: current.position,
+      previousPosition: previous.position,
+    });
+
+    summary += `\n\nSearch Console Performance:\n`;
+    summary += `Organic clicks ${formatChange(changes.clicks, true)} from ${Math.round(previous.clicks).toLocaleString()} to ${Math.round(current.clicks).toLocaleString()}. `;
+    summary += `Impressions ${formatChange(changes.impressions, true)} from ${Math.round(previous.impressions).toLocaleString()} to ${Math.round(current.impressions).toLocaleString()}. `;
+    
+    const currentCtr = current.ctr * 100;
+    const previousCtr = previous.ctr * 100;
+    if (!isNaN(currentCtr) && !isNaN(previousCtr)) {
+      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${currentCtr.toFixed(1)}%. `;
+    }
+    
+    if (current.position !== undefined && previous.position !== undefined) {
+      summary += `The average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
+    }
+  }
+
+  return summary;
 }
