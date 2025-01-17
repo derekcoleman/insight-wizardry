@@ -1,7 +1,31 @@
+export function extractGSCMetrics(data: any) {
+  if (!data || !data.rows || !data.rows.length) {
+    console.log('No GSC data rows found');
+    return {
+      clicks: 0,
+      impressions: 0,
+      ctr: 0,
+      position: 0,
+      source: 'GSC',
+    };
+  }
+
+  const metrics = {
+    clicks: data.rows.reduce((sum: number, row: any) => sum + (Number(row.clicks) || 0), 0),
+    impressions: data.rows.reduce((sum: number, row: any) => sum + (Number(row.impressions) || 0), 0),
+    ctr: data.rows.reduce((sum: number, row: any) => sum + (Number(row.ctr) || 0), 0) / data.rows.length,
+    position: data.rows.reduce((sum: number, row: any) => sum + (Number(row.position) || 0), 0) / data.rows.length,
+    source: 'GSC',
+  };
+
+  console.log('Extracted GSC metrics:', metrics);
+  return metrics;
+}
+
 export async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Date, endDate: Date) {
+  console.log(`Fetching GSC data for site ${siteUrl} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+  
   try {
-    console.log(`Fetching GSC data for ${siteUrl} from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
-    
     const response = await fetch(
       'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
       {
@@ -13,10 +37,8 @@ export async function fetchGSCData(siteUrl: string, accessToken: string, startDa
         body: JSON.stringify({
           startDate: startDate.toISOString().split('T')[0],
           endDate: endDate.toISOString().split('T')[0],
-          type: 'web',
           dimensions: [],
-          rowLimit: 1,
-          aggregationType: 'auto'
+          rowLimit: 25000,
         }),
       }
     );
@@ -29,24 +51,7 @@ export async function fetchGSCData(siteUrl: string, accessToken: string, startDa
 
     const data = await response.json();
     console.log('GSC API Response:', data);
-
-    if (!data.rows || data.rows.length === 0) {
-      console.log('No GSC data found for the period');
-      return {
-        clicks: 0,
-        impressions: 0,
-        ctr: 0,
-        position: 0
-      };
-    }
-
-    const totals = data.rows[0];
-    return {
-      clicks: Math.round(totals.clicks || 0),
-      impressions: Math.round(totals.impressions || 0),
-      ctr: totals.ctr ? (totals.ctr * 100) : 0,
-      position: totals.position || 0
-    };
+    return data;
   } catch (error) {
     console.error('Error fetching GSC data:', error);
     throw error;
@@ -54,17 +59,15 @@ export async function fetchGSCData(siteUrl: string, accessToken: string, startDa
 }
 
 export async function fetchGSCSearchTerms(
-  siteUrl: string, 
-  accessToken: string, 
-  currentStartDate: Date, 
+  siteUrl: string,
+  accessToken: string,
+  currentStartDate: Date,
   currentEndDate: Date,
   previousStartDate: Date,
   previousEndDate: Date
 ) {
   try {
-    console.log('Fetching GSC search terms data...');
-    
-    const [currentResponse, previousResponse] = await Promise.all([
+    const [currentData, previousData] = await Promise.all([
       fetch(
         'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
         {
@@ -77,12 +80,10 @@ export async function fetchGSCSearchTerms(
             startDate: currentStartDate.toISOString().split('T')[0],
             endDate: currentEndDate.toISOString().split('T')[0],
             dimensions: ['query'],
-            type: 'web',
             rowLimit: 10,
-            aggregationType: 'auto'
           }),
         }
-      ),
+      ).then(res => res.json()),
       fetch(
         'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
         {
@@ -95,95 +96,66 @@ export async function fetchGSCSearchTerms(
             startDate: previousStartDate.toISOString().split('T')[0],
             endDate: previousEndDate.toISOString().split('T')[0],
             dimensions: ['query'],
-            type: 'web',
-            rowLimit: 50,
-            aggregationType: 'auto'
+            rowLimit: 10,
           }),
         }
-      )
+      ).then(res => res.json()),
     ]);
 
-    if (!currentResponse.ok || !previousResponse.ok) {
-      throw new Error(`GSC API error: ${currentResponse.status} or ${previousResponse.status}`);
-    }
-
-    const [currentData, previousData] = await Promise.all([
-      currentResponse.json(),
-      previousResponse.json()
-    ]);
-
-    if (!currentData.rows || currentData.rows.length === 0) {
-      console.log('No search terms data found for current period');
+    if (!currentData.rows || !previousData.rows) {
       return [];
     }
 
-    const previousTermsMap = new Map(
-      previousData.rows?.map((row: any) => [row.keys[0], row]) || []
-    );
+    const searchTerms = currentData.rows.map((currentRow: any) => {
+      const previousRow = previousData.rows.find((row: any) => row.keys[0] === currentRow.keys[0]) || {
+        clicks: 0,
+        impressions: 0,
+        ctr: 0,
+        position: 0,
+      };
 
-    return currentData.rows.map((currentRow: any) => {
-      const term = currentRow.keys[0];
-      const previousRow = previousTermsMap.get(term);
-      
-      const currentClicks = Math.round(currentRow.clicks || 0);
-      const previousClicks = Math.round(previousRow?.clicks || 0);
-      const clicksChange = previousClicks === 0 
-        ? (currentClicks > 0 ? 100 : 0)
-        : ((currentClicks - previousClicks) / previousClicks * 100);
+      const clicksChange = previousRow.clicks === 0
+        ? (currentRow.clicks > 0 ? 100 : 0)
+        : ((currentRow.clicks - previousRow.clicks) / previousRow.clicks) * 100;
+
+      const impressionsChange = previousRow.impressions === 0
+        ? (currentRow.impressions > 0 ? 100 : 0)
+        : ((currentRow.impressions - previousRow.impressions) / previousRow.impressions) * 100;
+
+      const ctrChange = previousRow.ctr === 0
+        ? (currentRow.ctr > 0 ? 100 : 0)
+        : ((currentRow.ctr - previousRow.ctr) / previousRow.ctr) * 100;
+
+      const positionChange = previousRow.position === 0
+        ? (currentRow.position > 0 ? 100 : 0)
+        : ((previousRow.position - currentRow.position) / previousRow.position) * 100;
 
       return {
-        term,
+        term: currentRow.keys[0],
         current: {
-          clicks: currentClicks,
-          impressions: Math.round(currentRow.impressions || 0),
+          clicks: currentRow.clicks,
+          impressions: currentRow.impressions,
           ctr: (currentRow.ctr * 100).toFixed(1),
-          position: currentRow.position.toFixed(1)
+          position: currentRow.position.toFixed(1),
         },
         previous: {
-          clicks: previousClicks,
-          impressions: Math.round(previousRow?.impressions || 0),
-          ctr: previousRow ? (previousRow.ctr * 100).toFixed(1) : "0.0",
-          position: previousRow ? previousRow.position.toFixed(1) : "0.0"
+          clicks: previousRow.clicks,
+          impressions: previousRow.impressions,
+          ctr: (previousRow.ctr * 100).toFixed(1),
+          position: previousRow.position.toFixed(1),
         },
         changes: {
           clicks: clicksChange.toFixed(1),
-          impressions: previousRow ? 
-            ((currentRow.impressions - previousRow.impressions) / previousRow.impressions * 100).toFixed(1) : 
-            "100.0",
-          ctr: previousRow ? 
-            ((currentRow.ctr - previousRow.ctr) / previousRow.ctr * 100).toFixed(1) : 
-            "100.0",
-          position: previousRow ? 
-            ((previousRow.position - currentRow.position) / previousRow.position * 100).toFixed(1) : 
-            "100.0"
-        }
+          impressions: impressionsChange.toFixed(1),
+          ctr: ctrChange.toFixed(1),
+          position: positionChange.toFixed(1),
+        },
       };
     });
+
+    return searchTerms;
   } catch (error) {
     console.error('Error fetching GSC search terms:', error);
-    throw error;
+    return [];
   }
-}
-
-export function extractGSCMetrics(data: any) {
-  if (!data) {
-    console.log('No GSC data provided');
-    return {
-      clicks: 0,
-      impressions: 0,
-      ctr: 0,
-      position: 0,
-      source: 'GSC',
-    };
-  }
-
-  console.log('Extracting GSC metrics from:', data);
-
-  return {
-    clicks: Math.round(data.clicks || 0),
-    impressions: Math.round(data.impressions || 0),
-    ctr: data.ctr || 0,
-    position: data.position || 0,
-    source: 'GSC',
-  };
 }

@@ -1,3 +1,6 @@
+import { extractOrganicMetrics } from './ga4-service.ts';
+import { extractGSCMetrics } from './gsc-service.ts';
+
 export function analyzeTimePeriod(
   currentGA4Data: any, 
   previousGA4Data: any, 
