@@ -7,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -21,7 +20,6 @@ serve(async (req) => {
 
     console.log('Starting document creation process...');
     
-    // Get and validate service account
     const serviceAccountStr = Deno.env.get('GOOGLE_SERVICE_ACCOUNT');
     if (!serviceAccountStr) {
       console.error('GOOGLE_SERVICE_ACCOUNT environment variable is not set');
@@ -37,7 +35,6 @@ serve(async (req) => {
       throw new Error('Invalid service account configuration');
     }
 
-    // Validate required service account fields
     if (!serviceAccount.client_email || !serviceAccount.private_key) {
       console.error('Service account missing required fields');
       throw new Error('Service account configuration is incomplete');
@@ -56,20 +53,11 @@ serve(async (req) => {
     const drive = google.drive({ version: 'v3', auth });
 
     console.log('Creating new document...');
-    let document;
-    try {
-      document = await docs.documents.create({
-        requestBody: {
-          title: `Analytics Report - ${new Date().toLocaleDateString()}`,
-        },
-      });
-    } catch (error) {
-      console.error('Error creating document:', error);
-      if (error.code === 403) {
-        throw new Error('Google Docs API is not enabled. Please enable it in the Google Cloud Console.');
-      }
-      throw error;
-    }
+    const document = await docs.documents.create({
+      requestBody: {
+        title: `Analytics Report - ${new Date().toLocaleDateString()}`,
+      },
+    });
 
     const docId = document.data.documentId;
     if (!docId) {
@@ -78,48 +66,105 @@ serve(async (req) => {
     }
 
     console.log('Setting document permissions...');
-    try {
-      await drive.permissions.create({
-        fileId: docId,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
-      });
-    } catch (error) {
-      console.error('Error setting document permissions:', error);
-      if (error.code === 403) {
-        throw new Error('Google Drive API is not enabled. Please enable it in the Google Cloud Console.');
-      }
-      throw error;
-    }
-
-    // Format the content
-    const requests = [];
-    
-    // Add title
-    requests.push({
-      insertText: {
-        location: { index: 1 },
-        text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`,
+    await drive.permissions.create({
+      fileId: docId,
+      requestBody: {
+        role: 'reader',
+        type: 'anyone',
       },
     });
 
-    let currentIndex = requests[0].insertText.text.length + 1;
+    const requests = [];
+    let currentIndex = 1;
 
-    // Add AI Insights if available
+    // Add title with heading style
+    requests.push({
+      insertText: {
+        location: { index: currentIndex },
+        text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`,
+      },
+    });
+    requests.push({
+      updateParagraphStyle: {
+        range: {
+          startIndex: currentIndex,
+          endIndex: currentIndex + "Analytics Report".length,
+        },
+        paragraphStyle: {
+          namedStyleType: "HEADING_1",
+        },
+        fields: "namedStyleType",
+      },
+    });
+
+    currentIndex += `Analytics Report\n${new Date().toLocaleDateString()}\n\n`.length;
+
+    // Add AI Insights if available with formatting
     if (insights) {
-      console.log('Adding AI insights to document...');
       requests.push({
         insertText: {
           location: { index: currentIndex },
-          text: `AI Analysis\n\n${insights}\n\n`,
+          text: "AI Analysis\n\n",
         },
       });
-      currentIndex += `AI Analysis\n\n${insights}\n\n`.length;
+      requests.push({
+        updateParagraphStyle: {
+          range: {
+            startIndex: currentIndex,
+            endIndex: currentIndex + "AI Analysis".length,
+          },
+          paragraphStyle: {
+            namedStyleType: "HEADING_2",
+          },
+          fields: "namedStyleType",
+        },
+      });
+      currentIndex += "AI Analysis\n\n".length;
+
+      // Convert markdown bold and italic
+      const formattedInsights = insights.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1");
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: formattedInsights + "\n\n",
+        },
+      });
+      
+      // Apply bold formatting
+      const boldMatches = [...insights.matchAll(/\*\*(.*?)\*\*/g)];
+      boldMatches.forEach(match => {
+        const startOffset = insights.indexOf(match[0]);
+        requests.push({
+          updateTextStyle: {
+            range: {
+              startIndex: currentIndex + startOffset,
+              endIndex: currentIndex + startOffset + match[1].length,
+            },
+            textStyle: { bold: true },
+            fields: "bold",
+          },
+        });
+      });
+
+      // Apply italic formatting
+      const italicMatches = [...insights.matchAll(/\*(.*?)\*/g)];
+      italicMatches.forEach(match => {
+        const startOffset = insights.indexOf(match[0]);
+        requests.push({
+          updateTextStyle: {
+            range: {
+              startIndex: currentIndex + startOffset,
+              endIndex: currentIndex + startOffset + match[1].length,
+            },
+            textStyle: { italic: true },
+            fields: "italic",
+          },
+        });
+      });
+
+      currentIndex += formattedInsights.length + 2;
     }
 
-    // Function to format numbers
     const formatNumber = (num: number | undefined) => {
       if (num === undefined || isNaN(num)) return 'N/A';
       return new Intl.NumberFormat('en-US', {
@@ -129,21 +174,32 @@ serve(async (req) => {
       }).format(num);
     };
 
-    // Function to format percentage changes
     const formatChange = (change: number | undefined | null) => {
       if (change === undefined || change === null || isNaN(change)) return 'N/A';
       const sign = change >= 0 ? '+' : '';
       return `${sign}${Number(change).toFixed(1)}%`;
     };
 
-    // Function to add a section
     const addSection = (title: string, data: any) => {
       if (!data?.current) return currentIndex;
 
+      // Add section title with heading style
       requests.push({
         insertText: {
           location: { index: currentIndex },
           text: `${title}\n`,
+        },
+      });
+      requests.push({
+        updateParagraphStyle: {
+          range: {
+            startIndex: currentIndex,
+            endIndex: currentIndex + title.length,
+          },
+          paragraphStyle: {
+            namedStyleType: "HEADING_2",
+          },
+          fields: "namedStyleType",
         },
       });
       currentIndex += title.length + 1;
@@ -158,42 +214,138 @@ serve(async (req) => {
         currentIndex += `Period: ${data.period}\n\n`.length;
       }
 
+      // Create a table for metrics
       const metrics = [
         { label: 'Sessions', value: formatNumber(data.current.sessions), change: formatChange(data.changes?.sessions) },
         { label: 'Conversions', value: formatNumber(data.current.conversions), change: formatChange(data.changes?.conversions) },
         { label: 'Revenue', value: `$${formatNumber(data.current.revenue)}`, change: formatChange(data.changes?.revenue) },
       ];
 
-      metrics.forEach(metric => {
-        const text = `${metric.label}: ${metric.value} (${metric.change})\n`;
+      // Insert table
+      requests.push({
+        insertTable: {
+          location: { index: currentIndex },
+          rows: metrics.length + 1,
+          columns: 3,
+        },
+      });
+
+      // Add table headers
+      const headers = ['Metric', 'Value', 'Change'];
+      headers.forEach((header, i) => {
         requests.push({
           insertText: {
-            location: { index: currentIndex },
-            text,
+            location: { index: currentIndex + 1 + i },
+            text: header,
           },
         });
-        currentIndex += text.length;
       });
+
+      // Add table data
+      metrics.forEach((metric, rowIndex) => {
+        const rowStart = currentIndex + headers.length + (rowIndex * 3);
+        requests.push({
+          insertText: {
+            location: { index: rowStart + 1 },
+            text: metric.label,
+          },
+        });
+        requests.push({
+          insertText: {
+            location: { index: rowStart + 2 },
+            text: metric.value,
+          },
+        });
+        requests.push({
+          insertText: {
+            location: { index: rowStart + 3 },
+            text: metric.change,
+          },
+        });
+      });
+
+      // Update table style
+      requests.push({
+        updateTableCellStyle: {
+          tableRange: {
+            tableCellLocation: {
+              tableStartLocation: { index: currentIndex },
+            },
+            rowSpan: metrics.length + 1,
+            columnSpan: 3,
+          },
+          tableCellStyle: {
+            backgroundColor: { color: { rgbColor: { red: 0.95, green: 0.95, blue: 0.95 } } },
+            paddingLeft: { magnitude: 5, unit: 'PT' },
+            paddingRight: { magnitude: 5, unit: 'PT' },
+            paddingTop: { magnitude: 5, unit: 'PT' },
+            paddingBottom: { magnitude: 5, unit: 'PT' },
+          },
+          fields: 'backgroundColor,paddingLeft,paddingRight,paddingTop,paddingBottom',
+        },
+      });
+
+      currentIndex += (metrics.length + 1) * 3 + 2;
 
       if (data.searchTerms?.length > 0) {
         requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: '\nTop Search Terms:\n',
+            text: '\nTop Search Terms\n',
           },
         });
-        currentIndex += '\nTop Search Terms:\n'.length;
+        currentIndex += '\nTop Search Terms\n'.length;
 
-        data.searchTerms.forEach((term: any) => {
-          const termText = `${term.term}: ${formatNumber(term.current.clicks)} clicks (${formatChange(term.changes.clicks)})\n`;
+        // Create search terms table
+        requests.push({
+          insertTable: {
+            location: { index: currentIndex },
+            rows: data.searchTerms.length + 1,
+            columns: 4,
+          },
+        });
+
+        // Add table headers
+        const searchHeaders = ['Term', 'Current Clicks', 'Previous Clicks', 'Change'];
+        searchHeaders.forEach((header, i) => {
           requests.push({
             insertText: {
-              location: { index: currentIndex },
-              text: termText,
+              location: { index: currentIndex + 1 + i },
+              text: header,
             },
           });
-          currentIndex += termText.length;
         });
+
+        // Add search terms data
+        data.searchTerms.forEach((term: any, rowIndex: number) => {
+          const rowStart = currentIndex + searchHeaders.length + (rowIndex * 4);
+          requests.push({
+            insertText: {
+              location: { index: rowStart + 1 },
+              text: term.term,
+            },
+          });
+          requests.push({
+            insertText: {
+              location: { index: rowStart + 2 },
+              text: String(term.current.clicks),
+            },
+          });
+          requests.push({
+            insertText: {
+              location: { index: rowStart + 3 },
+              text: String(term.previous.clicks),
+            },
+          });
+          requests.push({
+            insertText: {
+              location: { index: rowStart + 4 },
+              text: formatChange(term.changes.clicks),
+            },
+          });
+        });
+
+        currentIndex += (data.searchTerms.length + 1) * 4 + 2;
       }
 
       requests.push({
@@ -215,17 +367,12 @@ serve(async (req) => {
     addSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis);
 
     console.log('Applying document updates...');
-    try {
-      await docs.documents.batchUpdate({
-        documentId: docId,
-        requestBody: {
-          requests,
-        },
-      });
-    } catch (error) {
-      console.error('Error updating document content:', error);
-      throw error;
-    }
+    await docs.documents.batchUpdate({
+      documentId: docId,
+      requestBody: {
+        requests,
+      },
+    });
 
     console.log('Document created successfully');
     return new Response(
