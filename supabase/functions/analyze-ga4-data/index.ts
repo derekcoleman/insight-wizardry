@@ -31,26 +31,29 @@ serve(async (req) => {
     const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
 
-    // Calculate date ranges for last 7 days and previous 7 days
+    // Calculate date ranges
     const now = new Date();
-    now.setHours(0, 0, 0, 0); // Set to start of day for consistent comparisons
+    now.setHours(0, 0, 0, 0);
     
+    // Last 7 days (ending yesterday)
     const last7DaysEnd = new Date(now);
-    last7DaysEnd.setDate(last7DaysEnd.getDate() - 1); // Yesterday
+    last7DaysEnd.setDate(last7DaysEnd.getDate() - 1);
     const last7DaysStart = new Date(last7DaysEnd);
-    last7DaysStart.setDate(last7DaysStart.getDate() - 6); // Last 7 days including yesterday
+    last7DaysStart.setDate(last7DaysStart.getDate() - 6);
     
+    // Previous 7 days
     const prev7DaysEnd = new Date(last7DaysStart);
     prev7DaysEnd.setDate(prev7DaysEnd.getDate() - 1);
     const prev7DaysStart = new Date(prev7DaysEnd);
     prev7DaysStart.setDate(prev7DaysStart.getDate() - 6);
 
-    // Calculate date ranges for last 28 days and previous 28 days
+    // Last 28 days (ending yesterday)
     const last28DaysEnd = new Date(now);
-    last28DaysEnd.setDate(last28DaysEnd.getDate() - 1); // Yesterday
+    last28DaysEnd.setDate(last28DaysEnd.getDate() - 1);
     const last28DaysStart = new Date(last28DaysEnd);
-    last28DaysStart.setDate(last28DaysStart.getDate() - 27); // Last 28 days including yesterday
+    last28DaysStart.setDate(last28DaysStart.getDate() - 27);
     
+    // Previous 28 days
     const prev28DaysEnd = new Date(last28DaysStart);
     prev28DaysEnd.setDate(prev28DaysEnd.getDate() - 1);
     const prev28DaysStart = new Date(prev28DaysEnd);
@@ -80,13 +83,10 @@ serve(async (req) => {
     });
 
     try {
-      // Fetch GA4 data for weekly comparison
-      console.log('Fetching GA4 data for weekly comparison...');
+      // Fetch GA4 data
+      console.log('Fetching GA4 data...');
       const weeklyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last7DaysStart, last7DaysEnd, mainConversionGoal);
       const prevWeekGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev7DaysStart, prev7DaysEnd, mainConversionGoal);
-
-      // Fetch GA4 data for monthly comparison
-      console.log('Fetching GA4 data for monthly comparison...');
       const monthlyGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, last28DaysStart, last28DaysEnd, mainConversionGoal);
       const prevMonthGA4Data = await fetchGA4Data(cleanPropertyId, accessToken, prev28DaysStart, prev28DaysEnd, mainConversionGoal);
 
@@ -95,26 +95,47 @@ serve(async (req) => {
       let prevWeekGSCData = null;
       let monthlyGSCData = null;
       let prevMonthGSCData = null;
+      let weeklySearchTerms = null;
+      let monthlySearchTerms = null;
 
       if (gscProperty) {
-        console.log('Fetching Search Console data for weekly comparison...');
+        console.log('Fetching Search Console data...');
+        
+        // Fetch total metrics
         weeklyGSCData = await fetchGSCData(gscProperty, accessToken, last7DaysStart, last7DaysEnd);
-        console.log('Weekly GSC Data:', weeklyGSCData);
-        
         prevWeekGSCData = await fetchGSCData(gscProperty, accessToken, prev7DaysStart, prev7DaysEnd);
-        console.log('Previous Week GSC Data:', prevWeekGSCData);
-
-        console.log('Fetching Search Console data for monthly comparison...');
         monthlyGSCData = await fetchGSCData(gscProperty, accessToken, last28DaysStart, last28DaysEnd);
-        console.log('Monthly GSC Data:', monthlyGSCData);
-        
         prevMonthGSCData = await fetchGSCData(gscProperty, accessToken, prev28DaysStart, prev28DaysEnd);
-        console.log('Previous Month GSC Data:', prevMonthGSCData);
+
+        // Fetch search terms data
+        weeklySearchTerms = await fetchGSCSearchTerms(
+          gscProperty, 
+          accessToken, 
+          last7DaysStart, 
+          last7DaysEnd,
+          prev7DaysStart,
+          prev7DaysEnd
+        );
+        
+        monthlySearchTerms = await fetchGSCSearchTerms(
+          gscProperty, 
+          accessToken, 
+          last28DaysStart, 
+          last28DaysEnd,
+          prev28DaysStart,
+          prev28DaysEnd
+        );
       }
 
       const analysis = {
-        weekly_analysis: analyzeTimePeriod(weeklyGA4Data, prevWeekGA4Data, weeklyGSCData, prevWeekGSCData, 'week'),
-        monthly_analysis: analyzeTimePeriod(monthlyGA4Data, prevMonthGA4Data, monthlyGSCData, prevMonthGSCData, 'month'),
+        weekly_analysis: {
+          ...analyzeTimePeriod(weeklyGA4Data, prevWeekGA4Data, weeklyGSCData, prevWeekGSCData, 'week'),
+          searchTerms: weeklySearchTerms
+        },
+        monthly_analysis: {
+          ...analyzeTimePeriod(monthlyGA4Data, prevMonthGA4Data, monthlyGSCData, prevMonthGSCData, 'month'),
+          searchTerms: monthlySearchTerms
+        }
       };
 
       return new Response(JSON.stringify({ report: analysis }), {
@@ -234,8 +255,7 @@ async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Dat
           startDate: startDate.toISOString().split('T')[0],
           endDate: endDate.toISOString().split('T')[0],
           dimensions: [], // Remove dimensions to get total aggregated data
-          rowLimit: 1, // We only need the totals
-          aggregationType: 'auto' // Let GSC determine the best aggregation
+          rowLimit: 1 // We only need the totals
         }),
       }
     );
@@ -249,7 +269,6 @@ async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Dat
     const data = await response.json();
     console.log('GSC API Response:', data);
 
-    // If no data is returned, return zeros
     if (!data.rows || data.rows.length === 0) {
       console.log('No GSC data found for the period');
       return {
@@ -260,18 +279,143 @@ async function fetchGSCData(siteUrl: string, accessToken: string, startDate: Dat
       };
     }
 
-    // Return the totals directly from the first (and only) row
     const totals = data.rows[0];
-    console.log('GSC totals:', totals);
-    
     return {
       clicks: totals.clicks || 0,
       impressions: totals.impressions || 0,
-      ctr: totals.ctr ? (totals.ctr * 100) : 0, // Convert to percentage
+      ctr: totals.ctr ? (totals.ctr * 100) : 0,
       position: totals.position || 0
     };
   } catch (error) {
     console.error('Error fetching GSC data:', error);
+    throw error;
+  }
+}
+
+async function fetchGSCSearchTerms(
+  siteUrl: string, 
+  accessToken: string, 
+  currentStartDate: Date, 
+  currentEndDate: Date,
+  previousStartDate: Date,
+  previousEndDate: Date
+) {
+  try {
+    console.log('Fetching GSC search terms data...');
+    
+    // Fetch current period data
+    const currentResponse = await fetch(
+      'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          startDate: currentStartDate.toISOString().split('T')[0],
+          endDate: currentEndDate.toISOString().split('T')[0],
+          dimensions: ['query'],
+          rowLimit: 10,
+          dimensionFilterGroups: [{
+            filters: [{
+              dimension: 'query',
+              operator: 'notContains',
+              expression: ''
+            }]
+          }]
+        }),
+      }
+    );
+
+    if (!currentResponse.ok) {
+      throw new Error(`GSC API error: ${currentResponse.status}`);
+    }
+
+    const currentData = await currentResponse.json();
+    
+    // Fetch previous period data
+    const previousResponse = await fetch(
+      'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          startDate: previousStartDate.toISOString().split('T')[0],
+          endDate: previousEndDate.toISOString().split('T')[0],
+          dimensions: ['query'],
+          rowLimit: 50, // Fetch more to ensure we can match with current terms
+          dimensionFilterGroups: [{
+            filters: [{
+              dimension: 'query',
+              operator: 'notContains',
+              expression: ''
+            }]
+          }]
+        }),
+      }
+    );
+
+    if (!previousResponse.ok) {
+      throw new Error(`GSC API error: ${previousResponse.status}`);
+    }
+
+    const previousData = await previousResponse.json();
+
+    // Create a map of previous period data for easy lookup
+    const previousTermsMap = new Map(
+      previousData.rows?.map((row: any) => [row.keys[0], row]) || []
+    );
+
+    // Process and combine the data
+    const searchTerms = (currentData.rows || []).map((currentRow: any) => {
+      const term = currentRow.keys[0];
+      const previousRow = previousTermsMap.get(term);
+      
+      return {
+        term,
+        current: {
+          clicks: currentRow.clicks || 0,
+          impressions: currentRow.impressions || 0,
+          ctr: (currentRow.ctr * 100).toFixed(1),
+          position: currentRow.position.toFixed(1)
+        },
+        previous: previousRow ? {
+          clicks: previousRow.clicks || 0,
+          impressions: previousRow.impressions || 0,
+          ctr: (previousRow.ctr * 100).toFixed(1),
+          position: previousRow.position.toFixed(1)
+        } : {
+          clicks: 0,
+          impressions: 0,
+          ctr: "0.0",
+          position: "0.0"
+        },
+        changes: {
+          clicks: previousRow ? 
+            ((currentRow.clicks - previousRow.clicks) / previousRow.clicks * 100).toFixed(1) : 
+            "100.0",
+          impressions: previousRow ? 
+            ((currentRow.impressions - previousRow.impressions) / previousRow.impressions * 100).toFixed(1) : 
+            "100.0",
+          ctr: previousRow ? 
+            ((currentRow.ctr - previousRow.ctr) / previousRow.ctr * 100).toFixed(1) : 
+            "100.0",
+          position: previousRow ? 
+            ((previousRow.position - currentRow.position) / previousRow.position * 100).toFixed(1) : 
+            "100.0"
+        }
+      };
+    });
+
+    console.log('Processed search terms data:', searchTerms);
+    return searchTerms;
+
+  } catch (error) {
+    console.error('Error fetching GSC search terms:', error);
     throw error;
   }
 }
