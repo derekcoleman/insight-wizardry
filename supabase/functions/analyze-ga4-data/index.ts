@@ -112,6 +112,30 @@ async function fetchGA4Data(propertyId: string, accessToken: string, startDate: 
             startDate: startDate.toISOString().split('T')[0],
             endDate: endDate.toISOString().split('T')[0],
           }],
+          dimensionFilter: {
+            andGroup: {
+              expressions: [
+                {
+                  filter: {
+                    fieldName: "sessionSource",
+                    stringFilter: {
+                      value: "google",
+                      matchType: "EXACT"
+                    }
+                  }
+                },
+                {
+                  filter: {
+                    fieldName: "sessionMedium",
+                    stringFilter: {
+                      value: "organic",
+                      matchType: "EXACT"
+                    }
+                  }
+                }
+              ]
+            }
+          },
           dimensions: [
             { name: 'sessionSource' },
             { name: 'sessionMedium' },
