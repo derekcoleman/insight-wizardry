@@ -83,7 +83,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full">
         <Card>
           <CardHeader>
             <CardTitle>Analysis Results</CardTitle>
@@ -135,8 +135,8 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   if (analyses.length === 0) return null;
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="w-full space-y-6">
+      <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-bold">Analysis Results</h2>
         <Button
           onClick={handleCreateDoc}
@@ -151,21 +151,25 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
           Export to Google Doc
         </Button>
       </div>
-      <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
-      {analyses.map((analysis) => {
-        if (!analysis.data?.current) return null;
-        
-        const { title, dateRange } = getAnalysisTitle(analysis.type, analysis.data.period);
-        
-        return (
-          <AnalysisCard
-            key={title}
-            title={title}
-            dateRange={dateRange}
-            data={analysis.data}
-          />
-        );
-      })}
+      <div className="px-4 sm:px-6 lg:px-8">
+        <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
+      </div>
+      <div className="space-y-6 px-4 sm:px-6 lg:px-8">
+        {analyses.map((analysis) => {
+          if (!analysis.data?.current) return null;
+          
+          const { title, dateRange } = getAnalysisTitle(analysis.type, analysis.data.period);
+          
+          return (
+            <AnalysisCard
+              key={title}
+              title={title}
+              dateRange={dateRange}
+              data={analysis.data}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
