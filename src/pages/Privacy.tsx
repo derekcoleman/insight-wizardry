@@ -1,0 +1,76 @@
+import React from "react";
+
+const Privacy = () => {
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <h1 className="text-3xl font-bold mb-8">Privacy Policy</h1>
+      
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Introduction</h2>
+        <p className="mb-4">
+          This Privacy Policy describes how we collect, use, and handle your personal information when you use our services.
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Information We Collect</h2>
+        <p className="mb-4">
+          We collect information that you provide directly to us, including:
+        </p>
+        <ul className="list-disc pl-6 mb-4">
+          <li>Account information (name, email address)</li>
+          <li>Analytics data and website usage information</li>
+          <li>Communication preferences</li>
+        </ul>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">How We Use Your Information</h2>
+        <p className="mb-4">
+          We use the information we collect to:
+        </p>
+        <ul className="list-disc pl-6 mb-4">
+          <li>Provide and maintain our services</li>
+          <li>Improve and personalize your experience</li>
+          <li>Send you updates and marketing communications (with your consent)</li>
+          <li>Respond to your comments and questions</li>
+        </ul>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Data Security</h2>
+        <p className="mb-4">
+          We implement appropriate security measures to protect your personal information. However, no method of transmission over the Internet is 100% secure.
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Your Rights</h2>
+        <p className="mb-4">
+          You have the right to:
+        </p>
+        <ul className="list-disc pl-6 mb-4">
+          <li>Access your personal information</li>
+          <li>Correct inaccurate data</li>
+          <li>Request deletion of your data</li>
+          <li>Object to data processing</li>
+        </ul>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Contact Us</h2>
+        <p className="mb-4">
+          If you have any questions about this Privacy Policy, please contact us at:
+          <br />
+          Email: privacy@example.com
+        </p>
+      </section>
+
+      <footer className="text-sm text-gray-600">
+        Last updated: January 2025
+      </footer>
+    </div>
+  );
+};
+
+export default Privacy;
