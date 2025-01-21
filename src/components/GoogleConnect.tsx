@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -117,10 +117,7 @@ export function GoogleConnect() {
   return (
     <div className="space-y-6">
       <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Connect Google Services</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />

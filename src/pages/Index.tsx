@@ -31,6 +31,9 @@ const Index = () => {
             <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
               Get instant, AI-powered insights from your Google Analytics and Search Console data. Perfect for presenting in meetings and making data-driven decisions.
             </p>
+            <div className="mt-10 max-w-lg mx-auto">
+              <GoogleConnect />
+            </div>
           </div>
         </div>
       </div>
@@ -57,7 +60,6 @@ const Index = () => {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <GoogleConnect />
         <Summary summary={""} isLoading={false} />
       </div>
     </div>
