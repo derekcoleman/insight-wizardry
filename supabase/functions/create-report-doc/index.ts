@@ -110,14 +110,14 @@ serve(async (req) => {
       currentIndex += `AI Analysis\n\n${insights}\n\n`.length;
     }
 
-    // Helper function to create a metrics table
-    const createMetricsTable = (title: string, data: any) => {
+    // Helper function to create a metrics section
+    const createMetricsSection = (title: string, data: any) => {
       if (!data?.current) return [];
-
-      const tableRequests = [];
+      
+      const sectionRequests = [];
       
       // Add section title
-      tableRequests.push({
+      sectionRequests.push({
         insertText: {
           location: { index: currentIndex },
           text: `${title}\n`
@@ -125,7 +125,7 @@ serve(async (req) => {
       });
 
       // Format section title
-      tableRequests.push({
+      sectionRequests.push({
         updateParagraphStyle: {
           range: {
             startIndex: currentIndex,
@@ -143,7 +143,7 @@ serve(async (req) => {
       // Add period if available
       if (data.period) {
         const periodText = `Period: ${data.period}\n\n`;
-        tableRequests.push({
+        sectionRequests.push({
           insertText: {
             location: { index: currentIndex },
             text: periodText
@@ -152,38 +152,78 @@ serve(async (req) => {
         currentIndex += periodText.length;
       }
 
-      // Create table with header and data rows
-      const tableText = [
-        "Metric\tCurrent Value\tPrevious Value\tChange",
-        `Sessions\t${data.current.sessions}\t${data.previous.sessions}\t${data.changes.sessions}%`,
-        `Conversions\t${data.current.conversions}\t${data.previous.conversions}\t${data.changes.conversions}%`,
-        `Revenue\t$${data.current.revenue}\t$${data.previous.revenue}\t${data.changes.revenue}%`
-      ].join('\n') + '\n\n';
+      // Add summary text if available
+      if (data.summary) {
+        const summaryText = `${data.summary}\n\n`;
+        sectionRequests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: summaryText
+          }
+        });
+        currentIndex += summaryText.length;
+      }
 
-      tableRequests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: tableText
-        }
-      });
+      // Create metrics table
+      const metrics = [];
+      
+      // Add traffic metrics if available
+      if (data.current.sessions !== undefined) {
+        metrics.push(`Sessions\t${data.current.sessions}\t${data.previous.sessions}\t${data.changes.sessions.toFixed(1)}%`);
+      }
+      
+      // Add conversion metrics if available
+      if (data.current.conversions !== undefined) {
+        metrics.push(`Conversions (${data.current.conversionGoal || 'Total'})\t${data.current.conversions}\t${data.previous.conversions}\t${data.changes.conversions.toFixed(1)}%`);
+      }
+      
+      // Add revenue metrics if available
+      if (data.current.revenue !== undefined && data.current.revenue > 0) {
+        metrics.push(`Revenue\t$${data.current.revenue}\t$${data.previous.revenue}\t${data.changes.revenue.toFixed(1)}%`);
+      }
+      
+      // Add Search Console metrics if available
+      if (data.current.clicks !== undefined) {
+        metrics.push(`Clicks\t${Math.round(data.current.clicks)}\t${Math.round(data.previous.clicks)}\t${data.changes.clicks.toFixed(1)}%`);
+        metrics.push(`Impressions\t${Math.round(data.current.impressions)}\t${Math.round(data.previous.impressions)}\t${data.changes.impressions.toFixed(1)}%`);
+        metrics.push(`CTR\t${data.current.ctr.toFixed(1)}%\t${data.previous.ctr.toFixed(1)}%\t${data.changes.ctr.toFixed(1)}%`);
+        metrics.push(`Average Position\t${data.current.position.toFixed(1)}\t${data.previous.position.toFixed(1)}\t${data.changes.position.toFixed(1)}%`);
+      }
 
-      currentIndex += tableText.length;
+      if (metrics.length > 0) {
+        const tableText = [
+          "Metric\tCurrent Value\tPrevious Value\tChange",
+          ...metrics
+        ].join('\n') + '\n\n';
 
-      return tableRequests;
+        sectionRequests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: tableText
+          }
+        });
+
+        currentIndex += tableText.length;
+      }
+
+      return sectionRequests;
     };
 
     // Add analysis sections
     if (report.weekly_analysis) {
-      requests.push(...createMetricsTable('Weekly Analysis', report.weekly_analysis));
+      requests.push(...createMetricsSection('Weekly Analysis', report.weekly_analysis));
     }
     if (report.monthly_analysis) {
-      requests.push(...createMetricsTable('Monthly Analysis', report.monthly_analysis));
+      requests.push(...createMetricsSection('Monthly Analysis', report.monthly_analysis));
     }
     if (report.quarterly_analysis) {
-      requests.push(...createMetricsTable('Quarterly Analysis', report.quarterly_analysis));
+      requests.push(...createMetricsSection('Quarterly Analysis', report.quarterly_analysis));
     }
     if (report.ytd_analysis) {
-      requests.push(...createMetricsTable('Year to Date Analysis', report.ytd_analysis));
+      requests.push(...createMetricsSection('Year to Date Analysis', report.ytd_analysis));
+    }
+    if (report.last28_yoy_analysis) {
+      requests.push(...createMetricsSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis));
     }
 
     // Process requests in batches
