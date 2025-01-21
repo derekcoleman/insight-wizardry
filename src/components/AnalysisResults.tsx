@@ -83,16 +83,18 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Analysis Results</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-5/6" />
-        </CardContent>
-      </Card>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Analysis Results</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-5/6" />
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -133,7 +135,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   if (analyses.length === 0) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Analysis Results</h2>
         <Button
