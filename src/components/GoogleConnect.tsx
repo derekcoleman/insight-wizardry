@@ -124,7 +124,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="w-full">
+      <Card className="max-w-xl mx-auto">
         <CardContent className="space-y-4 pt-6">
           {error && (
             <Alert variant="destructive">
@@ -136,26 +136,32 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
             </Alert>
           )}
           
-          <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
+          <div className="max-w-sm mx-auto">
+            <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
+          </div>
 
           <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
 
           {gaAccounts.length > 0 && (
-            <PropertySelector
-              label="Select Google Analytics 4 Property"
-              accounts={gaAccounts}
-              value={selectedGaAccount}
-              onValueChange={handleGaAccountChange}
-              placeholder="Select GA4 property"
-            />
+            <div className="max-w-md mx-auto">
+              <PropertySelector
+                label="Select Google Analytics 4 Property"
+                accounts={gaAccounts}
+                value={selectedGaAccount}
+                onValueChange={handleGaAccountChange}
+                placeholder="Select GA4 property"
+              />
+            </div>
           )}
 
           {conversionGoals.length > 0 && (
-            <ConversionGoalSelector
-              goals={conversionGoals}
-              value={selectedGoal}
-              onValueChange={setSelectedGoal}
-            />
+            <div className="max-w-md mx-auto">
+              <ConversionGoalSelector
+                goals={conversionGoals}
+                value={selectedGoal}
+                onValueChange={setSelectedGoal}
+              />
+            </div>
           )}
 
           {gaAccounts.length > 0 && gscAccounts.length > 0 && (
@@ -163,24 +169,28 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
           )}
 
           {gscAccounts.length > 0 && (
-            <PropertySelector
-              label="Select Search Console Property"
-              accounts={gscAccounts}
-              value={selectedGscAccount}
-              onValueChange={setSelectedGscAccount}
-              placeholder="Select Search Console property"
-            />
+            <div className="max-w-md mx-auto">
+              <PropertySelector
+                label="Select Search Console Property"
+                accounts={gscAccounts}
+                value={selectedGscAccount}
+                onValueChange={setSelectedGscAccount}
+                placeholder="Select Search Console property"
+              />
+            </div>
           )}
 
           {selectedGaAccount && (
-            <Button 
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
-              className="w-full"
-            >
-              {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Analyze Data
-            </Button>
+            <div className="max-w-sm mx-auto">
+              <Button 
+                onClick={handleAnalyze}
+                disabled={isAnalyzing}
+                className="w-full"
+              >
+                {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Analyze Data
+              </Button>
+            </div>
           )}
 
           {analysisError && (
