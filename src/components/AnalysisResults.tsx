@@ -83,7 +83,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
   if (isLoading) {
     return (
-      <div className="w-full">
+      <div className="w-full text-left">
         <Card>
           <CardHeader>
             <CardTitle>Analysis Results</CardTitle>
@@ -135,7 +135,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   if (analyses.length === 0) return null;
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-6 text-left">
       <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-bold">Analysis Results</h2>
         <Button

@@ -67,7 +67,7 @@ const Index = () => {
       )}
 
       {/* Main Content */}
-      <div className={isConnected ? 'w-full' : 'max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'}>
+      <div className={isConnected ? 'w-3/4 mx-auto' : 'max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'}>
         <Summary summary={""} isLoading={false} />
       </div>
     </div>
