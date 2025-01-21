@@ -17,7 +17,7 @@ const Index = () => {
           <div className="flex justify-between h-16 items-center">
             <div className="flex-shrink-0">
               <img
-                src="/logo.webp"
+                src="/lovable-uploads/5af14e23-a706-42a0-ac29-7d384fd42a15.png"
                 alt="Standup Notez Logo"
                 className="h-8 w-auto"
               />
