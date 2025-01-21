@@ -9,7 +9,7 @@ interface AnalysisInsightsProps {
 export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps) {
   if (isLoading) {
     return (
-      <Card>
+      <Card className="max-w-[75%] mx-auto">
         <CardHeader>
           <CardTitle>AI Analysis</CardTitle>
         </CardHeader>
@@ -28,7 +28,7 @@ export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps)
   const sections = insights.split(/(?=Key Findings:|Recommended Next Steps:)/g);
   
   return (
-    <Card>
+    <Card className="max-w-[75%] mx-auto">
       <CardHeader>
         <CardTitle>AI Analysis</CardTitle>
       </CardHeader>
