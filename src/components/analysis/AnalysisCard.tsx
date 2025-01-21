@@ -21,7 +21,7 @@ interface AnalysisCardProps {
 
 export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
   return (
-    <Card>
+    <Card className="max-w-[76%] mx-auto">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
