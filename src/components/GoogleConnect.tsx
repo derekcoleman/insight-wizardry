@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -13,7 +13,11 @@ import { PropertySelector } from "@/components/PropertySelector";
 import { ConversionGoalSelector } from "@/components/ConversionGoalSelector";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 
-export function GoogleConnect() {
+interface GoogleConnectProps {
+  onConnectionChange?: (connected: boolean) => void;
+}
+
+export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
   const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
   const [selectedGoal, setSelectedGoal] = useState<string>("");
@@ -34,6 +38,10 @@ export function GoogleConnect() {
     fetchConversionGoals,
     accessToken,
   } = useGoogleServices();
+
+  useEffect(() => {
+    onConnectionChange?.(gaConnected || gscConnected);
+  }, [gaConnected, gscConnected, onConnectionChange]);
 
   const handleGaAccountChange = async (value: string) => {
     try {

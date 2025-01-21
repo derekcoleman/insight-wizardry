@@ -1,8 +1,14 @@
 import { Summary } from "@/components/Summary";
 import { GoogleConnect } from "@/components/GoogleConnect";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 const Index = () => {
+  const [isConnected, setIsConnected] = useState(false);
+
+  const handleConnectionChange = (connected: boolean) => {
+    setIsConnected(connected);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
@@ -32,34 +38,36 @@ const Index = () => {
               Get instant, AI-powered insights from your Google Analytics and Search Console data. Perfect for presenting in meetings and making data-driven decisions.
             </p>
             <div className="mt-10 max-w-lg mx-auto">
-              <GoogleConnect />
+              <GoogleConnect onConnectionChange={handleConnectionChange} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Features Section */}
-      <div className="bg-white py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900">Automated Analysis</h3>
-              <p className="mt-2 text-gray-600">Get comprehensive analysis of your Google Analytics 4 data with just a few clicks.</p>
-            </div>
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900">Search Performance</h3>
-              <p className="mt-2 text-gray-600">Track and analyze your Search Console metrics to improve visibility.</p>
-            </div>
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900">Meeting-Ready Reports</h3>
-              <p className="mt-2 text-gray-600">Generate professional reports perfect for presentations and meetings.</p>
+      {/* Features Section - Only show when not connected */}
+      {!isConnected && (
+        <div className="bg-white py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900">Automated Analysis</h3>
+                <p className="mt-2 text-gray-600">Get comprehensive analysis of your Google Analytics 4 data with just a few clicks.</p>
+              </div>
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900">Search Performance</h3>
+                <p className="mt-2 text-gray-600">Track and analyze your Search Console metrics to improve visibility.</p>
+              </div>
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900">Meeting-Ready Reports</h3>
+                <p className="mt-2 text-gray-600">Generate professional reports perfect for presentations and meetings.</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className={`mx-auto px-4 sm:px-6 lg:px-8 py-12 ${isConnected ? 'max-w-full' : 'max-w-4xl'}`}>
         <Summary summary={""} isLoading={false} />
       </div>
     </div>
