@@ -1,6 +1,14 @@
 import { extractOrganicMetrics } from './ga4-service.ts';
 import { extractGSCMetrics } from './gsc-service.ts';
 
+const formatEventName = (eventName: string): string => {
+  if (!eventName || eventName === 'Total Events') return eventName;
+  return eventName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export function analyzeTimePeriod(
   currentGA4Data: any, 
   previousGA4Data: any, 
@@ -80,7 +88,7 @@ function generateDetailedSummary(changes: any, current: any, previous: any, peri
     summary += `Organic sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
     
     if (current.conversions > 0) {
-      const conversionType = current.conversionGoal || 'Total Conversions';
+      const conversionType = formatEventName(current.conversionGoal || 'Total Conversions');
       summary += `\n\nConversions:\nOrganic ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
     }
     

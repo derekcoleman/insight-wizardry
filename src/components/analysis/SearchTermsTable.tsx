@@ -38,35 +38,46 @@ interface SearchTermsTableProps {
 function isBrandedTerm(term: string, domain?: string): boolean {
   if (!domain) return false;
   
-  // Extract domain name without TLD and common suffixes
-  const domainParts = domain.toLowerCase().split('.');
-  const brandName = domainParts[0]
-    .replace(/\.(com|net|org|io|co|inc)$/, '')
-    .replace(/[^a-z0-9]/g, '');
+  // Extract domain name without TLD
+  const domainName = domain.toLowerCase()
+    .replace(/^https?:\/\//, '') // Remove protocol
+    .replace(/^www\./, '')       // Remove www
+    .split('.')[0];              // Get first part before TLD
   
   console.log('Processing domain:', domain);
-  console.log('Extracted brand name:', brandName);
+  console.log('Extracted domain name:', domainName);
   
   // Create brand name variations
   const brandVariations = new Set<string>();
   
-  // Add the full brand name
-  brandVariations.add(brandName);
+  // Add the full domain name
+  brandVariations.add(domainName);
   
-  // Split by common word boundaries and add individual parts
-  const parts = brandName.match(/[a-z]+/g) || [];
+  // Split domain name into parts and add individual parts
+  const parts = domainName.match(/[a-z]+|\d+/g) || [];
   parts.forEach(part => {
-    if (part.length >= 3) {
+    if (part.length >= 3) { // Only add parts with 3 or more characters
       brandVariations.add(part);
     }
   });
   
   // Add combinations of consecutive parts
   for (let i = 0; i < parts.length - 1; i++) {
-    brandVariations.add(parts[i] + parts[i + 1]);
+    const combined = parts[i] + parts[i + 1];
+    if (combined.length >= 3) {
+      brandVariations.add(combined);
+    }
   }
   
-  // Filter out common words and short terms
+  // Add common brand variations
+  if (domainName.length >= 3) {
+    // Add with spaces between parts
+    brandVariations.add(parts.join(' '));
+    // Add with hyphens between parts
+    brandVariations.add(parts.join('-'));
+  }
+  
+  // Filter out common words
   const commonWords = new Set([
     'online', 'web', 'app', 'site', 'tech', 'digital',
     'service', 'services', 'group', 'inc', 'llc', 'ltd',
@@ -78,14 +89,20 @@ function isBrandedTerm(term: string, domain?: string): boolean {
   
   console.log('Brand variations:', finalVariations);
   
-  // Normalize search term
-  const normalizedTerm = term.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Normalize search term for comparison
+  const normalizedTerm = term.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters except spaces and hyphens
+    .replace(/\s+/g, ' ')         // Normalize spaces
+    .trim();
+  
   console.log('Checking term:', term);
   console.log('Normalized term:', normalizedTerm);
   
   // Check if any brand variation is present in the term
   const isBranded = finalVariations.some(variation => {
-    const isMatch = normalizedTerm.includes(variation);
+    // Create a regex that matches the variation as a whole word
+    const regex = new RegExp(`\\b${variation}\\b`, 'i');
+    const isMatch = regex.test(normalizedTerm);
     if (isMatch) {
       console.log(`Match found: "${variation}" in "${normalizedTerm}"`);
     }
@@ -117,14 +134,6 @@ function analyzeBrandedTerms(searchTerms: SearchTerm[], domain?: string) {
     ((brandedClicks - brandedPrevClicks) / brandedPrevClicks) * 100;
   const nonBrandedChange = nonBrandedPrevClicks === 0 ? 0 : 
     ((nonBrandedClicks - nonBrandedPrevClicks) / nonBrandedPrevClicks) * 100;
-
-  console.log('Analysis results:', {
-    brandedClicks,
-    nonBrandedClicks,
-    totalClicks,
-    brandedPercentage: totalClicks === 0 ? 0 : (brandedClicks / totalClicks) * 100,
-    nonBrandedPercentage: totalClicks === 0 ? 0 : (nonBrandedClicks / totalClicks) * 100
-  });
 
   return {
     branded: {
