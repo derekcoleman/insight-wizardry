@@ -1,6 +1,7 @@
 import { Summary } from "@/components/Summary";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -10,7 +11,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Navigation */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -70,6 +71,16 @@ const Index = () => {
       <div className={isConnected ? 'w-3/4 mx-auto' : 'max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'}>
         <Summary summary={""} isLoading={false} />
       </div>
+
+      {/* Footer */}
+      <footer className="mt-auto bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex justify-center space-x-6 text-sm text-gray-500">
+            <Link to="/privacy" className="hover:text-gray-900">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-gray-900">Terms of Service</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
