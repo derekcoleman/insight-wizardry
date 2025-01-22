@@ -16,6 +16,7 @@ export async function fetchGSCData(propertyId: string, startDate: string, endDat
   });
 
   if (!overallResponse.ok) {
+    console.error('GSC API Error:', await overallResponse.text());
     throw new Error(`GSC API error: ${overallResponse.statusText}`);
   }
 
@@ -35,6 +36,7 @@ export async function fetchGSCData(propertyId: string, startDate: string, endDat
   });
 
   if (!pagesResponse.ok) {
+    console.error('GSC API Error for pages:', await pagesResponse.text());
     throw new Error(`GSC API error for pages: ${pagesResponse.statusText}`);
   }
 
@@ -73,6 +75,7 @@ export async function fetchGSCSearchTerms(
   });
 
   if (!currentResponse.ok) {
+    console.error('GSC API Error for search terms:', await currentResponse.text());
     throw new Error(`GSC API error for search terms: ${currentResponse.statusText}`);
   }
 
@@ -92,6 +95,7 @@ export async function fetchGSCSearchTerms(
   });
 
   if (!previousResponse.ok) {
+    console.error('GSC API Error for previous search terms:', await previousResponse.text());
     throw new Error(`GSC API error for previous search terms: ${previousResponse.statusText}`);
   }
 
