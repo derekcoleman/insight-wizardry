@@ -1,6 +1,8 @@
 export async function fetchGSCData(propertyId: string, startDate: string, endDate: string, accessToken: string) {
   const url = 'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(propertyId) + '/searchAnalytics/query';
   
+  console.log('Fetching GSC data for:', { propertyId, startDate, endDate });
+  
   // Fetch overall metrics
   const overallResponse = await fetch(url, {
     method: 'POST',
@@ -16,7 +18,8 @@ export async function fetchGSCData(propertyId: string, startDate: string, endDat
   });
 
   if (!overallResponse.ok) {
-    console.error('GSC API Error:', await overallResponse.text());
+    const errorText = await overallResponse.text();
+    console.error('GSC API Error:', errorText);
     throw new Error(`GSC API error: ${overallResponse.statusText}`);
   }
 
@@ -36,7 +39,8 @@ export async function fetchGSCData(propertyId: string, startDate: string, endDat
   });
 
   if (!pagesResponse.ok) {
-    console.error('GSC API Error for pages:', await pagesResponse.text());
+    const errorText = await pagesResponse.text();
+    console.error('GSC API Error for pages:', errorText);
     throw new Error(`GSC API error for pages: ${pagesResponse.statusText}`);
   }
 
@@ -59,6 +63,12 @@ export async function fetchGSCSearchTerms(
 ) {
   const url = 'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(propertyId) + '/searchAnalytics/query';
   
+  console.log('Fetching GSC search terms for:', { 
+    propertyId, 
+    currentPeriod: `${currentStartDate.toISOString()} - ${currentEndDate.toISOString()}`,
+    previousPeriod: `${previousStartDate.toISOString()} - ${previousEndDate.toISOString()}`
+  });
+
   // Fetch current period search terms
   const currentResponse = await fetch(url, {
     method: 'POST',
@@ -75,7 +85,8 @@ export async function fetchGSCSearchTerms(
   });
 
   if (!currentResponse.ok) {
-    console.error('GSC API Error for search terms:', await currentResponse.text());
+    const errorText = await currentResponse.text();
+    console.error('GSC API Error for search terms:', errorText);
     throw new Error(`GSC API error for search terms: ${currentResponse.statusText}`);
   }
 
@@ -95,7 +106,8 @@ export async function fetchGSCSearchTerms(
   });
 
   if (!previousResponse.ok) {
-    console.error('GSC API Error for previous search terms:', await previousResponse.text());
+    const errorText = await previousResponse.text();
+    console.error('GSC API Error for previous search terms:', errorText);
     throw new Error(`GSC API error for previous search terms: ${previousResponse.statusText}`);
   }
 
