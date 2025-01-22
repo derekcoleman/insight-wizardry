@@ -174,7 +174,8 @@ serve(async (req) => {
       
       // Add conversion metrics if available
       if (data.current.conversions !== undefined) {
-        metrics.push(`Conversions (${data.current.conversionGoal || 'Total'})\t${data.current.conversions}\t${data.previous.conversions}\t${data.changes.conversions.toFixed(1)}%`);
+        const conversionType = data.current.conversionGoal || 'Total Conversions';
+        metrics.push(`Conversions (${conversionType})\t${data.current.conversions}\t${data.previous.conversions}\t${data.changes.conversions.toFixed(1)}%`);
       }
       
       // Add revenue metrics if available
@@ -204,6 +205,115 @@ serve(async (req) => {
         });
 
         currentIndex += tableText.length;
+      }
+
+      // Add branded vs non-branded analysis if available
+      if (data.searchTerms) {
+        const brandedTerms = data.searchTerms.filter((term: any) => term.isBranded);
+        const nonBrandedTerms = data.searchTerms.filter((term: any) => !term.isBranded);
+        
+        if (brandedTerms.length > 0 || nonBrandedTerms.length > 0) {
+          sectionRequests.push({
+            insertText: {
+              location: { index: currentIndex },
+              text: "\nBranded vs Non-Branded Search Terms\n"
+            }
+          });
+
+          // Format subsection title
+          sectionRequests.push({
+            updateParagraphStyle: {
+              range: {
+                startIndex: currentIndex + 1,
+                endIndex: currentIndex + 1 + "Branded vs Non-Branded Search Terms".length
+              },
+              paragraphStyle: {
+                namedStyleType: "HEADING_3"
+              },
+              fields: "namedStyleType"
+            }
+          });
+
+          currentIndex += "\nBranded vs Non-Branded Search Terms\n".length;
+
+          const brandedMetrics = [
+            "Term\tClicks\tImpressions\tCTR\tPosition",
+            ...brandedTerms.map((term: any) => 
+              `${term.term}\t${term.current.clicks}\t${term.current.impressions}\t${term.current.ctr}%\t${term.current.position}`
+            )
+          ].join('\n');
+
+          const nonBrandedMetrics = [
+            "Term\tClicks\tImpressions\tCTR\tPosition",
+            ...nonBrandedTerms.map((term: any) => 
+              `${term.term}\t${term.current.clicks}\t${term.current.impressions}\t${term.current.ctr}%\t${term.current.position}`
+            )
+          ].join('\n');
+
+          if (brandedTerms.length > 0) {
+            const brandedText = `\nBranded Terms:\n${brandedMetrics}\n\n`;
+            sectionRequests.push({
+              insertText: {
+                location: { index: currentIndex },
+                text: brandedText
+              }
+            });
+            currentIndex += brandedText.length;
+          }
+
+          if (nonBrandedTerms.length > 0) {
+            const nonBrandedText = `\nNon-Branded Terms:\n${nonBrandedMetrics}\n\n`;
+            sectionRequests.push({
+              insertText: {
+                location: { index: currentIndex },
+                text: nonBrandedText
+              }
+            });
+            currentIndex += nonBrandedText.length;
+          }
+        }
+      }
+
+      // Add top pages analysis if available
+      if (data.pages) {
+        sectionRequests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: "\nTop Pages Performance\n"
+          }
+        });
+
+        // Format subsection title
+        sectionRequests.push({
+          updateParagraphStyle: {
+            range: {
+              startIndex: currentIndex + 1,
+              endIndex: currentIndex + 1 + "Top Pages Performance".length
+            },
+            paragraphStyle: {
+              namedStyleType: "HEADING_3"
+            },
+            fields: "namedStyleType"
+          }
+        });
+
+        currentIndex += "\nTop Pages Performance\n".length;
+
+        const pagesMetrics = [
+          "Page\tClicks\tImpressions\tCTR\tPosition",
+          ...data.pages.map((page: any) => 
+            `${page.page}\t${page.current.clicks}\t${page.current.impressions}\t${page.current.ctr}%\t${page.current.position}`
+          )
+        ].join('\n') + '\n\n';
+
+        sectionRequests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: pagesMetrics
+          }
+        });
+
+        currentIndex += pagesMetrics.length;
       }
 
       return sectionRequests;
@@ -262,4 +372,4 @@ serve(async (req) => {
       },
     )
   }
-})
+});

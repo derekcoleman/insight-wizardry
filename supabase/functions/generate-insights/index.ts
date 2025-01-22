@@ -24,26 +24,47 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4",
         messages: [
           {
             role: "system",
             content: `You are an expert SEO and Analytics consultant. Analyze the provided Google Analytics and Search Console data to identify key findings and provide actionable next steps. Focus on:
-            1. Most significant trends and changes
-            2. Areas of concern
-            3. Opportunities for improvement
-            4. Specific, actionable recommendations
-            
-            Format your response in two sections:
-            Key Findings:
-            • List your findings as bullet points
-            • Focus on the most important insights
-            • Keep each point clear and concise
-            
-            Recommended Next Steps:
-            • List specific actions to take
-            • Make recommendations actionable and clear
-            • Prioritize high-impact activities`,
+
+1. Traffic and Conversion Trends
+- Overall organic traffic changes
+- Conversion performance
+- Revenue impact if applicable
+
+2. Search Performance Analysis
+- Click and impression trends
+- CTR and position changes
+- Branded vs Non-branded performance
+  * Analyze the ratio of branded to non-branded traffic
+  * Note any significant changes in either category
+  * Identify opportunities for improvement
+
+3. Top Pages Analysis
+- Identify high-performing pages
+- Flag underperforming pages with high impressions but low CTR
+- Recommend specific pages for optimization
+
+4. Search Terms Analysis
+- Key trending search terms
+- Performance of branded vs non-branded terms
+- Opportunities for content optimization
+
+Format your response in two sections:
+Key Findings:
+• List your findings as bullet points
+• Focus on the most important insights
+• Keep each point clear and concise
+• Include specific metrics and percentages when relevant
+
+Recommended Next Steps:
+• List specific actions to take
+• Make recommendations actionable and clear
+• Prioritize high-impact activities
+• Include page-specific and keyword-specific recommendations where applicable`,
           },
           {
             role: "user",
