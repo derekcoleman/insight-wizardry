@@ -1,3 +1,40 @@
+import { corsHeaders } from "../_shared/cors.ts";
+
+interface GA4Analysis {
+  weekly_analysis: any;
+  monthly_analysis: any;
+  quarterly_analysis: any;
+  ytd_analysis: any;
+  last28_yoy_analysis: any;
+}
+
+export async function analyzeGA4Data(propertyId: string, accessToken: string, mainConversionGoal?: string): Promise<GA4Analysis> {
+  console.log('Starting GA4 data analysis for property:', propertyId);
+  
+  try {
+    const now = new Date();
+    const data = await fetchGA4Data(propertyId, accessToken, now, mainConversionGoal);
+    
+    // Process the data into different time periods
+    const weekly = await processWeeklyData(data);
+    const monthly = await processMonthlyData(data);
+    const quarterly = await processQuarterlyData(data);
+    const ytd = await processYTDData(data);
+    const last28Yoy = await processLast28YoYData(data);
+
+    return {
+      weekly_analysis: weekly,
+      monthly_analysis: monthly,
+      quarterly_analysis: quarterly,
+      ytd_analysis: ytd,
+      last28_yoy_analysis: last28Yoy
+    };
+  } catch (error) {
+    console.error('Error analyzing GA4 data:', error);
+    throw error;
+  }
+}
+
 export async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
   console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
   console.log('Using event metric:', mainConversionGoal || 'Total Events');
