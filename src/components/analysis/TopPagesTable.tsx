@@ -99,7 +99,7 @@ export function TopPagesTable({ pages }: TopPagesTableProps) {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger>
-              <Badge variant="success" className="ml-2">
+              <Badge variant="secondary" className="ml-2">
                 Growing <Info className="h-3 w-3 ml-1 inline" />
               </Badge>
             </TooltipTrigger>
