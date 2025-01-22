@@ -159,3 +159,105 @@ export async function fetchGSCSearchTerms(
     return [];
   }
 }
+
+export async function fetchGSCPages(
+  siteUrl: string,
+  accessToken: string,
+  currentStartDate: Date,
+  currentEndDate: Date,
+  previousStartDate: Date,
+  previousEndDate: Date
+) {
+  try {
+    const [currentData, previousData] = await Promise.all([
+      fetch(
+        'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            startDate: currentStartDate.toISOString().split('T')[0],
+            endDate: currentEndDate.toISOString().split('T')[0],
+            dimensions: ['page'],
+            rowLimit: 10,
+          }),
+        }
+      ).then(res => res.json()),
+      fetch(
+        'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            startDate: previousStartDate.toISOString().split('T')[0],
+            endDate: previousEndDate.toISOString().split('T')[0],
+            dimensions: ['page'],
+            rowLimit: 10,
+          }),
+        }
+      ).then(res => res.json()),
+    ]);
+
+    if (!currentData.rows || !previousData.rows) {
+      return [];
+    }
+
+    const pages = currentData.rows.map((currentRow: any) => {
+      const previousRow = previousData.rows.find((row: any) => row.keys[0] === currentRow.keys[0]) || {
+        clicks: 0,
+        impressions: 0,
+        ctr: 0,
+        position: 0,
+      };
+
+      const clicksChange = previousRow.clicks === 0
+        ? (currentRow.clicks > 0 ? 100 : 0)
+        : ((currentRow.clicks - previousRow.clicks) / previousRow.clicks) * 100;
+
+      const impressionsChange = previousRow.impressions === 0
+        ? (currentRow.impressions > 0 ? 100 : 0)
+        : ((currentRow.impressions - previousRow.impressions) / previousRow.impressions) * 100;
+
+      const ctrChange = previousRow.ctr === 0
+        ? (currentRow.ctr > 0 ? 100 : 0)
+        : ((currentRow.ctr - previousRow.ctr) / previousRow.ctr) * 100;
+
+      const positionChange = previousRow.position === 0
+        ? (currentRow.position > 0 ? 100 : 0)
+        : ((previousRow.position - currentRow.position) / previousRow.position) * 100;
+
+      return {
+        page: currentRow.keys[0],
+        current: {
+          clicks: currentRow.clicks,
+          impressions: currentRow.impressions,
+          ctr: (currentRow.ctr * 100).toFixed(1),
+          position: currentRow.position.toFixed(1),
+        },
+        previous: {
+          clicks: previousRow.clicks,
+          impressions: previousRow.impressions,
+          ctr: (previousRow.ctr * 100).toFixed(1),
+          position: previousRow.position.toFixed(1),
+        },
+        changes: {
+          clicks: clicksChange.toFixed(1),
+          impressions: impressionsChange.toFixed(1),
+          ctr: ctrChange.toFixed(1),
+          position: positionChange.toFixed(1),
+        },
+      };
+    });
+
+    return pages;
+  } catch (error) {
+    console.error('Error fetching GSC pages:', error);
+    return [];
+  }
+}
