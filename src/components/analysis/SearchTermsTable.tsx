@@ -38,58 +38,73 @@ interface SearchTermsTableProps {
 function isBrandedTerm(term: string, domain?: string): boolean {
   if (!domain) return false;
   
-  // Extract the domain name without TLD and prepare it for comparison
-  const brandName = domain.split('.')[0].toLowerCase();
-  console.log('Brand name:', brandName);
+  // Extract domain name without TLD and common suffixes
+  const domainParts = domain.toLowerCase().split('.');
+  const brandName = domainParts[0]
+    .replace(/\.(com|net|org|io|co|inc)$/, '')
+    .replace(/[^a-z0-9]/g, '');
   
-  // Split the brand name into parts (e.g., "cabionline" -> ["cabi", "online"])
-  const brandParts = brandName.match(/[a-z]+/g) || [];
+  console.log('Processing domain:', domain);
+  console.log('Extracted brand name:', brandName);
   
-  // Create variations of the brand name
-  const brandVariations = [
-    brandName, // full brand name
-    ...brandParts, // individual parts
-    // Handle cases where brand might be written with spaces
-    brandName.replace(/([a-z])([A-Z])/g, '$1 $2'), // Add space between camelCase
-    // Join parts with space
-    brandParts.join(' '),
-  ].map(v => v.toLowerCase().trim())
-  .filter(v => {
-    // Filter out common words that shouldn't be considered branded
-    const commonWords = [
-      'growth', 'marketing', 'digital', 'solutions', 
-      'tech', 'technology', 'online', 'web', 'app',
-      'service', 'services', 'group', 'inc', 'llc'
-    ];
-    return !commonWords.includes(v) && v.length >= 3;
-  });
-
-  console.log('Brand variations:', brandVariations);
+  // Create brand name variations
+  const brandVariations = new Set<string>();
   
-  // Normalize the search term
-  const normalizedTerm = term.toLowerCase();
-  console.log('Checking term:', normalizedTerm);
+  // Add the full brand name
+  brandVariations.add(brandName);
   
-  // Check if any variation of the brand name is in the term
-  const isBranded = brandVariations.some(variation => {
-    // Check for exact match or word boundary match
-    const wordBoundaryRegex = new RegExp(`\\b${variation}\\b`);
-    const included = normalizedTerm.includes(variation) || 
-                    wordBoundaryRegex.test(normalizedTerm);
-    
-    if (included) {
-      console.log(`Found brand match: "${variation}" in "${normalizedTerm}"`);
+  // Split by common word boundaries and add individual parts
+  const parts = brandName.match(/[a-z]+/g) || [];
+  parts.forEach(part => {
+    if (part.length >= 3) {
+      brandVariations.add(part);
     }
-    return included;
   });
-
-  console.log(`Term "${term}" is ${isBranded ? 'branded' : 'not branded'}`);
+  
+  // Add combinations of consecutive parts
+  for (let i = 0; i < parts.length - 1; i++) {
+    brandVariations.add(parts[i] + parts[i + 1]);
+  }
+  
+  // Filter out common words and short terms
+  const commonWords = new Set([
+    'online', 'web', 'app', 'site', 'tech', 'digital',
+    'service', 'services', 'group', 'inc', 'llc', 'ltd',
+    'company', 'solutions', 'platform', 'software'
+  ]);
+  
+  const finalVariations = Array.from(brandVariations)
+    .filter(v => !commonWords.has(v) && v.length >= 3);
+  
+  console.log('Brand variations:', finalVariations);
+  
+  // Normalize search term
+  const normalizedTerm = term.toLowerCase().replace(/[^a-z0-9]/g, '');
+  console.log('Checking term:', term);
+  console.log('Normalized term:', normalizedTerm);
+  
+  // Check if any brand variation is present in the term
+  const isBranded = finalVariations.some(variation => {
+    const isMatch = normalizedTerm.includes(variation);
+    if (isMatch) {
+      console.log(`Match found: "${variation}" in "${normalizedTerm}"`);
+    }
+    return isMatch;
+  });
+  
+  console.log(`Term "${term}" is ${isBranded ? 'branded' : 'non-branded'}\n`);
   return isBranded;
 }
 
 function analyzeBrandedTerms(searchTerms: SearchTerm[], domain?: string) {
+  console.log('Analyzing branded terms for domain:', domain);
+  console.log('Total search terms:', searchTerms.length);
+  
   const branded = searchTerms.filter(term => isBrandedTerm(term.term, domain));
   const nonBranded = searchTerms.filter(term => !isBrandedTerm(term.term, domain));
+  
+  console.log('Branded terms count:', branded.length);
+  console.log('Non-branded terms count:', nonBranded.length);
   
   const brandedClicks = branded.reduce((sum, term) => sum + term.current.clicks, 0);
   const nonBrandedClicks = nonBranded.reduce((sum, term) => sum + term.current.clicks, 0);
@@ -102,6 +117,14 @@ function analyzeBrandedTerms(searchTerms: SearchTerm[], domain?: string) {
     ((brandedClicks - brandedPrevClicks) / brandedPrevClicks) * 100;
   const nonBrandedChange = nonBrandedPrevClicks === 0 ? 0 : 
     ((nonBrandedClicks - nonBrandedPrevClicks) / nonBrandedPrevClicks) * 100;
+
+  console.log('Analysis results:', {
+    brandedClicks,
+    nonBrandedClicks,
+    totalClicks,
+    brandedPercentage: totalClicks === 0 ? 0 : (brandedClicks / totalClicks) * 100,
+    nonBrandedPercentage: totalClicks === 0 ? 0 : (nonBrandedClicks / totalClicks) * 100
+  });
 
   return {
     branded: {
@@ -163,7 +186,12 @@ export function SearchTermsTable({ searchTerms, domain }: SearchTermsTableProps)
         <TableBody>
           {searchTerms.map((term) => (
             <TableRow key={term.term}>
-              <TableCell className="font-medium">{term.term}</TableCell>
+              <TableCell className="font-medium">
+                {term.term}
+                {isBrandedTerm(term.term, domain) && (
+                  <span className="ml-2 text-xs text-muted-foreground">(Branded)</span>
+                )}
+              </TableCell>
               <TableCell className="text-right">{term.current.clicks}</TableCell>
               <TableCell className="text-right">{term.previous.clicks}</TableCell>
               <TableCell className={`text-right ${Number(term.changes.clicks) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
