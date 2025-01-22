@@ -23,6 +23,41 @@ export function analyzeTimePeriod(
     },
   };
 
+  // Extract pages data from GSC data
+  const pages = currentGSCData?.pages?.map((page: any) => ({
+    path: page.page,
+    current: {
+      clicks: page.clicks,
+      impressions: page.impressions,
+      ctr: (page.ctr * 100).toFixed(2),
+      position: page.position.toFixed(1)
+    },
+    previous: previousGSCData?.pages?.find((p: any) => p.page === page.page) || {
+      clicks: 0,
+      impressions: 0,
+      ctr: '0',
+      position: '0'
+    },
+    changes: {
+      clicks: calculatePercentageChange(
+        page.clicks,
+        previousGSCData?.pages?.find((p: any) => p.page === page.page)?.clicks || 0
+      ).toFixed(1),
+      impressions: calculatePercentageChange(
+        page.impressions,
+        previousGSCData?.pages?.find((p: any) => p.page === page.page)?.impressions || 0
+      ).toFixed(1),
+      ctr: calculatePercentageChange(
+        page.ctr,
+        previousGSCData?.pages?.find((p: any) => p.page === page.page)?.ctr || 0
+      ).toFixed(1),
+      position: calculatePercentageChange(
+        page.position,
+        previousGSCData?.pages?.find((p: any) => p.page === page.page)?.position || 0
+      ).toFixed(1)
+    }
+  })) || [];
+
   const changes = calculateChanges(organic.current, organic.previous);
 
   // Format the period string to include the date ranges
@@ -33,12 +68,18 @@ export function analyzeTimePeriod(
     current: organic.current,
     previous: organic.previous,
     changes,
+    pages: pages.sort((a: any, b: any) => b.current.clicks - a.current.clicks).slice(0, 10), // Sort by clicks and get top 10
     summary: generateDetailedSummary(changes, organic.current, organic.previous, periodText),
     dataSources: {
       ga4: Boolean(currentGA4Data),
       gsc: Boolean(currentGSCData),
     },
   };
+}
+
+function calculatePercentageChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return ((current - previous) / previous) * 100;
 }
 
 function calculateChanges(current: any, previous: any) {
