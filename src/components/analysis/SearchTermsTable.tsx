@@ -31,11 +31,26 @@ interface SearchTermsTableProps {
 function isBrandedTerm(term: string, domain?: string): boolean {
   if (!domain) return false;
   
-  // Extract the domain name without TLD
+  // Extract the domain name without TLD and prepare it for comparison
   const brandName = domain.split('.')[0].toLowerCase();
   
-  // Check if the term contains the brand name
-  return term.toLowerCase().includes(brandName);
+  // Create variations of the brand name
+  const brandVariations = [
+    brandName,
+    // Handle cases where brand might be written with spaces
+    ...brandName.split(/(?=[A-Z])/), // Split on capital letters
+    brandName.replace(/([a-z])([A-Z])/g, '$1 $2'), // Add space between camelCase
+  ].map(v => v.toLowerCase().trim());
+  
+  // Normalize the search term
+  const normalizedTerm = term.toLowerCase();
+  
+  // Check if any variation of the brand name is in the term
+  return brandVariations.some(variation => 
+    normalizedTerm.includes(variation) || 
+    // Also check if the term matches when spaces are removed
+    normalizedTerm.replace(/\s+/g, '').includes(variation.replace(/\s+/g, ''))
+  );
 }
 
 function analyzeBrandedTerms(searchTerms: SearchTerm[], domain?: string) {
