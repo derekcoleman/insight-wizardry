@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { fetchGA4Data } from "./ga4-service.ts";
-import { fetchGSCData, fetchGSCSearchTerms } from "./gsc-service.ts";
+import { fetchGSCData, fetchGSCSearchTerms, fetchGSCPages } from "./gsc-service.ts";
 import { analyzeTimePeriod } from "./analysis-service.ts";
 
 const corsHeaders = {
@@ -30,6 +30,10 @@ serve(async (req) => {
         }
       );
     }
+
+    // Extract domain from GSC property URL if available
+    const domain = gscProperty ? new URL(gscProperty).hostname : null;
+    console.log('Extracted domain:', domain);
 
     const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
@@ -119,7 +123,12 @@ serve(async (req) => {
         monthlySearchTerms,
         quarterlySearchTerms,
         ytdSearchTerms,
-        last28YoYSearchTerms
+        last28YoYSearchTerms,
+        weeklyPages,
+        monthlyPages,
+        quarterlyPages,
+        ytdPages,
+        last28YoYPages
       ] = await Promise.all([
         // GA4 Data
         fetchGA4Data(cleanPropertyId, accessToken, last7DaysStart, last7DaysEnd, mainConversionGoal),
@@ -149,7 +158,13 @@ serve(async (req) => {
           fetchGSCSearchTerms(gscProperty, accessToken, last28DaysStart, last28DaysEnd, prev28DaysStart, prev28DaysEnd),
           fetchGSCSearchTerms(gscProperty, accessToken, last90DaysStart, last90DaysEnd, prev90DaysStart, prev90DaysEnd),
           fetchGSCSearchTerms(gscProperty, accessToken, ytdStart, ytdEnd, prevYtdStart, prevYtdEnd),
-          fetchGSCSearchTerms(gscProperty, accessToken, last28YoYStart, last28YoYEnd, prev28YoYStart, prev28YoYEnd)
+          fetchGSCSearchTerms(gscProperty, accessToken, last28YoYStart, last28YoYEnd, prev28YoYStart, prev28YoYEnd),
+          // Pages
+          fetchGSCPages(gscProperty, accessToken, last7DaysStart, last7DaysEnd, prev7DaysStart, prev7DaysEnd),
+          fetchGSCPages(gscProperty, accessToken, last28DaysStart, last28DaysEnd, prev28DaysStart, prev28DaysEnd),
+          fetchGSCPages(gscProperty, accessToken, last90DaysStart, last90DaysEnd, prev90DaysStart, prev90DaysEnd),
+          fetchGSCPages(gscProperty, accessToken, ytdStart, ytdEnd, prevYtdStart, prevYtdEnd),
+          fetchGSCPages(gscProperty, accessToken, last28YoYStart, last28YoYEnd, prev28YoYStart, prev28YoYEnd)
         ] : Array(15).fill(null))
       ]);
 
@@ -164,7 +179,9 @@ serve(async (req) => {
             { start: last7DaysStart, end: last7DaysEnd },
             { start: prev7DaysStart, end: prev7DaysEnd }
           ),
-          searchTerms: weeklySearchTerms
+          searchTerms: weeklySearchTerms,
+          pages: weeklyPages,
+          domain
         },
         monthly_analysis: {
           ...analyzeTimePeriod(
@@ -176,7 +193,9 @@ serve(async (req) => {
             { start: last28DaysStart, end: last28DaysEnd },
             { start: prev28DaysStart, end: prev28DaysEnd }
           ),
-          searchTerms: monthlySearchTerms
+          searchTerms: monthlySearchTerms,
+          pages: monthlyPages,
+          domain
         },
         quarterly_analysis: {
           ...analyzeTimePeriod(
@@ -188,7 +207,9 @@ serve(async (req) => {
             { start: last90DaysStart, end: last90DaysEnd },
             { start: prev90DaysStart, end: prev90DaysEnd }
           ),
-          searchTerms: quarterlySearchTerms
+          searchTerms: quarterlySearchTerms,
+          pages: quarterlyPages,
+          domain
         },
         ytd_analysis: {
           ...analyzeTimePeriod(
@@ -200,7 +221,9 @@ serve(async (req) => {
             { start: ytdStart, end: ytdEnd },
             { start: prevYtdStart, end: prevYtdEnd }
           ),
-          searchTerms: ytdSearchTerms
+          searchTerms: ytdSearchTerms,
+          pages: ytdPages,
+          domain
         },
         last28_yoy_analysis: {
           ...analyzeTimePeriod(
@@ -212,7 +235,9 @@ serve(async (req) => {
             { start: last28YoYStart, end: last28YoYEnd },
             { start: prev28YoYStart, end: prev28YoYEnd }
           ),
-          searchTerms: last28YoYSearchTerms
+          searchTerms: last28YoYSearchTerms,
+          pages: last28YoYPages,
+          domain
         }
       };
 

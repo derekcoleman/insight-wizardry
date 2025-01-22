@@ -25,6 +25,13 @@ interface UseGoogleServicesReturn {
   accessToken: string | null;
 }
 
+const formatEventName = (eventName: string): string => {
+  return eventName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export function useGoogleServices(): UseGoogleServicesReturn {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
@@ -124,7 +131,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       const eventsList = Array.from(uniqueEvents).sort();
       
-      // Create the goals list with Total Events as the first option
+      // Create the goals list with Total Events as the first option and format event names
       const goals = [
         { id: 'Total Events', name: 'Total Events' },
         ...eventsList.map(event => ({

@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "./MetricCard";
 import { SearchTermsTable } from "./SearchTermsTable";
+import { TopPagesTable } from "./TopPagesTable";
 
 interface AnalysisCardProps {
   title: string;
@@ -16,8 +17,18 @@ interface AnalysisCardProps {
       gsc?: boolean;
     };
     searchTerms?: any[];
+    pages?: any[];
+    domain?: string;
   };
 }
+
+const formatEventName = (eventName: string): string => {
+  if (eventName === 'Total Events') return eventName;
+  return eventName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
 
 export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
   return (
@@ -51,7 +62,7 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
               change={data.changes.sessions}
             />
             <MetricCard
-              title={`Organic ${data.current.conversionGoal || 'Conversions'}`}
+              title={`Organic ${formatEventName(data.current.conversionGoal || 'Conversions')}`}
               value={data.current.conversions}
               change={data.changes.conversions}
             />
@@ -67,7 +78,13 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
               {data.summary}
             </div>
           )}
-          {data.searchTerms && <SearchTermsTable searchTerms={data.searchTerms} />}
+          {data.searchTerms && <SearchTermsTable searchTerms={data.searchTerms} domain={data.domain} />}
+          {data.pages && (
+            <>
+              <h3 className="text-lg font-semibold mt-6 mb-2">Top Pages</h3>
+              <TopPagesTable pages={data.pages} />
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

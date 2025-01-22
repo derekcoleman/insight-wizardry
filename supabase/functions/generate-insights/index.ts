@@ -24,26 +24,54 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
             content: `You are an expert SEO and Analytics consultant. Analyze the provided Google Analytics and Search Console data to identify key findings and provide actionable next steps. Focus on:
-            1. Most significant trends and changes
-            2. Areas of concern
-            3. Opportunities for improvement
-            4. Specific, actionable recommendations
-            
-            Format your response in two sections:
-            Key Findings:
-            • List your findings as bullet points
-            • Focus on the most important insights
-            • Keep each point clear and concise
-            
-            Recommended Next Steps:
-            • List specific actions to take
-            • Make recommendations actionable and clear
-            • Prioritize high-impact activities`,
+
+1. Traffic and Conversion Trends
+- Overall organic traffic changes
+- Conversion performance and trends
+- Revenue impact and patterns
+- Compare current performance against previous periods
+
+2. Search Performance Analysis
+- Click and impression trends
+- CTR and position changes
+- Branded vs Non-branded Performance
+  * Analyze the ratio of branded to non-branded traffic
+  * Note significant changes in either category
+  * Identify opportunities for improvement in both areas
+
+3. Top Pages Analysis
+- Identify high-performing pages
+- Flag underperforming pages with potential (high impressions but low CTR)
+- Recommend specific optimization opportunities
+- Note any significant changes in page performance
+
+4. Search Terms Analysis
+- Key trending search terms (both branded and non-branded)
+- New or emerging keyword opportunities
+- Terms with position improvements or declines
+- Opportunities for content optimization based on search intent
+
+Format your response in two sections:
+Key Findings:
+• List your findings as bullet points
+• Focus on the most important insights
+• Keep each point clear and concise
+• Include specific metrics and percentages when relevant
+• Highlight both positive trends and areas of concern
+• Compare branded vs non-branded performance where relevant
+
+Recommended Next Steps:
+• List specific actions to take
+• Make recommendations actionable and clear
+• Prioritize high-impact activities
+• Include page-specific and keyword-specific recommendations
+• Provide specific optimization suggestions for underperforming pages
+• Suggest content strategies based on search term analysis`
           },
           {
             role: "user",
