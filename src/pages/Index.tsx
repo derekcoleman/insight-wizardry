@@ -13,14 +13,14 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Navigation */}
-      <nav className="bg-white shadow-sm">
+      <nav className="bg-[#221F26] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex-shrink-0">
               <img
                 src="/lovable-uploads/5af14e23-a706-42a0-ac29-7d384fd42a15.png"
                 alt="Standup Notez Logo"
-                className="h-8 w-auto"
+                className="h-12 w-auto"
               />
             </div>
           </div>
