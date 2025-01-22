@@ -40,6 +40,7 @@ function isBrandedTerm(term: string, domain?: string): boolean {
   
   // Extract the domain name without TLD and prepare it for comparison
   const brandName = domain.split('.')[0].toLowerCase();
+  console.log('Brand name:', brandName);
   
   // Create variations of the brand name
   const brandVariations = [
@@ -52,21 +53,29 @@ function isBrandedTerm(term: string, domain?: string): boolean {
   ].map(v => v.toLowerCase().trim())
   .filter(v => 
     // Filter out common words that shouldn't be considered branded
-    !['growth', 'marketing', 'digital', 'solutions', 'tech', 'technology'].includes(v)
+    !['growth', 'marketing', 'digital', 'solutions', 'tech', 'technology'].includes(v) &&
+    // Ensure variation is at least 3 characters
+    v.length >= 3
   );
+
+  console.log('Brand variations:', brandVariations);
   
   // Normalize the search term
   const normalizedTerm = term.toLowerCase();
+  console.log('Checking term:', normalizedTerm);
   
   // Check if any variation of the brand name is in the term
-  return brandVariations.some(variation => 
-    // Only consider variations that are at least 3 characters long
-    variation.length >= 3 && (
-      normalizedTerm.includes(variation) || 
-      // Also check if the term matches when spaces are removed
-      normalizedTerm.replace(/\s+/g, '').includes(variation.replace(/\s+/g, ''))
-    )
-  );
+  const isBranded = brandVariations.some(variation => {
+    const included = normalizedTerm.includes(variation) || 
+      normalizedTerm.replace(/\s+/g, '').includes(variation.replace(/\s+/g, ''));
+    if (included) {
+      console.log(`Found brand match: "${variation}" in "${normalizedTerm}"`);
+    }
+    return included;
+  });
+
+  console.log(`Term "${term}" is ${isBranded ? 'branded' : 'not branded'}`);
+  return isBranded;
 }
 
 function analyzeBrandedTerms(searchTerms: SearchTerm[], domain?: string) {
