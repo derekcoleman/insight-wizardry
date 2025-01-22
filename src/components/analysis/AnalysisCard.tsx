@@ -18,6 +18,7 @@ interface AnalysisCardProps {
     };
     searchTerms?: any[];
     pages?: any[];
+    domain?: string;
   };
 }
 
@@ -69,7 +70,7 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
               {data.summary}
             </div>
           )}
-          {data.searchTerms && <SearchTermsTable searchTerms={data.searchTerms} />}
+          {data.searchTerms && <SearchTermsTable searchTerms={data.searchTerms} domain={data.domain} />}
           {data.pages && (
             <>
               <h3 className="text-lg font-semibold mt-6 mb-2">Top Pages</h3>
