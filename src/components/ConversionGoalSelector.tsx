@@ -1,5 +1,10 @@
-import { Target } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ConversionGoal {
   id: string;
@@ -12,32 +17,30 @@ interface ConversionGoalSelectorProps {
   onValueChange: (value: string) => void;
 }
 
+const formatEventName = (eventName: string): string => {
+  if (eventName === 'Total Events') return eventName;
+  return eventName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export function ConversionGoalSelector({
   goals,
   value,
   onValueChange,
 }: ConversionGoalSelectorProps) {
-  if (!goals || goals.length === 0) {
-    return null;
-  }
-
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium flex items-center gap-2">
-        <Target className="h-4 w-4" />
-        Select Conversion Metric
-      </label>
-      <Select
-        value={value}
-        onValueChange={onValueChange}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Choose a conversion metric to track" />
+      <label className="text-sm font-medium">Select Conversion Goal</label>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="Select conversion goal" />
         </SelectTrigger>
         <SelectContent>
           {goals.map((goal) => (
             <SelectItem key={goal.id} value={goal.id}>
-              {goal.name}
+              {formatEventName(goal.name)}
             </SelectItem>
           ))}
         </SelectContent>

@@ -136,7 +136,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         { id: 'Total Events', name: 'Total Events' },
         ...eventsList.map(event => ({
           id: event,
-          name: formatEventName(event)
+          name: event
         }))
       ];
 
