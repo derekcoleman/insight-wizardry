@@ -24,7 +24,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
@@ -32,26 +32,29 @@ serve(async (req) => {
 
 1. Traffic and Conversion Trends
 - Overall organic traffic changes
-- Conversion performance
-- Revenue impact if applicable
+- Conversion performance and trends
+- Revenue impact and patterns
+- Compare current performance against previous periods
 
 2. Search Performance Analysis
 - Click and impression trends
 - CTR and position changes
-- Branded vs Non-branded performance
+- Branded vs Non-branded Performance
   * Analyze the ratio of branded to non-branded traffic
-  * Note any significant changes in either category
-  * Identify opportunities for improvement
+  * Note significant changes in either category
+  * Identify opportunities for improvement in both areas
 
 3. Top Pages Analysis
 - Identify high-performing pages
-- Flag underperforming pages with high impressions but low CTR
-- Recommend specific pages for optimization
+- Flag underperforming pages with potential (high impressions but low CTR)
+- Recommend specific optimization opportunities
+- Note any significant changes in page performance
 
 4. Search Terms Analysis
-- Key trending search terms
-- Performance of branded vs non-branded terms
-- Opportunities for content optimization
+- Key trending search terms (both branded and non-branded)
+- New or emerging keyword opportunities
+- Terms with position improvements or declines
+- Opportunities for content optimization based on search intent
 
 Format your response in two sections:
 Key Findings:
@@ -59,12 +62,16 @@ Key Findings:
 • Focus on the most important insights
 • Keep each point clear and concise
 • Include specific metrics and percentages when relevant
+• Highlight both positive trends and areas of concern
+• Compare branded vs non-branded performance where relevant
 
 Recommended Next Steps:
 • List specific actions to take
 • Make recommendations actionable and clear
 • Prioritize high-impact activities
-• Include page-specific and keyword-specific recommendations where applicable`,
+• Include page-specific and keyword-specific recommendations
+• Provide specific optimization suggestions for underperforming pages
+• Suggest content strategies based on search term analysis`
           },
           {
             role: "user",
