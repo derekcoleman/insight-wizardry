@@ -31,6 +31,10 @@ serve(async (req) => {
       );
     }
 
+    // Extract domain from GSC property URL if available
+    const domain = gscProperty ? new URL(gscProperty).hostname : null;
+    console.log('Extracted domain:', domain);
+
     const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
 
@@ -176,7 +180,8 @@ serve(async (req) => {
             { start: prev7DaysStart, end: prev7DaysEnd }
           ),
           searchTerms: weeklySearchTerms,
-          pages: weeklyPages
+          pages: weeklyPages,
+          domain
         },
         monthly_analysis: {
           ...analyzeTimePeriod(
@@ -189,7 +194,8 @@ serve(async (req) => {
             { start: prev28DaysStart, end: prev28DaysEnd }
           ),
           searchTerms: monthlySearchTerms,
-          pages: monthlyPages
+          pages: monthlyPages,
+          domain
         },
         quarterly_analysis: {
           ...analyzeTimePeriod(
@@ -202,7 +208,8 @@ serve(async (req) => {
             { start: prev90DaysStart, end: prev90DaysEnd }
           ),
           searchTerms: quarterlySearchTerms,
-          pages: quarterlyPages
+          pages: quarterlyPages,
+          domain
         },
         ytd_analysis: {
           ...analyzeTimePeriod(
@@ -215,7 +222,8 @@ serve(async (req) => {
             { start: prevYtdStart, end: prevYtdEnd }
           ),
           searchTerms: ytdSearchTerms,
-          pages: ytdPages
+          pages: ytdPages,
+          domain
         },
         last28_yoy_analysis: {
           ...analyzeTimePeriod(
@@ -228,7 +236,8 @@ serve(async (req) => {
             { start: prev28YoYStart, end: prev28YoYEnd }
           ),
           searchTerms: last28YoYSearchTerms,
-          pages: last28YoYPages
+          pages: last28YoYPages,
+          domain
         }
       };
 
