@@ -1,4 +1,11 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface SearchTerm {
@@ -36,20 +43,29 @@ function isBrandedTerm(term: string, domain?: string): boolean {
   
   // Create variations of the brand name
   const brandVariations = [
-    brandName,
+    brandName, // full brand name
+    // Split compound names (e.g., "crowdstrike" -> ["crowd", "strike"])
+    ...brandName.match(/[a-z]+/g) || [],
     // Handle cases where brand might be written with spaces
     ...brandName.split(/(?=[A-Z])/), // Split on capital letters
     brandName.replace(/([a-z])([A-Z])/g, '$1 $2'), // Add space between camelCase
-  ].map(v => v.toLowerCase().trim());
+  ].map(v => v.toLowerCase().trim())
+  .filter(v => 
+    // Filter out common words that shouldn't be considered branded
+    !['growth', 'marketing', 'digital', 'solutions', 'tech', 'technology'].includes(v)
+  );
   
   // Normalize the search term
   const normalizedTerm = term.toLowerCase();
   
   // Check if any variation of the brand name is in the term
   return brandVariations.some(variation => 
-    normalizedTerm.includes(variation) || 
-    // Also check if the term matches when spaces are removed
-    normalizedTerm.replace(/\s+/g, '').includes(variation.replace(/\s+/g, ''))
+    // Only consider variations that are at least 3 characters long
+    variation.length >= 3 && (
+      normalizedTerm.includes(variation) || 
+      // Also check if the term matches when spaces are removed
+      normalizedTerm.replace(/\s+/g, '').includes(variation.replace(/\s+/g, ''))
+    )
   );
 }
 
