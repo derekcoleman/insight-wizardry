@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "./MetricCard";
 import { SearchTermsTable } from "./SearchTermsTable";
-import { TopPagesTable } from "./TopPagesTable";
 
 interface AnalysisCardProps {
   title: string;
@@ -17,7 +16,6 @@ interface AnalysisCardProps {
       gsc?: boolean;
     };
     searchTerms?: any[];
-    pages?: any[];
   };
 }
 
@@ -70,7 +68,6 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
             </div>
           )}
           {data.searchTerms && <SearchTermsTable searchTerms={data.searchTerms} />}
-          {data.pages && <TopPagesTable pages={data.pages} />}
         </div>
       </CardContent>
     </Card>

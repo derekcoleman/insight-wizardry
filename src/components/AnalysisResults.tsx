@@ -125,11 +125,11 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   };
 
   const analyses = [
-    { type: "Week over Week", data: report?.weekly_analysis },
-    { type: "Month over Month", data: report?.monthly_analysis },
-    { type: "Quarter over Quarter", data: report?.quarterly_analysis },
-    { type: "Year to Date", data: report?.ytd_analysis },
-    { type: "Last 28 Days Year over Year", data: report?.last28_yoy_analysis },
+    { type: "Week over Week", data: report.weekly_analysis },
+    { type: "Month over Month", data: report.monthly_analysis },
+    { type: "Quarter over Quarter", data: report.quarterly_analysis },
+    { type: "Year to Date", data: report.ytd_analysis },
+    { type: "Last 28 Days Year over Year", data: report.last28_yoy_analysis },
   ].filter(analysis => analysis.data && analysis.data.current);
 
   if (analyses.length === 0) return null;
@@ -165,12 +165,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
               key={title}
               title={title}
               dateRange={dateRange}
-              data={{
-                ...analysis.data,
-                pages: analysis.data.pages || [],
-                searchTerms: analysis.data.searchTerms || [],
-                dataSources: analysis.data.dataSources,
-              }}
+              data={analysis.data}
             />
           );
         })}
