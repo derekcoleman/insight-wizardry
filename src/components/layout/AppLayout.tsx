@@ -51,6 +51,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarContent>
         </Sidebar>
 
+        {/* Add fixed position button */}
+        <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 md:hidden">
+          <SidebarTrigger>
+            <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full shadow-lg">
+              <PanelLeftClose className="h-4 w-4" />
+              <span className="sr-only">Open sidebar</span>
+            </Button>
+          </SidebarTrigger>
+        </div>
+
         <div className="flex-1">
           <nav className="bg-[#221F26] shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
