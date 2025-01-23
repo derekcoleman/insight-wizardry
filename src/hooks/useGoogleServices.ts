@@ -291,46 +291,20 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           handleApiError(error, "Search Console");
         }
 
-        // Fetch Google Ads accounts with proper error handling
+        // Fetch Google Ads accounts through our Edge Function
         try {
-          console.log("Fetching Google Ads accounts...");
+          console.log("Fetching Google Ads accounts through Edge Function...");
           
-          // Get the developer token from Supabase Edge Function
-          const { data: secretData, error: secretError } = await supabase.functions.invoke('get-ads-token', {
-            body: { }
+          const { data: adsData, error: adsError } = await supabase.functions.invoke('google-ads-proxy', {
+            body: { accessToken: response.access_token }
           });
 
-          if (secretError) {
-            console.error("Error fetching Google Ads token:", secretError);
-            throw new Error("Failed to fetch Google Ads Developer Token");
+          if (adsError) {
+            console.error("Edge Function Error:", adsError);
+            throw new Error(adsError.message || "Failed to fetch Google Ads accounts");
           }
 
-          if (!secretData?.developerToken) {
-            throw new Error("Google Ads Developer Token is not configured");
-          }
-
-          const adsResponse = await fetch(
-            "https://googleads.googleapis.com/v14/customers:listAccessibleCustomers",
-            {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${response.access_token}`,
-                'developer-token': secretData.developerToken,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          if (!adsResponse.ok) {
-            const errorData = await adsResponse.text();
-            console.error("Google Ads API Error Response:", errorData);
-            throw new Error(`Google Ads API error: ${adsResponse.statusText}`);
-          }
-
-          const adsData = await adsResponse.json();
-          console.log("Google Ads Response:", adsData);
-
-          if (!adsData.resourceNames || adsData.resourceNames.length === 0) {
+          if (!adsData?.accounts || adsData.accounts.length === 0) {
             toast({
               title: "Warning",
               description: "No Google Ads accounts found",
@@ -342,47 +316,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
               title: "Success",
               description: "Connected to Google Ads",
             });
-
-            // Format account data
-            const accounts = await Promise.all(
-              adsData.resourceNames.map(async (resourceName: string) => {
-                const customerId = resourceName.split('/')[1];
-                try {
-                  const accountResponse = await fetch(
-                    `https://googleads.googleapis.com/v14/${resourceName}`,
-                    {
-                      headers: {
-                        'Authorization': `Bearer ${response.access_token}`,
-                        'developer-token': secretData.developerToken,
-                        'Content-Type': 'application/json',
-                      },
-                    }
-                  );
-                  
-                  if (!accountResponse.ok) {
-                    console.warn(`Failed to fetch details for account ${customerId}`);
-                    return {
-                      id: customerId,
-                      name: `Account ${customerId}`,
-                    };
-                  }
-
-                  const accountData = await accountResponse.json();
-                  return {
-                    id: customerId,
-                    name: accountData.customer?.descriptiveName || `Account ${customerId}`,
-                  };
-                } catch (error) {
-                  console.warn(`Error fetching details for account ${customerId}:`, error);
-                  return {
-                    id: customerId,
-                    name: `Account ${customerId}`,
-                  };
-                }
-              })
-            );
-
-            setAdsAccounts(accounts);
+            setAdsAccounts(adsData.accounts);
           }
         } catch (error: any) {
           console.error("Google Ads API Error:", error);
@@ -397,7 +331,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     },
     scope: [
       "https://www.googleapis.com/auth/analytics.readonly",
-      "https://www.googleapis.com/auth/webmasters.readonly",
+      "https://www.googleapis.com/auth/webmasters/v3.readonly",
       "https://www.googleapis.com/auth/analytics",
       "https://www.googleapis.com/auth/analytics.edit",
       "https://www.googleapis.com/auth/adwords"
