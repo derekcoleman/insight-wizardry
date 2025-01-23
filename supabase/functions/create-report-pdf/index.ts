@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import puppeteer from 'https://deno.land/x/puppeteer@16.2.0/mod.ts'
+import { PDFDocument, rgb, StandardFonts } from 'https://cdn.skypack.dev/pdf-lib'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,31 +32,80 @@ serve(async (req) => {
       throw new Error('No report data provided')
     }
 
-    // Initialize browser
-    console.log('Initializing browser...')
-    const browser = await puppeteer.launch()
-    const page = await browser.newPage()
+    // Create PDF document
+    console.log('Creating PDF document...')
+    const pdfDoc = await PDFDocument.create()
+    const page = pdfDoc.addPage()
+    const { width, height } = page.getSize()
     
-    // Generate HTML content
-    console.log('Generating HTML content...')
-    const htmlContent = generateReportHtml(report, insights)
-    await page.setContent(htmlContent)
+    // Add fonts
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
     
-    // Generate PDF
-    console.log('Generating PDF...')
-    const pdf = await page.pdf({
-      format: 'A4',
-      margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' },
-      printBackground: true
-    })
-    
-    await browser.close()
-    console.log('Browser closed successfully')
+    // Helper function to write text
+    const writeText = (text: string, y: number, options: { fontSize?: number; font?: typeof font; color?: [number, number, number] } = {}) => {
+      const { fontSize = 12, font: textFont = font, color = [0, 0, 0] } = options
+      page.drawText(text, {
+        x: 50,
+        y: height - y,
+        size: fontSize,
+        font: textFont,
+        color: rgb(color[0], color[1], color[2])
+      })
+    }
 
-    // Convert PDF to base64
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdf)))
+    // Title
+    writeText('Analytics Report', 50, { fontSize: 24, font: boldFont })
+    writeText(new Date().toLocaleDateString(), 80)
+
+    // Insights
+    if (insights) {
+      writeText('Key Insights', 120, { fontSize: 16, font: boldFont })
+      const insightLines = insights.split('\n')
+      let yPos = 150
+      insightLines.forEach(line => {
+        writeText(line, yPos)
+        yPos += 20
+      })
+    }
+
+    // Metrics
+    Object.entries(report)
+      .filter(([key, value]) => value && key !== 'status' && typeof value === 'object')
+      .forEach(([period, data]: [string, any], index) => {
+        const yStart = 250 + (index * 150)
+        
+        // Period title
+        const title = period.split('_').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ')
+        writeText(title, yStart, { fontSize: 16, font: boldFont })
+
+        // Metrics
+        if (data.current) {
+          writeText(`Sessions: ${data.current.sessions?.toLocaleString() ?? '0'}`, yStart + 30)
+          writeText(`Change: ${data.changes?.sessions >= 0 ? '+' : ''}${data.changes?.sessions?.toFixed(1)}%`, 
+            yStart + 50, 
+            { color: data.changes?.sessions >= 0 ? [0, 0.5, 0] : [0.8, 0, 0] }
+          )
+
+          writeText(`Conversions: ${data.current.conversions?.toLocaleString() ?? '0'}`, yStart + 80)
+          writeText(`Change: ${data.changes?.conversions >= 0 ? '+' : ''}${data.changes?.conversions?.toFixed(1)}%`,
+            yStart + 100,
+            { color: data.changes?.conversions >= 0 ? [0, 0.5, 0] : [0.8, 0, 0] }
+          )
+        }
+      })
+
+    // Generate PDF
+    console.log('Generating PDF bytes...')
+    const pdfBytes = await pdfDoc.save()
+    
+    // Convert to base64
+    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes))
     const pdfUrl = `data:application/pdf;base64,${pdfBase64}`
 
+    console.log('PDF generated successfully')
     return new Response(
       JSON.stringify({ 
         pdfUrl,
@@ -86,117 +135,3 @@ serve(async (req) => {
     )
   }
 })
-
-function generateReportHtml(report: any, insights: string) {
-  const formatMetric = (value: number) => value?.toLocaleString() ?? '0'
-  const formatChange = (change: number) => `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`
-  
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            line-height: 1.6; 
-            padding: 2em;
-            max-width: 1200px;
-            margin: 0 auto;
-          }
-          .header { 
-            text-align: center; 
-            margin-bottom: 2em;
-            padding-bottom: 1em;
-            border-bottom: 1px solid #eee;
-          }
-          .section { 
-            margin: 2em 0;
-            page-break-inside: avoid;
-          }
-          .metric { 
-            margin: 1em 0;
-            padding: 1em;
-            background: #f9f9f9;
-            border-radius: 4px;
-          }
-          .positive { color: #22c55e; }
-          .negative { color: #ef4444; }
-          table { 
-            width: 100%; 
-            border-collapse: collapse;
-            margin: 1em 0;
-          }
-          th, td { 
-            padding: 12px 8px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-          }
-          th {
-            background: #f3f4f6;
-            font-weight: bold;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Analytics Report</h1>
-          <p>${new Date().toLocaleDateString()}</p>
-        </div>
-        
-        ${insights ? `
-          <div class="section">
-            <h2>Key Insights</h2>
-            <p style="white-space: pre-line">${insights}</p>
-          </div>
-        ` : ''}
-        
-        ${Object.entries(report)
-          .filter(([key, value]) => value && key !== 'status' && typeof value === 'object')
-          .map(([period, data]: [string, any]) => `
-            <div class="section">
-              <h2>${period.split('_').map(word => 
-                word.charAt(0).toUpperCase() + word.slice(1)
-              ).join(' ')}</h2>
-              
-              <div class="metric">
-                <h3>Organic Sessions</h3>
-                <p>Current: ${formatMetric(data.current?.sessions)}</p>
-                <p class="${data.changes?.sessions >= 0 ? 'positive' : 'negative'}">
-                  Change: ${formatChange(data.changes?.sessions)}
-                </p>
-              </div>
-              
-              <div class="metric">
-                <h3>Organic Conversions</h3>
-                <p>Current: ${formatMetric(data.current?.conversions)}</p>
-                <p class="${data.changes?.conversions >= 0 ? 'positive' : 'negative'}">
-                  Change: ${formatChange(data.changes?.conversions)}
-                </p>
-              </div>
-              
-              ${data.pages ? `
-                <h3>Top Pages Performance</h3>
-                <table>
-                  <tr>
-                    <th>Page</th>
-                    <th>Clicks</th>
-                    <th>CTR</th>
-                    <th>Position</th>
-                  </tr>
-                  ${data.pages.slice(0, 5).map(page => `
-                    <tr>
-                      <td>${page.page}</td>
-                      <td>${page.current.clicks}</td>
-                      <td>${page.current.ctr}%</td>
-                      <td>${page.current.position}</td>
-                    </tr>
-                  `).join('')}
-                </table>
-              ` : ''}
-            </div>
-          `).join('')}
-      </body>
-    </html>
-  `
-}
