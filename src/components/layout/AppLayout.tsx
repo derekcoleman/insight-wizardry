@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
-import { Home, LineChart } from "lucide-react";
+import { Home, LineChart, PanelLeftClose } from "lucide-react";
 
 const items = [
   {
@@ -22,6 +22,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex w-full">
         <Sidebar>
           <SidebarContent>
+            <div className="flex justify-end p-2">
+              <SidebarTrigger>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <PanelLeftClose className="h-4 w-4" />
+                  <span className="sr-only">Toggle sidebar</span>
+                </Button>
+              </SidebarTrigger>
+            </div>
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
