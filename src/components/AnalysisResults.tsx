@@ -6,7 +6,7 @@ import { AnalysisInsights } from "./AnalysisInsights";
 import { AnalysisCard } from "./analysis/AnalysisCard";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { FileText, FilePdf, Loader2 } from "lucide-react";
+import { FileText, FileType2, Loader2 } from "lucide-react";
 import { useToast } from "./ui/use-toast";
 
 interface AnalysisResultsProps {
@@ -193,7 +193,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
             {isCreatingPdf ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <FilePdf className="mr-2 h-4 w-4" />
+              <FileType2 className="mr-2 h-4 w-4" />
             )}
             Export to PDF
           </Button>
