@@ -24,31 +24,66 @@ serve(async (req) => {
     const { ga4Data, gscData } = await req.json();
     console.log('Analyzing data:', { ga4Data, gscData });
 
-    const analysisPrompt = `As an SEO expert, analyze this data and generate 10-15 strategic recommendations:
+    // Extract conversion data from GA4
+    const monthlyConversions = ga4Data.monthly?.current?.conversions || 0;
+    const monthlyRevenue = ga4Data.monthly?.current?.revenue || 0;
+    const conversionGoal = ga4Data.monthly?.current?.conversionGoal || 'Total Conversions';
 
-Key metrics from GA4:
-- Monthly trends: ${JSON.stringify(ga4Data.monthly?.metrics || {})}
-- Quarterly trends: ${JSON.stringify(ga4Data.quarterly?.metrics || {})}
+    // Get top performing pages
+    const topPages = gscData.pages?.slice(0, 20) || [];
+    const searchTerms = gscData.searchTerms?.slice(0, 50) || [];
 
-Search terms performance:
-${JSON.stringify(gscData.searchTerms?.slice(0, 50) || [])}
+    const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate 15-20 highly specific, actionable recommendations. Focus on increasing conversions and revenue through content optimization.
 
-Top performing pages:
-${JSON.stringify(gscData.pages?.slice(0, 20) || [])}
+Key Performance Data:
+- Monthly Conversions: ${monthlyConversions}
+- Monthly Revenue: $${monthlyRevenue}
+- Main Conversion Goal: ${conversionGoal}
 
-Generate strategic recommendations that would improve SEO performance, including:
-1. Optimization of existing content
-2. New content opportunities
-3. Technical improvements
+Top performing pages and their metrics:
+${JSON.stringify(topPages, null, 2)}
 
-For each recommendation include:
-- Title
-- Description explaining value and approach
-- Target keywords
-- Estimated impact
-- Priority (high/medium/low)
+Search term performance:
+${JSON.stringify(searchTerms, null, 2)}
 
-Return a JSON object with a 'topics' array containing objects with these fields: title, description, targetKeywords (array), estimatedImpact (string), priority (string).`;
+For each recommendation, provide:
+1. Specific Page/Content Focus:
+   - If existing page: Provide exact URL and current performance metrics
+   - If new content: Explain why this specific topic based on data
+   
+2. Detailed Analysis:
+   - Current performance metrics (for existing pages)
+   - User behavior patterns
+   - Conversion funnel position
+   - Content gaps identified
+   
+3. Specific Implementation Plan:
+   - Exact sections to optimize
+   - Specific keywords to target
+   - Content structure recommendations
+   - Internal linking strategy
+   
+4. Expected Impact:
+   - Projected traffic increase (percentage range)
+   - Estimated conversion rate improvement
+   - Revenue impact projection
+   - Timeline for results
+   
+5. Priority Level:
+   - High/Medium/Low with data-backed reasoning
+   - Resource requirements
+   - Implementation complexity
+
+Return a JSON object with a 'topics' array containing objects with these fields:
+- title (string): Clear, action-oriented title
+- description (string): Detailed analysis and implementation plan
+- targetKeywords (array): Specific keywords with search volume/competition data
+- estimatedImpact (string): Detailed projection of traffic, conversion, and revenue impact
+- priority (string): "high", "medium", or "low" with justification
+- pageUrl (string): Specific URL for existing pages or "new" for new content
+- currentMetrics (object): Current performance data for existing pages
+- implementationSteps (array): Specific, actionable steps
+- conversionStrategy (string): How this will impact conversion rates`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -61,7 +96,7 @@ Return a JSON object with a 'topics' array containing objects with these fields:
         messages: [
           {
             role: "system",
-            content: "You are an expert SEO analyst. Always return a JSON object with a 'topics' array containing the recommendations."
+            content: "You are an expert SEO analyst specializing in conversion rate optimization. Always return a JSON object with a 'topics' array containing the recommendations."
           },
           {
             role: "user",
@@ -101,7 +136,11 @@ Return a JSON object with a 'topics' array containing objects with these fields:
         estimatedImpact: String(topic.estimatedImpact || ''),
         priority: ['high', 'medium', 'low'].includes(topic.priority?.toLowerCase()) 
           ? topic.priority.toLowerCase() 
-          : 'medium'
+          : 'medium',
+        pageUrl: String(topic.pageUrl || 'new'),
+        currentMetrics: topic.currentMetrics || null,
+        implementationSteps: Array.isArray(topic.implementationSteps) ? topic.implementationSteps.map(String) : [],
+        conversionStrategy: String(topic.conversionStrategy || '')
       }));
 
     } catch (e) {
@@ -113,7 +152,11 @@ Return a JSON object with a 'topics' array containing objects with these fields:
         description: "Unable to generate content strategy. Please try again or check the data input.",
         targetKeywords: ["content strategy", "seo optimization"],
         estimatedImpact: "Unknown - Analysis failed",
-        priority: "high"
+        priority: "high",
+        pageUrl: "new",
+        currentMetrics: null,
+        implementationSteps: ["Retry analysis with valid data"],
+        conversionStrategy: "Not available"
       }];
     }
 
