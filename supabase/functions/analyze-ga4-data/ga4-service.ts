@@ -74,10 +74,58 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
     const eventData = await eventResponse.json();
     console.log('GA4 Event API Response:', eventData);
 
+    // Third request: Get ecommerce product data
+    const productResponse = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateRanges: [{
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+          }],
+          dimensions: [
+            { name: 'sessionDefaultChannelGrouping' },
+            { name: 'itemName' },
+            { name: 'itemId' },
+          ],
+          metrics: [
+            { name: 'itemsViewed' },
+            { name: 'itemsPurchased' },
+            { name: 'itemRevenue' },
+          ],
+          orderBys: [
+            {
+              metric: { metricName: 'itemRevenue' },
+              desc: true
+            }
+          ],
+          limit: 20
+        }),
+      }
+    );
+
+    if (!productResponse.ok) {
+      console.warn('Ecommerce data not available:', await productResponse.text());
+      return {
+        sessionData,
+        rows: eventData.rows || [],
+        conversionGoal: mainConversionGoal || 'Total Events',
+      };
+    }
+
+    const productData = await productResponse.json();
+    console.log('GA4 Product API Response:', productData);
+
     return {
       sessionData,
       rows: eventData.rows || [],
       conversionGoal: mainConversionGoal || 'Total Events',
+      productData: productData.rows || [],
     };
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
@@ -92,6 +140,7 @@ export function extractOrganicMetrics(data: any) {
       sessions: 0,
       conversions: 0,
       revenue: 0,
+      products: [],
     };
   }
 
@@ -124,10 +173,22 @@ export function extractOrganicMetrics(data: any) {
     return total + Number(row.metricValues?.[1]?.value || 0);
   }, 0);
 
+  // Extract product data if available
+  const products = data.productData
+    ?.filter((row: any) => row.dimensionValues?.[0]?.value?.toLowerCase() === 'organic search')
+    ?.map((row: any) => ({
+      name: row.dimensionValues?.[1]?.value || 'Unknown Product',
+      id: row.dimensionValues?.[2]?.value || '',
+      views: Number(row.metricValues?.[0]?.value || 0),
+      purchases: Number(row.metricValues?.[1]?.value || 0),
+      revenue: Number(row.metricValues?.[2]?.value || 0),
+    })) || [];
+
   const metrics = {
     sessions: organicSessions,
     conversions,
     revenue,
+    products,
   };
 
   console.log('Extracted GA4 metrics:', metrics);

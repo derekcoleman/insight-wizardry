@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "./MetricCard";
 import { SearchTermsTable } from "./SearchTermsTable";
 import { TopPagesTable } from "./TopPagesTable";
+import { ProductPerformanceTable } from "./ProductPerformanceTable";
 
 interface AnalysisCardProps {
   title: string;
@@ -77,6 +78,12 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
             <div className="text-sm text-muted-foreground mt-4 whitespace-pre-line">
               {data.summary}
             </div>
+          )}
+          {data.current.products && data.current.products.length > 0 && (
+            <>
+              <h3 className="text-lg font-semibold mt-6 mb-2">Top Products</h3>
+              <ProductPerformanceTable products={data.current.products} />
+            </>
           )}
           {data.searchTerms && <SearchTermsTable searchTerms={data.searchTerms} domain={data.domain} />}
           {data.pages && (
