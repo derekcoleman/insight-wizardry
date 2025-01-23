@@ -2,6 +2,7 @@ import { Summary } from "@/components/Summary";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -22,6 +23,13 @@ const Index = () => {
                 alt="Standup Notez Logo"
                 className="h-12 w-auto"
               />
+            </div>
+            <div className="flex space-x-4">
+              <Link to="/seo-strategy">
+                <Button variant="ghost" className="text-white hover:text-gray-300">
+                  SEO Strategy
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

@@ -72,10 +72,14 @@ title, description, targetKeywords (array), estimatedImpact (string), priority (
     });
 
     if (!response.ok) {
+      const errorData = await response.text();
+      console.error('OpenAI API error:', errorData);
       throw new Error('OpenAI API request failed');
     }
 
     const openAIResponse = await response.json();
+    console.log('OpenAI response:', openAIResponse);
+    
     let topics;
     
     try {
