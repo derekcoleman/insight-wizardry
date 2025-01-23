@@ -51,7 +51,12 @@ serve(async (req) => {
     const margin = 50
     const lineHeight = 20
     
-    // Helper function to write text
+    // Helper function to sanitize text for PDF
+    const sanitizeText = (text: string) => {
+      return text.replace(/[\n\r]/g, ' ').trim()
+    }
+    
+    // Helper function to write text with word wrap
     const writeText = (text: string, options: {
       font?: typeof helveticaFont,
       size?: number,
@@ -66,8 +71,9 @@ serve(async (req) => {
         indent = 0,
         maxWidth = width - (margin * 2)
       } = options
-      
-      const words = text.split(' ')
+
+      const sanitizedText = sanitizeText(text)
+      const words = sanitizedText.split(' ')
       let line = ''
       
       for (const word of words) {
@@ -75,14 +81,16 @@ serve(async (req) => {
         const testWidth = font.widthOfTextAtSize(testLine, size)
         
         if (testWidth > maxWidth) {
-          page.drawText(line, {
-            x: margin + indent,
-            y: yOffset,
-            size,
-            font,
-            color
-          })
-          yOffset -= lineHeight
+          if (line) {
+            page.drawText(line, {
+              x: margin + indent,
+              y: yOffset,
+              size,
+              font,
+              color
+            })
+            yOffset -= lineHeight
+          }
           line = word
         } else {
           line = testLine
@@ -167,7 +175,7 @@ serve(async (req) => {
       // Add summary if available
       if (data.summary) {
         writeText('Summary:', { font: helveticaBold, size: 12 })
-        writeText(data.summary, { size: 12 })
+        writeText(sanitizeText(data.summary), { size: 12 })
         yOffset -= 10
       }
     }
