@@ -14,6 +14,15 @@ interface ContentTopic {
   targetKeywords: string[];
   estimatedImpact: string;
   priority: 'high' | 'medium' | 'low';
+  pageUrl: string;
+  currentMetrics?: {
+    traffic?: number;
+    conversions?: number;
+    revenue?: number;
+    [key: string]: any;
+  } | null;
+  implementationSteps: string[];
+  conversionStrategy: string;
 }
 
 interface AnalysisData {
