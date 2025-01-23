@@ -15,23 +15,16 @@ interface ContentTopic {
   priority: 'high' | 'medium' | 'low';
 }
 
+interface AnalysisData {
+  searchTerms?: any[];
+  pages?: any[];
+}
+
 interface AnalyticsReport {
-  weekly_analysis: {
-    searchTerms?: any[];
-    pages?: any[];
-  };
-  monthly_analysis: {
-    searchTerms?: any[];
-    pages?: any[];
-  };
-  quarterly_analysis: {
-    searchTerms?: any[];
-    pages?: any[];
-  };
-  yoy_analysis: {
-    searchTerms?: any[];
-    pages?: any[];
-  };
+  weekly_analysis: AnalysisData;
+  monthly_analysis: AnalysisData;
+  quarterly_analysis: AnalysisData;
+  yoy_analysis: AnalysisData;
 }
 
 export function AutomatedStrategy() {
@@ -59,12 +52,12 @@ export function AutomatedStrategy() {
           return;
         }
 
-        // Map yoy_analysis to match our interface
+        // Parse and validate JSON data
         const mappedData: AnalyticsReport = {
-          weekly_analysis: reportData[0].weekly_analysis,
-          monthly_analysis: reportData[0].monthly_analysis,
-          quarterly_analysis: reportData[0].quarterly_analysis,
-          yoy_analysis: reportData[0].yoy_analysis,
+          weekly_analysis: reportData[0].weekly_analysis as AnalysisData || { searchTerms: [], pages: [] },
+          monthly_analysis: reportData[0].monthly_analysis as AnalysisData || { searchTerms: [], pages: [] },
+          quarterly_analysis: reportData[0].quarterly_analysis as AnalysisData || { searchTerms: [], pages: [] },
+          yoy_analysis: reportData[0].yoy_analysis as AnalysisData || { searchTerms: [], pages: [] },
         };
 
         setAnalysisData(mappedData);
