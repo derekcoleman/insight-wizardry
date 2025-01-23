@@ -60,7 +60,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <Button 
                       variant="outline" 
                       size="icon"
-                      className="h-10 w-10 bg-white text-[#221F26] border-white hover:bg-white/90 hover:text-[#221F26] fixed md:static left-4 top-3 z-50 shadow-lg md:shadow-none"
+                      className="h-10 w-10 bg-white/90 text-[#221F26] border-white hover:bg-white hover:text-[#221F26] fixed md:static left-4 top-3 z-50 shadow-lg md:shadow-none transition-colors"
                     >
                       <PanelLeftClose className="h-5 w-5" />
                       <span className="sr-only">Toggle sidebar</span>
