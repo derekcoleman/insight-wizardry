@@ -54,7 +54,7 @@ export function TopPagesTable({ pages }: TopPagesTableProps) {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger>
-              <Badge variant="destructive" className="ml-2">
+              <Badge variant="destructive" className="ml-2 whitespace-nowrap">
                 <Info className="h-3 w-3 mr-1" />
                 Underperforming
               </Badge>
@@ -72,7 +72,7 @@ export function TopPagesTable({ pages }: TopPagesTableProps) {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger>
-              <Badge variant="success" className="ml-2">
+              <Badge variant="success" className="ml-2 whitespace-nowrap">
                 <Info className="h-3 w-3 mr-1" />
                 Top Performer
               </Badge>
@@ -96,36 +96,44 @@ export function TopPagesTable({ pages }: TopPagesTableProps) {
   };
 
   return (
-    <div className="rounded-md border mt-4">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[40%]">Page</TableHead>
-            <TableHead className="text-right">Current Clicks</TableHead>
-            <TableHead className="text-right">Previous Clicks</TableHead>
-            <TableHead className="text-right">Change</TableHead>
-            <TableHead className="text-right">CTR</TableHead>
-            <TableHead className="text-right">Position</TableHead>
-            <TableHead>Performance</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {pages.map((page, index) => (
-            <TableRow key={index}>
-              <TableCell className="font-medium">{page.page}</TableCell>
-              <TableCell className="text-right">{page.current.clicks.toLocaleString()}</TableCell>
-              <TableCell className="text-right">{page.previous.clicks.toLocaleString()}</TableCell>
-              <TableCell className={`text-right ${getChangeColor(page.changes.clicks)}`}>
-                {parseFloat(page.changes.clicks) > 0 ? "+" : ""}
-                {page.changes.clicks}%
-              </TableCell>
-              <TableCell className="text-right">{page.current.ctr}%</TableCell>
-              <TableCell className="text-right">{page.current.position}</TableCell>
-              <TableCell>{getPerformanceBadge(page.current)}</TableCell>
+    <div className="rounded-md border mt-4 overflow-hidden">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="min-w-[200px]">Page</TableHead>
+              <TableHead className="text-right whitespace-nowrap">Current Clicks</TableHead>
+              <TableHead className="text-right whitespace-nowrap">Previous Clicks</TableHead>
+              <TableHead className="text-right whitespace-nowrap">Change</TableHead>
+              <TableHead className="text-right whitespace-nowrap">CTR</TableHead>
+              <TableHead className="text-right whitespace-nowrap">Position</TableHead>
+              <TableHead className="min-w-[140px]">Performance</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {pages.map((page, index) => (
+              <TableRow key={index}>
+                <TableCell className="font-medium min-w-[200px] break-words">
+                  {page.page}
+                </TableCell>
+                <TableCell className="text-right whitespace-nowrap">
+                  {page.current.clicks.toLocaleString()}
+                </TableCell>
+                <TableCell className="text-right whitespace-nowrap">
+                  {page.previous.clicks.toLocaleString()}
+                </TableCell>
+                <TableCell className={`text-right whitespace-nowrap ${getChangeColor(page.changes.clicks)}`}>
+                  {parseFloat(page.changes.clicks) > 0 ? "+" : ""}
+                  {page.changes.clicks}%
+                </TableCell>
+                <TableCell className="text-right whitespace-nowrap">{page.current.ctr}%</TableCell>
+                <TableCell className="text-right whitespace-nowrap">{page.current.position}</TableCell>
+                <TableCell>{getPerformanceBadge(page.current)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
