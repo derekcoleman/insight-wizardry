@@ -1,6 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -11,7 +13,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openAIApiKey) {
     return new Response(
       JSON.stringify({ error: 'OpenAI API key not configured' }),
@@ -67,6 +68,7 @@ Return ONLY a valid JSON array with objects containing these fields: title, desc
             content: analysisPrompt
           }
         ],
+        response_format: { type: "json_object" },
         temperature: 0.7
       }),
     });
