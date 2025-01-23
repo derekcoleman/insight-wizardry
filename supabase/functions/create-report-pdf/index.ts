@@ -38,8 +38,8 @@ serve(async (req) => {
     const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
     const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
     
-    const page = pdfDoc.addPage([595.276, 841.890]) // A4 size
-    const { width, height } = page.getSize()
+    let currentPage = pdfDoc.addPage([595.276, 841.890]) // A4 size
+    const { width, height } = currentPage.getSize()
     
     // Colors
     const black = rgb(0, 0, 0)
@@ -49,11 +49,23 @@ serve(async (req) => {
     
     let yOffset = height - 50 // Start from top with margin
     const margin = 50
-    const lineHeight = 20
+    const lineHeight = 14 // Reduced line height for better spacing
+    const pageBreakThreshold = margin + 50 // Minimum space needed before starting new content
     
     // Helper function to sanitize text for PDF
     const sanitizeText = (text: string) => {
+      if (!text) return '';
       return text.replace(/[\n\r]/g, ' ').trim()
+    }
+
+    // Helper function to check if we need a new page
+    const checkNewPage = (neededSpace: number) => {
+      if (yOffset - neededSpace < pageBreakThreshold) {
+        currentPage = pdfDoc.addPage([595.276, 841.890])
+        yOffset = height - 50
+        return true
+      }
+      return false
     }
     
     // Helper function to write text with word wrap
@@ -62,19 +74,27 @@ serve(async (req) => {
       size?: number,
       color?: typeof black,
       indent?: number,
-      maxWidth?: number
+      maxWidth?: number,
+      addSpacing?: boolean
     } = {}) => {
       const {
         font = helveticaFont,
-        size = 12,
+        size = 11,
         color = black,
         indent = 0,
-        maxWidth = width - (margin * 2)
+        maxWidth = width - (margin * 2),
+        addSpacing = true
       } = options
 
       const sanitizedText = sanitizeText(text)
+      if (!sanitizedText) return;
+      
       const words = sanitizedText.split(' ')
       let line = ''
+      let estimatedLines = Math.ceil(font.widthOfTextAtSize(sanitizedText, size) / maxWidth)
+      
+      // Check if we need a new page
+      checkNewPage(estimatedLines * lineHeight)
       
       for (const word of words) {
         const testLine = line + (line ? ' ' : '') + word
@@ -82,7 +102,12 @@ serve(async (req) => {
         
         if (testWidth > maxWidth) {
           if (line) {
-            page.drawText(line, {
+            if (checkNewPage(lineHeight)) {
+              // Reset line if we're starting a new page
+              line = word
+              continue
+            }
+            currentPage.drawText(line, {
               x: margin + indent,
               y: yOffset,
               size,
@@ -98,7 +123,7 @@ serve(async (req) => {
       }
       
       if (line) {
-        page.drawText(line, {
+        currentPage.drawText(line, {
           x: margin + indent,
           y: yOffset,
           size,
@@ -108,19 +133,21 @@ serve(async (req) => {
         yOffset -= lineHeight
       }
       
-      yOffset -= 5 // Add some padding between paragraphs
+      if (addSpacing) {
+        yOffset -= 8 // Add some padding between paragraphs
+      }
     }
     
-    // Title
+    // Title and Date
     writeText('Analytics Report', { font: helveticaBold, size: 24 })
-    writeText(new Date().toLocaleDateString(), { size: 14, color: gray })
+    writeText(new Date().toLocaleDateString(), { size: 12, color: gray })
     yOffset -= 20
     
     // Key Insights
     if (insights) {
       writeText('Key Insights', { font: helveticaBold, size: 18 })
       yOffset -= 10
-      writeText(insights, { size: 12 })
+      writeText(insights, { size: 11 })
       yOffset -= 20
     }
     
@@ -128,11 +155,13 @@ serve(async (req) => {
     const writeSectionData = (title: string, data: any) => {
       if (!data?.current) return
       
+      checkNewPage(100) // Estimate space needed for section header and initial content
+      
       writeText(title, { font: helveticaBold, size: 16 })
       yOffset -= 10
       
       if (data.period) {
-        writeText(`Period: ${data.period}`, { font: helveticaOblique, size: 12, color: gray })
+        writeText(`Period: ${data.period}`, { font: helveticaOblique, size: 11, color: gray })
         yOffset -= 10
       }
       
@@ -157,25 +186,30 @@ serve(async (req) => {
       
       metrics.forEach(metric => {
         if (metric.current !== '0' && metric.current !== '$0') {
-          writeText(`${metric.label}: ${metric.current}`, { size: 12 })
+          checkNewPage(lineHeight * 3) // Space for metric and its change
+          
+          writeText(`${metric.label}: ${metric.current}`, { size: 11, addSpacing: false })
           if (metric.change !== undefined) {
             const changeColor = metric.change >= 0 ? green : red
             const changeSymbol = metric.change >= 0 ? '+' : ''
             writeText(`Change: ${changeSymbol}${metric.change.toFixed(1)}%`, {
-              size: 12,
+              size: 11,
               color: changeColor,
-              indent: 20
+              indent: 20,
+              addSpacing: false
             })
           }
+          yOffset -= 8
         }
       })
       
-      yOffset -= 20
+      yOffset -= 12
       
       // Add summary if available
       if (data.summary) {
-        writeText('Summary:', { font: helveticaBold, size: 12 })
-        writeText(sanitizeText(data.summary), { size: 12 })
+        checkNewPage(60) // Estimate space needed for summary
+        writeText('Summary:', { font: helveticaBold, size: 11 })
+        writeText(sanitizeText(data.summary), { size: 11 })
         yOffset -= 10
       }
     }
