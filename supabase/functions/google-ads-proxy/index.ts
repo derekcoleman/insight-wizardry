@@ -25,15 +25,14 @@ serve(async (req) => {
 
     console.log("Fetching Google Ads accounts...");
     
-    // Updated URL to use v15 of the API
+    // Using the correct Google Ads API endpoint
     const adsResponse = await fetch(
-      "https://googleads.googleapis.com/v15/customers/listAccessibleCustomers",
+      "https://googleads.googleapis.com/v15/customers:listAccessibleCustomers",
       {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'developer-token': developerToken,
-          'login-customer-id': '-', // Required for first-time access
         },
       }
     );
@@ -53,7 +52,7 @@ serve(async (req) => {
         const customerId = resourceName.split('/')[1];
         try {
           const accountResponse = await fetch(
-            `https://googleads.googleapis.com/v15/customers/${customerId}`,
+            `https://googleads.googleapis.com/v15/customers/${customerId}:get`,
             {
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
