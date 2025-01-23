@@ -68,8 +68,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <SidebarTrigger>
                     <Button 
                       variant="outline" 
-                      size="icon" 
-                      className="h-10 w-10 text-white border-white hover:bg-white/10 hover:text-white"
+                      size="icon"
+                      className="h-10 w-10 bg-white/10 text-white border-white hover:bg-white/20 hover:text-white fixed right-4 top-3 z-50"
                     >
                       <PanelLeftClose className="h-5 w-5" />
                       <span className="sr-only">Toggle sidebar</span>
