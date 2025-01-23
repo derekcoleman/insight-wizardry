@@ -70,7 +70,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <SidebarTrigger />
+                  <SidebarTrigger>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10">
+                      <PanelLeftClose className="h-4 w-4" />
+                      <span className="sr-only">Toggle sidebar</span>
+                    </Button>
+                  </SidebarTrigger>
                 </div>
               </div>
             </div>
