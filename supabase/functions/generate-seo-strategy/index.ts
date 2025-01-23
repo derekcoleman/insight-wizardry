@@ -23,7 +23,6 @@ serve(async (req) => {
     const { ga4Data, gscData } = await req.json();
     console.log('Analyzing data:', { ga4Data, gscData });
 
-    // Prepare a more concise prompt to reduce token usage
     const analysisPrompt = `As an SEO expert, analyze this data and generate 10-15 strategic recommendations:
 
 Key metrics from GA4:
@@ -48,7 +47,7 @@ For each recommendation include:
 - Estimated impact
 - Priority (high/medium/low)
 
-Format as JSON array with fields: title, description, targetKeywords (array), estimatedImpact (string), priority (high/medium/low)`;
+Return ONLY a valid JSON array with objects containing these fields: title, description, targetKeywords (array), estimatedImpact (string), priority (string). Do not include any markdown formatting or code block syntax.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -61,7 +60,7 @@ Format as JSON array with fields: title, description, targetKeywords (array), es
         messages: [
           {
             role: "system",
-            content: "You are an expert SEO analyst specializing in content strategy development and optimization."
+            content: "You are an expert SEO analyst. Always return valid JSON without any markdown formatting."
           },
           {
             role: "user",
@@ -82,10 +81,28 @@ Format as JSON array with fields: title, description, targetKeywords (array), es
     console.log('OpenAI response:', openAIResponse);
     
     let topics;
-    
     try {
-      topics = JSON.parse(openAIResponse.choices[0].message.content);
-      console.log('Generated topics:', topics);
+      // Clean up the response content by removing any markdown formatting
+      const content = openAIResponse.choices[0].message.content;
+      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      console.log('Cleaned content:', cleanContent);
+      
+      topics = JSON.parse(cleanContent);
+      console.log('Parsed topics:', topics);
+
+      // Validate the parsed data structure
+      if (!Array.isArray(topics)) {
+        throw new Error('Response is not an array');
+      }
+
+      topics = topics.map(topic => ({
+        title: String(topic.title || ''),
+        description: String(topic.description || ''),
+        targetKeywords: Array.isArray(topic.targetKeywords) ? topic.targetKeywords.map(String) : [],
+        estimatedImpact: String(topic.estimatedImpact || ''),
+        priority: ['high', 'medium', 'low'].includes(topic.priority) ? topic.priority : 'medium'
+      }));
+
     } catch (e) {
       console.error('Error parsing OpenAI response:', e);
       console.log('Raw response:', openAIResponse.choices[0].message.content);
