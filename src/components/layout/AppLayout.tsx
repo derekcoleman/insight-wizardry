@@ -55,26 +55,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <nav className="bg-[#221F26] shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between h-16 items-center">
-                <div className="flex-shrink-0">
-                  <Link to="/">
+                <div className="flex items-center">
+                  <SidebarTrigger>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="h-10 w-10 bg-[#221F26] text-white border-white/20 hover:bg-white/10 hover:text-white fixed md:static left-4 top-3 z-50 shadow-lg md:shadow-none"
+                    >
+                      <PanelLeftClose className="h-5 w-5" />
+                      <span className="sr-only">Toggle sidebar</span>
+                    </Button>
+                  </SidebarTrigger>
+                  <Link to="/" className="ml-16 md:ml-4">
                     <img
                       src="/lovable-uploads/5af14e23-a706-42a0-ac29-7d384fd42a15.png"
                       alt="Standup Notez Logo"
                       className="h-12 w-auto"
                     />
                   </Link>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <SidebarTrigger>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="h-10 w-10 bg-white text-[#221F26] border-white hover:bg-white/90 hover:text-[#221F26] fixed md:static right-4 top-3 z-50 shadow-lg md:shadow-none"
-                    >
-                      <PanelLeftClose className="h-5 w-5" />
-                      <span className="sr-only">Toggle sidebar</span>
-                    </Button>
-                  </SidebarTrigger>
                 </div>
               </div>
             </div>
