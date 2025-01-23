@@ -25,13 +25,15 @@ serve(async (req) => {
 
     console.log("Fetching Google Ads accounts...");
     
+    // Updated URL to use the correct format
     const adsResponse = await fetch(
-      "https://googleads.googleapis.com/v14/customers:listAccessibleCustomers",
+      "https://googleads.googleapis.com/v14/customers/listAccessibleCustomers",
       {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'developer-token': developerToken,
+          'login-customer-id': '-', // Required for first-time access
         },
       }
     );
@@ -51,7 +53,7 @@ serve(async (req) => {
         const customerId = resourceName.split('/')[1];
         try {
           const accountResponse = await fetch(
-            `https://googleads.googleapis.com/v14/${resourceName}`,
+            `https://googleads.googleapis.com/v14/customers/${customerId}`,
             {
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
