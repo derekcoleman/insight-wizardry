@@ -3,19 +3,37 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import { format } from 'https://esm.sh/date-fns@2.30.0'
 import puppeteer from 'https://deno.land/x/puppeteer@16.2.0/mod.ts'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
   try {
     const { report, insights } = await req.json()
     
+    if (!report) {
+      console.error('No report data provided')
+      throw new Error('No report data provided')
+    }
+
     // Initialize browser
+    console.log('Initializing browser...')
     const browser = await puppeteer.launch()
     const page = await browser.newPage()
     
     // Generate HTML content
+    console.log('Generating HTML content...')
     const htmlContent = generateReportHtml(report, insights)
     await page.setContent(htmlContent)
     
     // Generate PDF
+    console.log('Generating PDF...')
     const pdf = await page.pdf({
       format: 'A4',
       margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' },
@@ -23,20 +41,38 @@ serve(async (req) => {
     })
     
     await browser.close()
+    console.log('Browser closed successfully')
 
-    // Return PDF as base64
+    // Convert PDF to base64
     const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdf)))
     const pdfUrl = `data:application/pdf;base64,${pdfBase64}`
 
     return new Response(
-      JSON.stringify({ pdfUrl }),
-      { headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        pdfUrl,
+        success: true 
+      }),
+      { 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json' 
+        } 
+      }
     )
   } catch (error) {
     console.error('Error generating PDF:', error)
     return new Response(
-      JSON.stringify({ error: 'Failed to generate PDF' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        error: error.message || 'Failed to generate PDF',
+        success: false
+      }),
+      { 
+        status: 500, 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json' 
+        } 
+      }
     )
   }
 })
@@ -49,15 +85,47 @@ function generateReportHtml(report: any, insights: string) {
     <!DOCTYPE html>
     <html>
       <head>
+        <meta charset="UTF-8">
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; }
-          .header { text-align: center; margin-bottom: 2em; }
-          .section { margin: 2em 0; }
-          .metric { margin: 1em 0; }
-          .positive { color: green; }
-          .negative { color: red; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          body { 
+            font-family: Arial, sans-serif; 
+            line-height: 1.6; 
+            padding: 2em;
+            max-width: 1200px;
+            margin: 0 auto;
+          }
+          .header { 
+            text-align: center; 
+            margin-bottom: 2em;
+            padding-bottom: 1em;
+            border-bottom: 1px solid #eee;
+          }
+          .section { 
+            margin: 2em 0;
+            page-break-inside: avoid;
+          }
+          .metric { 
+            margin: 1em 0;
+            padding: 1em;
+            background: #f9f9f9;
+            border-radius: 4px;
+          }
+          .positive { color: #22c55e; }
+          .negative { color: #ef4444; }
+          table { 
+            width: 100%; 
+            border-collapse: collapse;
+            margin: 1em 0;
+          }
+          th, td { 
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+          }
+          th {
+            background: #f3f4f6;
+            font-weight: bold;
+          }
         </style>
       </head>
       <body>
@@ -66,30 +134,34 @@ function generateReportHtml(report: any, insights: string) {
           <p>${format(new Date(), 'MMMM d, yyyy')}</p>
         </div>
         
-        <div class="section">
-          <h2>Key Insights</h2>
-          <p style="white-space: pre-line">${insights}</p>
-        </div>
+        ${insights ? `
+          <div class="section">
+            <h2>Key Insights</h2>
+            <p style="white-space: pre-line">${insights}</p>
+          </div>
+        ` : ''}
         
         ${Object.entries(report)
-          .filter(([key, value]) => value && key !== 'status')
+          .filter(([key, value]) => value && key !== 'status' && typeof value === 'object')
           .map(([period, data]: [string, any]) => `
             <div class="section">
-              <h2>${period.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</h2>
+              <h2>${period.split('_').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+              ).join(' ')}</h2>
               
               <div class="metric">
                 <h3>Organic Sessions</h3>
-                <p>Current: ${formatMetric(data.current.sessions)}</p>
-                <p class="${data.changes.sessions >= 0 ? 'positive' : 'negative'}">
-                  Change: ${formatChange(data.changes.sessions)}
+                <p>Current: ${formatMetric(data.current?.sessions)}</p>
+                <p class="${data.changes?.sessions >= 0 ? 'positive' : 'negative'}">
+                  Change: ${formatChange(data.changes?.sessions)}
                 </p>
               </div>
               
               <div class="metric">
                 <h3>Organic Conversions</h3>
-                <p>Current: ${formatMetric(data.current.conversions)}</p>
-                <p class="${data.changes.conversions >= 0 ? 'positive' : 'negative'}">
-                  Change: ${formatChange(data.changes.conversions)}
+                <p>Current: ${formatMetric(data.current?.conversions)}</p>
+                <p class="${data.changes?.conversions >= 0 ? 'positive' : 'negative'}">
+                  Change: ${formatChange(data.changes?.conversions)}
                 </p>
               </div>
               
