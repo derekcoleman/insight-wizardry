@@ -29,18 +29,22 @@ serve(async (req) => {
 GA4 Data:
 ${JSON.stringify(ga4Data, null, 2)}
 
-Search Console Data:
+Search Console Data (including page performance and search terms):
 ${JSON.stringify(gscData, null, 2)}
 
 Based on this data:
-1. Identify content gaps and opportunities
-2. Analyze current keyword rankings and potential
-3. Consider user behavior and conversion patterns
-4. Look for underperforming content that could be improved
+1. Identify pages with declining organic traffic and recommend specific improvements
+2. Find pages with high impressions but low CTR and suggest title/meta optimizations
+3. Analyze current keyword rankings and identify expansion opportunities
+4. Consider user behavior patterns and conversion data
+5. Look for content gaps based on search term data
 
-Generate 10-20 strategic content topics that would improve SEO performance. 
-For each topic include:
-- A clear, engaging title
+Generate 10-15 strategic recommendations that would improve SEO performance, including both:
+A. Optimization of existing content (based on declining performance or opportunities)
+B. New content opportunities (based on keyword gaps and user intent)
+
+For each recommendation include:
+- A clear, actionable title
 - A brief description explaining the value and approach
 - Specific target keywords based on the data
 - Estimated impact on traffic and conversions
@@ -56,11 +60,11 @@ title, description, targetKeywords (array), estimatedImpact (string), priority (
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4",
         messages: [
           {
             role: "system",
-            content: "You are an expert SEO analyst specializing in content strategy development."
+            content: "You are an expert SEO analyst specializing in content strategy development and optimization."
           },
           {
             role: "user",
@@ -83,14 +87,12 @@ title, description, targetKeywords (array), estimatedImpact (string), priority (
     let topics;
     
     try {
-      // Parse the response content as JSON
       topics = JSON.parse(openAIResponse.choices[0].message.content);
       console.log('Generated topics:', topics);
     } catch (e) {
       console.error('Error parsing OpenAI response:', e);
       console.log('Raw response:', openAIResponse.choices[0].message.content);
       
-      // Fallback to a default topic if parsing fails
       topics = [{
         title: "Content Strategy Analysis Required",
         description: "Unable to generate content strategy. Please try again or check the data input.",

@@ -17,52 +17,89 @@ interface ContentTopic {
 
 interface AnalyticsReport {
   weekly_analysis: {
-    searchTerms?: string[];
-  } | null;
-  monthly_analysis: any;
-  quarterly_analysis: any;
-  yoy_analysis: any;
+    searchTerms?: any[];
+    pages?: any[];
+  };
+  monthly_analysis: {
+    searchTerms?: any[];
+    pages?: any[];
+  };
+  quarterly_analysis: {
+    searchTerms?: any[];
+    pages?: any[];
+  };
+  ytd_analysis: {
+    searchTerms?: any[];
+    pages?: any[];
+  };
 }
 
 export function AutomatedStrategy() {
   const [isLoading, setIsLoading] = useState(false);
   const [contentTopics, setContentTopics] = useState<ContentTopic[]>([]);
+  const [analysisData, setAnalysisData] = useState<AnalyticsReport | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    const fetchLatestAnalysis = async () => {
+      try {
+        const { data: reportData, error: reportError } = await supabase
+          .from('analytics_reports')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (reportError) {
+          console.error('Failed to fetch analytics data:', reportError);
+          return;
+        }
+
+        if (!reportData || reportData.length === 0) {
+          console.log('No analytics data available');
+          return;
+        }
+
+        setAnalysisData(reportData[0]);
+      } catch (error) {
+        console.error('Error fetching analysis data:', error);
+      }
+    };
+
+    fetchLatestAnalysis();
+  }, []);
+
   const generateStrategy = async () => {
+    if (!analysisData) {
+      toast({
+        title: "No Analysis Data",
+        description: "Please run an analysis first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Get the latest GA4 and GSC data from our analytics_reports table
-      const { data: reportData, error: reportError } = await supabase
-        .from('analytics_reports')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (reportError) {
-        console.error('Failed to fetch analytics data:', reportError);
-        throw new Error('Failed to fetch analytics data');
-      }
-
-      if (!reportData || reportData.length === 0) {
-        throw new Error('No analytics data available. Please run an analysis first.');
-      }
-
-      const latestReport = reportData[0] as AnalyticsReport;
-      
-      const analysisData = {
+      const analysisInput = {
         ga4Data: {
-          monthly: latestReport.monthly_analysis,
-          quarterly: latestReport.quarterly_analysis,
-          yoy: latestReport.yoy_analysis
+          monthly: analysisData.monthly_analysis,
+          quarterly: analysisData.quarterly_analysis,
+          yoy: analysisData.ytd_analysis
         },
-        gscData: latestReport.weekly_analysis?.searchTerms || []
+        gscData: {
+          searchTerms: analysisData.weekly_analysis?.searchTerms || [],
+          pages: analysisData.weekly_analysis?.pages || [],
+          monthlySearchTerms: analysisData.monthly_analysis?.searchTerms || [],
+          monthlyPages: analysisData.monthly_analysis?.pages || [],
+          quarterlySearchTerms: analysisData.quarterly_analysis?.searchTerms || [],
+          quarterlyPages: analysisData.quarterly_analysis?.pages || [],
+        }
       };
 
-      console.log('Sending analysis data to strategy generator:', analysisData);
+      console.log('Sending analysis data to strategy generator:', analysisInput);
 
       const response = await supabase.functions.invoke('generate-seo-strategy', {
-        body: analysisData
+        body: analysisInput
       });
 
       if (response.error) {
@@ -103,15 +140,20 @@ export function AutomatedStrategy() {
           </p>
           <Button 
             onClick={generateStrategy} 
-            disabled={isLoading}
+            disabled={isLoading || !analysisData}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Generate Strategy
           </Button>
+          {!analysisData && (
+            <p className="text-sm text-red-500 mt-2">
+              No analysis data available. Please run an analysis first.
+            </p>
+          )}
         </CardContent>
       </Card>
 
-      <KeywordGapAnalysis />
+      <KeywordGapAnalysis analysisData={analysisData} />
 
       {contentTopics.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
