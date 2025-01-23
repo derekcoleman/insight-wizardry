@@ -18,22 +18,22 @@ const App = () => {
   }
 
   return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter basename="/">
+    <QueryClientProvider client={queryClient}>
+      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+        <BrowserRouter basename="/">
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/seo-strategy" element={<SeoStrategy />} />
             </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </GoogleOAuthProvider>
+          </TooltipProvider>
+        </BrowserRouter>
+      </GoogleOAuthProvider>
+    </QueryClientProvider>
   );
 };
 
