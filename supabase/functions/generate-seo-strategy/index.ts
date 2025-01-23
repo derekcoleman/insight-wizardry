@@ -11,26 +11,66 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openAIApiKey) {
+    return new Response(
+      JSON.stringify({ error: 'OpenAI API key not configured' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
-    // Here we'll analyze GSC and GA4 data to generate content recommendations
-    // This is a placeholder response - the actual implementation would analyze real data
-    const topics = [
-      {
-        title: "Optimizing for Core Web Vitals",
-        description: "Comprehensive guide on improving website performance metrics",
-        targetKeywords: ["core web vitals", "web performance", "page speed"],
-        estimatedImpact: "High potential for improved rankings across all pages",
-        priority: "high"
+    // In a real implementation, we would fetch GA4 and GSC data here
+    // For now, we'll use OpenAI to generate recommendations based on a prompt
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
       },
-      {
-        title: "E-commerce SEO Best Practices",
-        description: "Complete guide to optimizing online stores",
-        targetKeywords: ["ecommerce seo", "online store optimization"],
-        estimatedImpact: "Medium-term impact on conversion rates",
-        priority: "medium"
-      },
-      // Add more sample topics...
-    ];
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are an SEO expert tasked with generating content strategy recommendations. 
+            Generate 10-20 content topics that would be valuable for a website. 
+            For each topic, include:
+            - A clear title
+            - A brief description
+            - Target keywords
+            - Estimated impact
+            - Priority level (high/medium/low)
+            Format the response as a JSON array of topics.`
+          },
+          {
+            role: "user",
+            content: "Generate a comprehensive SEO content strategy focusing on high-impact topics."
+          }
+        ],
+        temperature: 0.7
+      }),
+    });
+
+    const openAIResponse = await response.json();
+    let topics;
+    
+    try {
+      // Parse the response content as JSON
+      topics = JSON.parse(openAIResponse.choices[0].message.content);
+    } catch (e) {
+      // If parsing fails, try to extract structured data from the text
+      const content = openAIResponse.choices[0].message.content;
+      topics = [
+        {
+          title: "Default Topic",
+          description: "Generated content strategy unavailable. Please try again.",
+          targetKeywords: ["seo", "content strategy"],
+          estimatedImpact: "Unknown",
+          priority: "medium"
+        }
+      ];
+    }
 
     return new Response(
       JSON.stringify({ topics }),

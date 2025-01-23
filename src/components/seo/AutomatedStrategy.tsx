@@ -31,6 +31,10 @@ export function AutomatedStrategy() {
         throw new Error(response.error.message);
       }
 
+      if (!response.data?.topics) {
+        throw new Error('No topics generated');
+      }
+
       setContentTopics(response.data.topics);
       toast({
         title: "Strategy Generated",
@@ -56,7 +60,7 @@ export function AutomatedStrategy() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground mb-4">
-            Generate content recommendations based on your Google Analytics and Search Console data.
+            Generate content recommendations based on AI analysis.
           </p>
           <Button 
             onClick={generateStrategy} 
@@ -70,11 +74,13 @@ export function AutomatedStrategy() {
 
       <KeywordGapAnalysis />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {contentTopics.map((topic, index) => (
-          <ContentTopicCard key={index} topic={topic} />
-        ))}
-      </div>
+      {contentTopics.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {contentTopics.map((topic, index) => (
+            <ContentTopicCard key={index} topic={topic} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
