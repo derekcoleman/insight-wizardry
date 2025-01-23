@@ -70,10 +70,17 @@ export function AutomatedStrategy() {
   }, []);
 
   const generateStrategy = async () => {
-    if (!analysisData) {
+    // Check if we have meaningful data in the analysis
+    const hasAnalysisData = analysisData && (
+      (analysisData.monthly_analysis?.searchTerms?.length > 0) ||
+      (analysisData.quarterly_analysis?.searchTerms?.length > 0) ||
+      (analysisData.yoy_analysis?.searchTerms?.length > 0)
+    );
+
+    if (!hasAnalysisData) {
       toast({
         title: "No Analysis Data",
-        description: "Please run an analysis first.",
+        description: "Please run a complete analysis with Search Console data first.",
         variant: "destructive",
       });
       return;
@@ -129,6 +136,13 @@ export function AutomatedStrategy() {
     }
   };
 
+  // Check if we have meaningful data in the analysis
+  const hasAnalysisData = analysisData && (
+    (analysisData.monthly_analysis?.searchTerms?.length > 0) ||
+    (analysisData.quarterly_analysis?.searchTerms?.length > 0) ||
+    (analysisData.yoy_analysis?.searchTerms?.length > 0)
+  );
+
   return (
     <div className="space-y-6">
       <Card>
@@ -141,14 +155,14 @@ export function AutomatedStrategy() {
           </p>
           <Button 
             onClick={generateStrategy} 
-            disabled={isLoading || !analysisData}
+            disabled={isLoading || !hasAnalysisData}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Generate Strategy
           </Button>
-          {!analysisData && (
+          {!hasAnalysisData && (
             <p className="text-sm text-red-500 mt-2">
-              No analysis data available. Please run an analysis first.
+              Please run a complete analysis with Search Console data first.
             </p>
           )}
         </CardContent>
