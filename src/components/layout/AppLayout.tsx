@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
+import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader } from "@/components/ui/sidebar";
 import { Home, LineChart, PanelLeftClose } from "lucide-react";
 
 const items = [
@@ -48,11 +48,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            <SidebarFooter>
-              <div className="text-xs text-sidebar-foreground/60">
-                Standup Notez © 2024
-              </div>
-            </SidebarFooter>
           </SidebarContent>
         </Sidebar>
 
@@ -71,8 +66,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <div className="flex items-center space-x-4">
                   <SidebarTrigger>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10">
-                      <PanelLeftClose className="h-4 w-4" />
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-10 w-10 text-white border-white hover:bg-white/10 hover:text-white"
+                    >
+                      <PanelLeftClose className="h-5 w-5" />
                       <span className="sr-only">Toggle sidebar</span>
                     </Button>
                   </SidebarTrigger>
