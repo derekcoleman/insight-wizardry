@@ -13,28 +13,22 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (!openAIApiKey) {
+    return new Response(
+      JSON.stringify({ error: 'OpenAI API key not configured' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const { ga4Data, gscData } = await req.json();
     console.log('Analyzing data:', { ga4Data, gscData });
 
-    // Extract conversion data
-    const monthlyConversions = ga4Data.monthly?.current?.conversions || 0;
-    const monthlyRevenue = ga4Data.monthly?.current?.revenue || 0;
-    const quarterlyConversions = ga4Data.quarterly?.current?.conversions || 0;
-    const quarterlyRevenue = ga4Data.quarterly?.current?.revenue || 0;
-
-    const analysisPrompt = `As an SEO expert, analyze this data and generate 15-20 strategic recommendations:
+    const analysisPrompt = `As an SEO expert, analyze this data and generate 10-15 strategic recommendations:
 
 Key metrics from GA4:
-Monthly Performance:
-- Conversions: ${monthlyConversions}
-- Revenue: $${monthlyRevenue}
-- Other metrics: ${JSON.stringify(ga4Data.monthly?.metrics || {})}
-
-Quarterly Performance:
-- Conversions: ${quarterlyConversions}
-- Revenue: $${quarterlyRevenue}
-- Other metrics: ${JSON.stringify(ga4Data.quarterly?.metrics || {})}
+- Monthly trends: ${JSON.stringify(ga4Data.monthly?.metrics || {})}
+- Quarterly trends: ${JSON.stringify(ga4Data.quarterly?.metrics || {})}
 
 Search terms performance:
 ${JSON.stringify(gscData.searchTerms?.slice(0, 50) || [])}
@@ -42,23 +36,16 @@ ${JSON.stringify(gscData.searchTerms?.slice(0, 50) || [])}
 Top performing pages:
 ${JSON.stringify(gscData.pages?.slice(0, 20) || [])}
 
-Analyze and provide recommendations for:
-1. Content optimization for pages with high conversion rates
-2. User journey optimization opportunities
-3. Content gaps in the conversion funnel
-4. Search intent alignment with conversion goals
-5. Technical improvements that could impact conversion rates
-6. New content opportunities based on successful conversion patterns
-7. Content structure and internal linking strategy
-8. Call-to-action optimization suggestions
-9. Mobile vs desktop performance considerations
-10. Page speed and user experience factors
+Generate strategic recommendations that would improve SEO performance, including:
+1. Optimization of existing content
+2. New content opportunities
+3. Technical improvements
 
 For each recommendation include:
 - Title
 - Description explaining value and approach
 - Target keywords
-- Estimated impact on conversions and revenue
+- Estimated impact
 - Priority (high/medium/low)
 
 Return a JSON object with a 'topics' array containing objects with these fields: title, description, targetKeywords (array), estimatedImpact (string), priority (string).`;
@@ -74,7 +61,7 @@ Return a JSON object with a 'topics' array containing objects with these fields:
         messages: [
           {
             role: "system",
-            content: "You are an expert SEO and conversion rate optimization analyst. Always return a JSON object with a 'topics' array containing the recommendations."
+            content: "You are an expert SEO analyst. Always return a JSON object with a 'topics' array containing the recommendations."
           },
           {
             role: "user",
