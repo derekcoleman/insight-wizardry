@@ -6,8 +6,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import { BrandedTermsCard } from "./BrandedTermsCard";
 import { SearchTermRow } from "./SearchTermsRow";
+import { exportToCSV } from "@/utils/csvExport";
 
 interface SearchTerm {
   term: string;
@@ -138,9 +141,34 @@ export function SearchTermsTable({ searchTerms, domain }: SearchTermsTableProps)
 
   const analysis = analyzeBrandedTerms(searchTerms, domain);
 
+  const handleExportCSV = () => {
+    const csvData = searchTerms.map(term => ({
+      'Search Term': term.term,
+      'Current Clicks': term.current.clicks,
+      'Previous Clicks': term.previous.clicks,
+      'Change (%)': term.changes.clicks,
+      'Current CTR (%)': term.current.ctr,
+      'Current Position': term.current.position,
+      'Is Branded': isBrandedTerm(term.term, domain) ? 'Yes' : 'No'
+    }));
+    
+    exportToCSV(csvData, 'search-terms-analysis');
+  };
+
   return (
     <div className="mt-6 space-y-6">
-      <h3 className="text-lg font-medium text-gray-900">Top Search Terms</h3>
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium text-gray-900">Top Search Terms</h3>
+        <Button
+          onClick={handleExportCSV}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <BrandedTermsCard
