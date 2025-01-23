@@ -6,7 +6,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
+import { BrandedTermsCard } from "./BrandedTermsCard";
+import { SearchTermRow } from "./SearchTermsRow";
 
 interface SearchTerm {
   term: string;
@@ -38,22 +39,14 @@ interface SearchTermsTableProps {
 function isBrandedTerm(term: string, domain?: string): boolean {
   if (!domain) return false;
   
-  // Extract domain name without TLD and common suffixes
   const domainParts = domain.toLowerCase().split('.');
   const brandName = domainParts[0]
     .replace(/\.(com|net|org|io|co|inc)$/, '')
     .replace(/[^a-z0-9]/g, '');
   
-  console.log('Processing domain:', domain);
-  console.log('Extracted brand name:', brandName);
-  
-  // Create brand name variations
   const brandVariations = new Set<string>();
-  
-  // Add the full brand name
   brandVariations.add(brandName);
   
-  // Split by common word boundaries and add individual parts
   const parts = brandName.match(/[a-z]+/g) || [];
   parts.forEach(part => {
     if (part.length >= 3) {
@@ -61,12 +54,10 @@ function isBrandedTerm(term: string, domain?: string): boolean {
     }
   });
   
-  // Add combinations of consecutive parts
   for (let i = 0; i < parts.length - 1; i++) {
     brandVariations.add(parts[i] + parts[i + 1]);
   }
   
-  // Filter out common words and short terms
   const commonWords = new Set([
     'online', 'web', 'app', 'site', 'tech', 'digital',
     'service', 'services', 'group', 'inc', 'llc', 'ltd',
@@ -76,35 +67,14 @@ function isBrandedTerm(term: string, domain?: string): boolean {
   const finalVariations = Array.from(brandVariations)
     .filter(v => !commonWords.has(v) && v.length >= 3);
   
-  console.log('Brand variations:', finalVariations);
-  
-  // Normalize search term
   const normalizedTerm = term.toLowerCase().replace(/[^a-z0-9]/g, '');
-  console.log('Checking term:', term);
-  console.log('Normalized term:', normalizedTerm);
   
-  // Check if any brand variation is present in the term
-  const isBranded = finalVariations.some(variation => {
-    const isMatch = normalizedTerm.includes(variation);
-    if (isMatch) {
-      console.log(`Match found: "${variation}" in "${normalizedTerm}"`);
-    }
-    return isMatch;
-  });
-  
-  console.log(`Term "${term}" is ${isBranded ? 'branded' : 'non-branded'}\n`);
-  return isBranded;
+  return finalVariations.some(variation => normalizedTerm.includes(variation));
 }
 
 function analyzeBrandedTerms(searchTerms: SearchTerm[], domain?: string) {
-  console.log('Analyzing branded terms for domain:', domain);
-  console.log('Total search terms:', searchTerms.length);
-  
   const branded = searchTerms.filter(term => isBrandedTerm(term.term, domain));
   const nonBranded = searchTerms.filter(term => !isBrandedTerm(term.term, domain));
-  
-  console.log('Branded terms count:', branded.length);
-  console.log('Non-branded terms count:', nonBranded.length);
   
   const brandedClicks = branded.reduce((sum, term) => sum + term.current.clicks, 0);
   const nonBrandedClicks = nonBranded.reduce((sum, term) => sum + term.current.clicks, 0);
@@ -117,14 +87,6 @@ function analyzeBrandedTerms(searchTerms: SearchTerm[], domain?: string) {
     ((brandedClicks - brandedPrevClicks) / brandedPrevClicks) * 100;
   const nonBrandedChange = nonBrandedPrevClicks === 0 ? 0 : 
     ((nonBrandedClicks - nonBrandedPrevClicks) / nonBrandedPrevClicks) * 100;
-
-  console.log('Analysis results:', {
-    brandedClicks,
-    nonBrandedClicks,
-    totalClicks,
-    brandedPercentage: totalClicks === 0 ? 0 : (brandedClicks / totalClicks) * 100,
-    nonBrandedPercentage: totalClicks === 0 ? 0 : (nonBrandedClicks / totalClicks) * 100
-  });
 
   return {
     branded: {
@@ -149,30 +111,35 @@ export function SearchTermsTable({ searchTerms, domain }: SearchTermsTableProps)
 
   return (
     <div className="mt-6 space-y-6">
-      <h3 className="text-lg font-medium">Top Search Terms</h3>
+      <h3 className="text-lg font-medium text-gray-900">Top Search Terms</h3>
       
-      <Card className="p-4">
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h4 className="font-medium mb-2">Branded Terms ({analysis.branded.percentage.toFixed(1)}%)</h4>
-              <p className="text-sm text-muted-foreground">
-                Total Clicks: {analysis.branded.clicks}
-                <br />
-                Change: {analysis.branded.change > 0 ? '+' : ''}{analysis.branded.change.toFixed(1)}%
-              </p>
-            </div>
-            <div>
-              <h4 className="font-medium mb-2">Non-Branded Terms ({analysis.nonBranded.percentage.toFixed(1)}%)</h4>
-              <p className="text-sm text-muted-foreground">
-                Total Clicks: {analysis.nonBranded.clicks}
-                <br />
-                Change: {analysis.nonBranded.change > 0 ? '+' : ''}{analysis.nonBranded.change.toFixed(1)}%
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <BrandedTermsCard
+          title="Branded Terms"
+          titleColor="text-[#7E69AB]"
+          badgeColor="bg-[#9b87f5]"
+          badgeHoverColor="hover:bg-[#7E69AB]"
+          backgroundColor="bg-[#F1F0FB]"
+          borderColor="border-[#9b87f5]"
+          terms={analysis.branded.terms.length}
+          percentage={analysis.branded.percentage}
+          clicks={analysis.branded.clicks}
+          change={analysis.branded.change}
+        />
+
+        <BrandedTermsCard
+          title="Non-Branded Terms"
+          titleColor="text-gray-700"
+          badgeColor="bg-gray-200"
+          badgeHoverColor="hover:bg-gray-300"
+          backgroundColor="bg-gray-50"
+          borderColor="border-gray-200"
+          terms={analysis.nonBranded.terms.length}
+          percentage={analysis.nonBranded.percentage}
+          clicks={analysis.nonBranded.clicks}
+          change={analysis.nonBranded.change}
+        />
+      </div>
 
       <Table>
         <TableHeader>
@@ -185,19 +152,14 @@ export function SearchTermsTable({ searchTerms, domain }: SearchTermsTableProps)
         </TableHeader>
         <TableBody>
           {searchTerms.map((term) => (
-            <TableRow key={term.term}>
-              <TableCell className="font-medium">
-                {term.term}
-                {isBrandedTerm(term.term, domain) && (
-                  <span className="ml-2 text-xs text-muted-foreground">(Branded)</span>
-                )}
-              </TableCell>
-              <TableCell className="text-right">{term.current.clicks}</TableCell>
-              <TableCell className="text-right">{term.previous.clicks}</TableCell>
-              <TableCell className={`text-right ${Number(term.changes.clicks) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {Number(term.changes.clicks) >= 0 ? '↑' : '↓'} {Math.abs(Number(term.changes.clicks))}%
-              </TableCell>
-            </TableRow>
+            <SearchTermRow
+              key={term.term}
+              term={term.term}
+              isBranded={isBrandedTerm(term.term, domain)}
+              current={term.current.clicks}
+              previous={term.previous.clicks}
+              change={Number(term.changes.clicks)}
+            />
           ))}
         </TableBody>
       </Table>

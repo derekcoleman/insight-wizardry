@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisInsights } from "./AnalysisInsights";
 import { AnalysisCard } from "./analysis/AnalysisCard";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { FileText, Loader2 } from "lucide-react";
 import { useToast } from "./ui/use-toast";
+import { ExportButtons } from "./analysis/ExportButtons";
 
 interface AnalysisResultsProps {
   report: {
@@ -24,6 +23,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   const [insights, setInsights] = useState<string>("");
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isCreatingDoc, setIsCreatingDoc] = useState(false);
+  const [isCreatingPdf, setIsCreatingPdf] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -78,6 +78,39 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
       });
     } finally {
       setIsCreatingDoc(false);
+    }
+  };
+
+  const handleCreatePdf = async () => {
+    if (!report) return;
+
+    setIsCreatingPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-report-pdf', {
+        body: { 
+          report,
+          insights 
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.pdfUrl) {
+        window.open(data.pdfUrl, '_blank');
+        toast({
+          title: "Success",
+          description: "PDF report created successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create PDF report",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPdf(false);
     }
   };
 
@@ -138,18 +171,13 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     <div className="w-full space-y-6 text-left">
       <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-bold">Analysis Results</h2>
-        <Button
-          onClick={handleCreateDoc}
-          disabled={isCreatingDoc || isGeneratingInsights}
-          variant="outline"
-        >
-          {isCreatingDoc ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <FileText className="mr-2 h-4 w-4" />
-          )}
-          Export to Google Doc
-        </Button>
+        <ExportButtons
+          onExportDoc={handleCreateDoc}
+          onExportPdf={handleCreatePdf}
+          isCreatingDoc={isCreatingDoc}
+          isCreatingPdf={isCreatingPdf}
+          isGeneratingInsights={isGeneratingInsights}
+        />
       </div>
       <div className="px-4 sm:px-6 lg:px-8">
         <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
