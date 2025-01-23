@@ -290,20 +290,31 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           handleApiError(error, "Search Console");
         }
 
-        // Fetch Google Ads accounts
+        // Fetch Google Ads accounts with proper error handling
         try {
           console.log("Fetching Google Ads accounts...");
+          const developerToken = import.meta.env.VITE_GOOGLE_ADS_DEVELOPER_TOKEN;
+          
+          if (!developerToken) {
+            throw new Error("Google Ads Developer Token is not configured");
+          }
+
           const adsResponse = await fetch(
             "https://googleads.googleapis.com/v14/customers:listAccessibleCustomers",
             {
+              method: 'GET',
               headers: {
-                Authorization: `Bearer ${response.access_token}`,
-                'developer-token': `${import.meta.env.VITE_GOOGLE_ADS_DEVELOPER_TOKEN}`,
+                'Authorization': `Bearer ${response.access_token}`,
+                'developer-token': developerToken,
+                'login-customer-id': '1234567890', // Optional: Add if you have a manager account
+                'Content-Type': 'application/json',
               },
             }
           );
 
           if (!adsResponse.ok) {
+            const errorData = await adsResponse.text();
+            console.error("Google Ads API Error Response:", errorData);
             throw new Error(`Google Ads API error: ${adsResponse.statusText}`);
           }
 
@@ -327,35 +338,45 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             const accounts = await Promise.all(
               adsData.resourceNames.map(async (resourceName: string) => {
                 const customerId = resourceName.split('/')[1];
-                const accountResponse = await fetch(
-                  `https://googleads.googleapis.com/v14/${resourceName}`,
-                  {
-                    headers: {
-                      Authorization: `Bearer ${response.access_token}`,
-                      'developer-token': `${import.meta.env.VITE_GOOGLE_ADS_DEVELOPER_TOKEN}`,
-                    },
+                try {
+                  const accountResponse = await fetch(
+                    `https://googleads.googleapis.com/v14/${resourceName}`,
+                    {
+                      headers: {
+                        'Authorization': `Bearer ${response.access_token}`,
+                        'developer-token': developerToken,
+                        'Content-Type': 'application/json',
+                      },
+                    }
+                  );
+                  
+                  if (!accountResponse.ok) {
+                    console.warn(`Failed to fetch details for account ${customerId}`);
+                    return {
+                      id: customerId,
+                      name: `Account ${customerId}`,
+                    };
                   }
-                );
-                
-                if (!accountResponse.ok) {
-                  console.warn(`Failed to fetch details for account ${customerId}`);
+
+                  const accountData = await accountResponse.json();
+                  return {
+                    id: customerId,
+                    name: accountData.customer?.descriptiveName || `Account ${customerId}`,
+                  };
+                } catch (error) {
+                  console.warn(`Error fetching details for account ${customerId}:`, error);
                   return {
                     id: customerId,
                     name: `Account ${customerId}`,
                   };
                 }
-
-                const accountData = await accountResponse.json();
-                return {
-                  id: customerId,
-                  name: accountData.customer.descriptiveName || `Account ${customerId}`,
-                };
               })
             );
 
             setAdsAccounts(accounts);
           }
         } catch (error: any) {
+          console.error("Google Ads API Error:", error);
           handleApiError(error, "Google Ads");
         }
 
