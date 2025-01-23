@@ -53,23 +53,22 @@ function isBrandedTerm(term: string, domain?: string): boolean {
   // Add the full domain name
   brandVariations.add(cleanDomain);
   
-  // Add domain without common suffixes
-  const cleanBrand = cleanDomain
-    .replace(/\.(com|net|org|io|co|inc)$/, '')
-    .replace(/[^a-z0-9]/g, '');
-  brandVariations.add(cleanBrand);
+  // Split domain into potential word combinations
+  const domainParts = cleanDomain.match(/[a-z]+|\d+/g) || [];
   
-  // Split brand into parts and add significant parts
-  const parts = cleanBrand.match(/[a-z]+|\d+/g) || [];
-  parts.forEach(part => {
-    if (part.length >= 3) {
+  // Add individual parts if they're meaningful (2+ chars)
+  domainParts.forEach(part => {
+    if (part.length >= 2) {
       brandVariations.add(part);
     }
   });
   
   // Add combinations of consecutive parts
-  for (let i = 0; i < parts.length - 1; i++) {
-    brandVariations.add(parts[i] + parts[i + 1]);
+  for (let i = 0; i < domainParts.length - 1; i++) {
+    brandVariations.add(domainParts[i] + domainParts[i + 1]);
+    // Also add the parts separately if they're meaningful
+    if (domainParts[i].length >= 2) brandVariations.add(domainParts[i]);
+    if (domainParts[i + 1].length >= 2) brandVariations.add(domainParts[i + 1]);
   }
   
   // Common words to exclude
@@ -79,9 +78,9 @@ function isBrandedTerm(term: string, domain?: string): boolean {
     'company', 'solutions', 'platform', 'software'
   ]);
   
-  // Filter out common words and short terms
+  // Filter out common words
   const finalVariations = Array.from(brandVariations)
-    .filter(v => !commonWords.has(v) && v.length >= 2);
+    .filter(v => !commonWords.has(v));
   
   // Clean up search term for comparison
   const normalizedTerm = term.toLowerCase()
@@ -90,6 +89,7 @@ function isBrandedTerm(term: string, domain?: string): boolean {
   // Debug logging
   console.log('Domain:', domain);
   console.log('Clean domain:', cleanDomain);
+  console.log('Domain parts:', domainParts);
   console.log('Brand variations:', finalVariations);
   console.log('Search term:', term);
   console.log('Normalized term:', normalizedTerm);
