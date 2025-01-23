@@ -39,37 +39,66 @@ interface SearchTermsTableProps {
 function isBrandedTerm(term: string, domain?: string): boolean {
   if (!domain) return false;
   
-  const domainParts = domain.toLowerCase().split('.');
-  const brandName = domainParts[0]
+  // Clean up the domain and term for comparison
+  const cleanDomain = domain.toLowerCase()
+    .replace(/^(https?:\/\/)?(www\.)?/, '') // Remove protocol and www
+    .split('.')[0]; // Get first part of domain
+  
+  // Create brand variations
+  const brandVariations = new Set<string>();
+  
+  // Add the full domain name
+  brandVariations.add(cleanDomain);
+  
+  // Add domain without common suffixes
+  const cleanBrand = cleanDomain
     .replace(/\.(com|net|org|io|co|inc)$/, '')
     .replace(/[^a-z0-9]/g, '');
+  brandVariations.add(cleanBrand);
   
-  const brandVariations = new Set<string>();
-  brandVariations.add(brandName);
-  
-  const parts = brandName.match(/[a-z]+/g) || [];
+  // Split brand into parts and add significant parts
+  const parts = cleanBrand.match(/[a-z]+|\d+/g) || [];
   parts.forEach(part => {
     if (part.length >= 3) {
       brandVariations.add(part);
     }
   });
   
+  // Add combinations of consecutive parts
   for (let i = 0; i < parts.length - 1; i++) {
     brandVariations.add(parts[i] + parts[i + 1]);
   }
   
+  // Common words to exclude
   const commonWords = new Set([
     'online', 'web', 'app', 'site', 'tech', 'digital',
     'service', 'services', 'group', 'inc', 'llc', 'ltd',
     'company', 'solutions', 'platform', 'software'
   ]);
   
+  // Filter out common words and short terms
   const finalVariations = Array.from(brandVariations)
-    .filter(v => !commonWords.has(v) && v.length >= 3);
+    .filter(v => !commonWords.has(v) && v.length >= 2);
   
-  const normalizedTerm = term.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Clean up search term for comparison
+  const normalizedTerm = term.toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
   
-  return finalVariations.some(variation => normalizedTerm.includes(variation));
+  // Debug logging
+  console.log('Domain:', domain);
+  console.log('Clean domain:', cleanDomain);
+  console.log('Brand variations:', finalVariations);
+  console.log('Search term:', term);
+  console.log('Normalized term:', normalizedTerm);
+  
+  // Check if any brand variation is included in the search term
+  return finalVariations.some(variation => {
+    const isMatch = normalizedTerm.includes(variation);
+    if (isMatch) {
+      console.log('Matched variation:', variation);
+    }
+    return isMatch;
+  });
 }
 
 function analyzeBrandedTerms(searchTerms: SearchTerm[], domain?: string) {
