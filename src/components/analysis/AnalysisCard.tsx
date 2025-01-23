@@ -23,14 +23,6 @@ interface AnalysisCardProps {
   };
 }
 
-const formatEventName = (eventName: string): string => {
-  if (eventName === 'Total Events') return eventName;
-  return eventName
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
-
 export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
   return (
     <Card className="max-w-[75%] mx-auto">
@@ -79,7 +71,7 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
               {data.summary}
             </div>
           )}
-          {data.current.products && data.current.products.length > 0 && (
+          {data.current.products?.current && data.current.products.current.length > 0 && (
             <>
               <h3 className="text-lg font-semibold mt-6 mb-2">Top Products</h3>
               <ProductPerformanceTable products={data.current.products} />
@@ -97,3 +89,11 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
     </Card>
   );
 }
+
+const formatEventName = (eventName: string): string => {
+  if (eventName === 'Total Events') return eventName;
+  return eventName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};

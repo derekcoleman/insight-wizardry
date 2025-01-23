@@ -140,7 +140,10 @@ export function extractOrganicMetrics(data: any) {
       sessions: 0,
       conversions: 0,
       revenue: 0,
-      products: [],
+      products: {
+        current: [],
+        previous: [],
+      },
     };
   }
 
@@ -173,8 +176,19 @@ export function extractOrganicMetrics(data: any) {
     return total + Number(row.metricValues?.[1]?.value || 0);
   }, 0);
 
-  // Extract product data if available
-  const products = data.productData
+  // Extract current period product data
+  const currentProducts = data.productData
+    ?.filter((row: any) => row.dimensionValues?.[0]?.value?.toLowerCase() === 'organic search')
+    ?.map((row: any) => ({
+      name: row.dimensionValues?.[1]?.value || 'Unknown Product',
+      id: row.dimensionValues?.[2]?.value || '',
+      views: Number(row.metricValues?.[0]?.value || 0),
+      purchases: Number(row.metricValues?.[1]?.value || 0),
+      revenue: Number(row.metricValues?.[2]?.value || 0),
+    })) || [];
+
+  // Extract previous period product data if available
+  const previousProducts = data.previousPeriodProductData
     ?.filter((row: any) => row.dimensionValues?.[0]?.value?.toLowerCase() === 'organic search')
     ?.map((row: any) => ({
       name: row.dimensionValues?.[1]?.value || 'Unknown Product',
@@ -188,7 +202,10 @@ export function extractOrganicMetrics(data: any) {
     sessions: organicSessions,
     conversions,
     revenue,
-    products,
+    products: {
+      current: currentProducts,
+      previous: previousProducts,
+    },
   };
 
   console.log('Extracted GA4 metrics:', metrics);
