@@ -28,7 +28,7 @@ interface AnalyticsReport {
     searchTerms?: any[];
     pages?: any[];
   };
-  ytd_analysis: {
+  yoy_analysis: {
     searchTerms?: any[];
     pages?: any[];
   };
@@ -59,7 +59,15 @@ export function AutomatedStrategy() {
           return;
         }
 
-        setAnalysisData(reportData[0]);
+        // Map yoy_analysis to match our interface
+        const mappedData: AnalyticsReport = {
+          weekly_analysis: reportData[0].weekly_analysis,
+          monthly_analysis: reportData[0].monthly_analysis,
+          quarterly_analysis: reportData[0].quarterly_analysis,
+          yoy_analysis: reportData[0].yoy_analysis,
+        };
+
+        setAnalysisData(mappedData);
       } catch (error) {
         console.error('Error fetching analysis data:', error);
       }
@@ -84,7 +92,7 @@ export function AutomatedStrategy() {
         ga4Data: {
           monthly: analysisData.monthly_analysis,
           quarterly: analysisData.quarterly_analysis,
-          yoy: analysisData.ytd_analysis
+          yoy: analysisData.yoy_analysis
         },
         gscData: {
           searchTerms: analysisData.weekly_analysis?.searchTerms || [],
