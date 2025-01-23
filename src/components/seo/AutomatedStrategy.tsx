@@ -15,9 +15,13 @@ interface ContentTopic {
   priority: 'high' | 'medium' | 'low';
 }
 
-interface WeeklyAnalysis {
-  searchTerms?: string[];
-  // Add other properties as needed
+interface AnalyticsReport {
+  weekly_analysis: {
+    searchTerms?: string[];
+  } | null;
+  monthly_analysis: any;
+  quarterly_analysis: any;
+  yoy_analysis: any;
 }
 
 export function AutomatedStrategy() {
@@ -36,6 +40,7 @@ export function AutomatedStrategy() {
         .limit(1);
 
       if (reportError) {
+        console.error('Failed to fetch analytics data:', reportError);
         throw new Error('Failed to fetch analytics data');
       }
 
@@ -43,8 +48,7 @@ export function AutomatedStrategy() {
         throw new Error('No analytics data available. Please run an analysis first.');
       }
 
-      const latestReport = reportData[0];
-      const weeklyAnalysis = latestReport.weekly_analysis as WeeklyAnalysis | null;
+      const latestReport = reportData[0] as AnalyticsReport;
       
       const analysisData = {
         ga4Data: {
@@ -52,7 +56,7 @@ export function AutomatedStrategy() {
           quarterly: latestReport.quarterly_analysis,
           yoy: latestReport.yoy_analysis
         },
-        gscData: weeklyAnalysis?.searchTerms || []
+        gscData: latestReport.weekly_analysis?.searchTerms || []
       };
 
       console.log('Sending analysis data to strategy generator:', analysisData);
@@ -62,7 +66,8 @@ export function AutomatedStrategy() {
       });
 
       if (response.error) {
-        throw new Error(response.error.message);
+        console.error('Strategy generation error:', response.error);
+        throw new Error(response.error.message || 'Failed to generate strategy');
       }
 
       if (!response.data?.topics) {
