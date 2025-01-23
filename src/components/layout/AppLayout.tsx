@@ -51,12 +51,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarContent>
         </Sidebar>
 
-        {/* Fixed position button that's always visible */}
-        <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50">
+        {/* Subtle toggle button */}
+        <div className="fixed left-0 top-1/2 -translate-y-1/2 z-50">
           <SidebarTrigger>
-            <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full shadow-lg">
-              <PanelLeftClose className="h-6 w-6" />
-              <span className="sr-only">Toggle sidebar</span>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="h-12 px-2 rounded-r-lg bg-white/50 backdrop-blur-sm shadow-sm hover:bg-white/80 border-y border-r border-gray-200"
+            >
+              <PanelLeftClose className="h-4 w-4" />
             </Button>
           </SidebarTrigger>
         </div>
