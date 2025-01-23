@@ -25,7 +25,7 @@ interface ProductPerformanceTableProps {
 export function ProductPerformanceTable({ products }: ProductPerformanceTableProps) {
   if (!products?.current?.length) return null;
 
-  const calculateChange = (current: number, previous: number) => {
+  const calculateChange = (current: number, previous: number | undefined) => {
     if (!previous) return null;
     return ((current - previous) / previous) * 100;
   };
@@ -41,7 +41,6 @@ export function ProductPerformanceTable({ products }: ProductPerformanceTablePro
         <TableHeader>
           <TableRow>
             <TableHead>Product</TableHead>
-            <TableHead className="text-right">Views</TableHead>
             <TableHead className="text-right">Purchases</TableHead>
             <TableHead className="text-right">Revenue</TableHead>
             <TableHead className="text-right">Revenue Change</TableHead>
@@ -50,12 +49,11 @@ export function ProductPerformanceTable({ products }: ProductPerformanceTablePro
         <TableBody>
           {products.current.map((product) => {
             const previousProduct = findPreviousProduct(product);
-            const revenueChange = calculateChange(product.revenue, previousProduct?.revenue || 0);
+            const revenueChange = calculateChange(product.revenue, previousProduct?.revenue);
 
             return (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell className="text-right">{product.views.toLocaleString()}</TableCell>
                 <TableCell className="text-right">{product.purchases.toLocaleString()}</TableCell>
                 <TableCell className="text-right">${product.revenue.toLocaleString()}</TableCell>
                 <TableCell className="text-right">
