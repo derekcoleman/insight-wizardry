@@ -66,37 +66,42 @@ function isBrandedTerm(term: string, domain?: string): boolean {
   // Add combinations of consecutive parts
   for (let i = 0; i < domainParts.length - 1; i++) {
     brandVariations.add(domainParts[i] + domainParts[i + 1]);
-    // Also add the parts separately if they're meaningful
-    if (domainParts[i].length >= 2) brandVariations.add(domainParts[i]);
-    if (domainParts[i + 1].length >= 2) brandVariations.add(domainParts[i + 1]);
   }
   
-  // Common words to exclude
-  const commonWords = new Set([
-    'online', 'web', 'app', 'site', 'tech', 'digital',
-    'service', 'services', 'group', 'inc', 'llc', 'ltd',
-    'company', 'solutions', 'platform', 'software'
-  ]);
+  // Common business-related terms that might appear with the brand
+  const businessTerms = [
+    'agency', 'company', 'inc', 'llc', 'ltd', 'group',
+    'services', 'solutions', 'consulting', 'digital',
+    'tech', 'technologies', 'software', 'systems',
+    'media', 'marketing', 'creative', 'design',
+    'web', 'online', 'global', 'international',
+    'team', 'pro', 'professionals', 'experts'
+  ];
   
-  // Filter out common words
-  const finalVariations = Array.from(brandVariations)
-    .filter(v => !commonWords.has(v));
+  // Add variations with common business terms
+  domainParts.forEach(part => {
+    if (part.length >= 2) {
+      businessTerms.forEach(term => {
+        brandVariations.add(`${part} ${term}`);
+        brandVariations.add(`${term} ${part}`);
+      });
+    }
+  });
   
   // Clean up search term for comparison
-  const normalizedTerm = term.toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
+  const normalizedTerm = term.toLowerCase();
   
   // Debug logging
   console.log('Domain:', domain);
   console.log('Clean domain:', cleanDomain);
   console.log('Domain parts:', domainParts);
-  console.log('Brand variations:', finalVariations);
+  console.log('Brand variations:', Array.from(brandVariations));
   console.log('Search term:', term);
   console.log('Normalized term:', normalizedTerm);
   
   // Check if any brand variation is included in the search term
-  return finalVariations.some(variation => {
-    const isMatch = normalizedTerm.includes(variation);
+  return Array.from(brandVariations).some(variation => {
+    const isMatch = normalizedTerm.includes(variation.toLowerCase());
     if (isMatch) {
       console.log('Matched variation:', variation);
     }
