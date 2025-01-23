@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowTrendingUpIcon, ArrowTrendingDownIcon } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface SearchTerm {
   term: string;
@@ -179,9 +179,9 @@ export function SearchTermsTable({ searchTerms, domain }: SearchTermsTableProps)
                 <span className="text-sm font-medium text-gray-700">Change</span>
                 <div className="flex items-center gap-1">
                   {analysis.branded.change > 0 ? (
-                    <ArrowTrendingUpIcon className="w-4 h-4 text-green-500" />
+                    <TrendingUp className="w-4 h-4 text-green-500" />
                   ) : (
-                    <ArrowTrendingDownIcon className="w-4 h-4 text-red-500" />
+                    <TrendingDown className="w-4 h-4 text-red-500" />
                   )}
                   <span className={`font-medium ${analysis.branded.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {Math.abs(analysis.branded.change).toFixed(1)}%
@@ -217,9 +217,9 @@ export function SearchTermsTable({ searchTerms, domain }: SearchTermsTableProps)
                 <span className="text-sm font-medium text-gray-700">Change</span>
                 <div className="flex items-center gap-1">
                   {analysis.nonBranded.change > 0 ? (
-                    <ArrowTrendingUpIcon className="w-4 h-4 text-green-500" />
+                    <TrendingUp className="w-4 h-4 text-green-500" />
                   ) : (
-                    <ArrowTrendingDownIcon className="w-4 h-4 text-red-500" />
+                    <TrendingDown className="w-4 h-4 text-red-500" />
                   )}
                   <span className={`font-medium ${analysis.nonBranded.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {Math.abs(analysis.nonBranded.change).toFixed(1)}%
@@ -262,9 +262,9 @@ export function SearchTermsTable({ searchTerms, domain }: SearchTermsTableProps)
                 <TableCell className="text-right">{term.previous.clicks}</TableCell>
                 <TableCell className={`text-right flex items-center justify-end gap-1`}>
                   {Number(term.changes.clicks) >= 0 ? (
-                    <ArrowTrendingUpIcon className="w-4 h-4 text-green-500" />
+                    <TrendingUp className="w-4 h-4 text-green-500" />
                   ) : (
-                    <ArrowTrendingDownIcon className="w-4 h-4 text-red-500" />
+                    <TrendingDown className="w-4 h-4 text-red-500" />
                   )}
                   <span className={Number(term.changes.clicks) >= 0 ? 'text-green-600' : 'text-red-600'}>
                     {Math.abs(Number(term.changes.clicks))}%
