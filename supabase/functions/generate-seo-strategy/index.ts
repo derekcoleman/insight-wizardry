@@ -48,7 +48,7 @@ For each recommendation include:
 - Estimated impact
 - Priority (high/medium/low)
 
-Return ONLY a valid JSON array with objects containing these fields: title, description, targetKeywords (array), estimatedImpact (string), priority (string). Do not include any markdown formatting or code block syntax.`;
+Return a JSON object with a 'topics' array containing objects with these fields: title, description, targetKeywords (array), estimatedImpact (string), priority (string).`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -61,7 +61,7 @@ Return ONLY a valid JSON array with objects containing these fields: title, desc
         messages: [
           {
             role: "system",
-            content: "You are an expert SEO analyst. Always return valid JSON without any markdown formatting."
+            content: "You are an expert SEO analyst. Always return a JSON object with a 'topics' array containing the recommendations."
           },
           {
             role: "user",
@@ -84,25 +84,24 @@ Return ONLY a valid JSON array with objects containing these fields: title, desc
     
     let topics;
     try {
-      // Clean up the response content by removing any markdown formatting
       const content = openAIResponse.choices[0].message.content;
-      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
-      console.log('Cleaned content:', cleanContent);
+      console.log('Response content:', content);
       
-      topics = JSON.parse(cleanContent);
-      console.log('Parsed topics:', topics);
+      const parsedContent = JSON.parse(content);
+      console.log('Parsed content:', parsedContent);
 
-      // Validate the parsed data structure
-      if (!Array.isArray(topics)) {
-        throw new Error('Response is not an array');
+      if (!parsedContent.topics || !Array.isArray(parsedContent.topics)) {
+        throw new Error('Response does not contain a topics array');
       }
 
-      topics = topics.map(topic => ({
+      topics = parsedContent.topics.map(topic => ({
         title: String(topic.title || ''),
         description: String(topic.description || ''),
         targetKeywords: Array.isArray(topic.targetKeywords) ? topic.targetKeywords.map(String) : [],
         estimatedImpact: String(topic.estimatedImpact || ''),
-        priority: ['high', 'medium', 'low'].includes(topic.priority) ? topic.priority : 'medium'
+        priority: ['high', 'medium', 'low'].includes(topic.priority?.toLowerCase()) 
+          ? topic.priority.toLowerCase() 
+          : 'medium'
       }));
 
     } catch (e) {
