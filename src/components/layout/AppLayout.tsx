@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
+import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { Home, LineChart, PanelLeftClose } from "lucide-react";
 
 const items = [
@@ -22,21 +22,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex w-full">
         <Sidebar>
           <SidebarContent>
-            <div className="flex justify-end p-2">
-              <SidebarTrigger>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <PanelLeftClose className="h-4 w-4" />
-                  <span className="sr-only">Toggle sidebar</span>
-                </Button>
-              </SidebarTrigger>
-            </div>
+            <SidebarHeader className="border-b border-sidebar-border">
+              <div className="flex justify-end p-2">
+                <SidebarTrigger>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <PanelLeftClose className="h-4 w-4" />
+                    <span className="sr-only">Toggle sidebar</span>
+                  </Button>
+                </SidebarTrigger>
+              </div>
+            </SidebarHeader>
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {items.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild>
-                        <Link to={item.url}>
+                        <Link to={item.url} className="flex items-center gap-2">
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
                         </Link>
@@ -46,6 +48,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+            <SidebarFooter>
+              <div className="text-xs text-sidebar-foreground/60">
+                Standup Notez © 2024
+              </div>
+            </SidebarFooter>
           </SidebarContent>
         </Sidebar>
 
