@@ -8,10 +8,9 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import { BrandedTermsCard } from "./BrandedTermsCard";
 import { SearchTermRow } from "./SearchTermsRow";
-import { TermsSummaryCards } from "./TermsSummaryCards";
 import { exportToCSV } from "@/utils/csvExport";
-import { isBrandedTerm, analyzeBrandedTerms } from "@/utils/brandedTermsDetection";
 
 interface SearchTerm {
   term: string;
@@ -38,6 +37,103 @@ interface SearchTerm {
 interface SearchTermsTableProps {
   searchTerms: SearchTerm[];
   domain?: string;
+}
+
+function isBrandedTerm(term: string, domain?: string): boolean {
+  if (!domain) return false;
+  
+  // Clean up the domain and term for comparison
+  const cleanDomain = domain.toLowerCase()
+    .replace(/^(https?:\/\/)?(www\.)?/, '') // Remove protocol and www
+    .split('.')[0]; // Get first part of domain
+  
+  // Create brand variations
+  const brandVariations = new Set<string>();
+  
+  // Add the full domain name
+  brandVariations.add(cleanDomain);
+  
+  // Split domain into potential word combinations
+  const domainParts = cleanDomain.match(/[a-z]+|\d+/g) || [];
+  
+  // Add individual parts if they're meaningful (2+ chars)
+  domainParts.forEach(part => {
+    if (part.length >= 2) {
+      brandVariations.add(part);
+    }
+  });
+  
+  // Add combinations of consecutive parts
+  for (let i = 0; i < domainParts.length - 1; i++) {
+    brandVariations.add(domainParts[i] + domainParts[i + 1]);
+    // Also add the parts separately if they're meaningful
+    if (domainParts[i].length >= 2) brandVariations.add(domainParts[i]);
+    if (domainParts[i + 1].length >= 2) brandVariations.add(domainParts[i + 1]);
+  }
+  
+  // Common words to exclude
+  const commonWords = new Set([
+    'online', 'web', 'app', 'site', 'tech', 'digital',
+    'service', 'services', 'group', 'inc', 'llc', 'ltd',
+    'company', 'solutions', 'platform', 'software'
+  ]);
+  
+  // Filter out common words
+  const finalVariations = Array.from(brandVariations)
+    .filter(v => !commonWords.has(v));
+  
+  // Clean up search term for comparison
+  const normalizedTerm = term.toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  
+  // Debug logging
+  console.log('Domain:', domain);
+  console.log('Clean domain:', cleanDomain);
+  console.log('Domain parts:', domainParts);
+  console.log('Brand variations:', finalVariations);
+  console.log('Search term:', term);
+  console.log('Normalized term:', normalizedTerm);
+  
+  // Check if any brand variation is included in the search term
+  return finalVariations.some(variation => {
+    const isMatch = normalizedTerm.includes(variation);
+    if (isMatch) {
+      console.log('Matched variation:', variation);
+    }
+    return isMatch;
+  });
+}
+
+function analyzeBrandedTerms(searchTerms: SearchTerm[], domain?: string) {
+  const branded = searchTerms.filter(term => isBrandedTerm(term.term, domain));
+  const nonBranded = searchTerms.filter(term => !isBrandedTerm(term.term, domain));
+  
+  const brandedClicks = branded.reduce((sum, term) => sum + term.current.clicks, 0);
+  const nonBrandedClicks = nonBranded.reduce((sum, term) => sum + term.current.clicks, 0);
+  const totalClicks = brandedClicks + nonBrandedClicks;
+  
+  const brandedPrevClicks = branded.reduce((sum, term) => sum + term.previous.clicks, 0);
+  const nonBrandedPrevClicks = nonBranded.reduce((sum, term) => sum + term.previous.clicks, 0);
+  
+  const brandedChange = brandedPrevClicks === 0 ? 0 : 
+    ((brandedClicks - brandedPrevClicks) / brandedPrevClicks) * 100;
+  const nonBrandedChange = nonBrandedPrevClicks === 0 ? 0 : 
+    ((nonBrandedClicks - nonBrandedPrevClicks) / nonBrandedPrevClicks) * 100;
+
+  return {
+    branded: {
+      terms: branded,
+      clicks: brandedClicks,
+      percentage: totalClicks === 0 ? 0 : (brandedClicks / totalClicks) * 100,
+      change: brandedChange
+    },
+    nonBranded: {
+      terms: nonBranded,
+      clicks: nonBrandedClicks,
+      percentage: totalClicks === 0 ? 0 : (nonBrandedClicks / totalClicks) * 100,
+      change: nonBrandedChange
+    }
+  };
 }
 
 export function SearchTermsTable({ searchTerms, domain }: SearchTermsTableProps) {
@@ -74,10 +170,33 @@ export function SearchTermsTable({ searchTerms, domain }: SearchTermsTableProps)
         </Button>
       </div>
       
-      <TermsSummaryCards 
-        brandedAnalysis={analysis.branded}
-        nonBrandedAnalysis={analysis.nonBranded}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <BrandedTermsCard
+          title="Branded Terms"
+          titleColor="text-[#7E69AB]"
+          badgeColor="bg-[#9b87f5]"
+          badgeHoverColor="hover:bg-[#7E69AB]"
+          backgroundColor="bg-[#F1F0FB]"
+          borderColor="border-[#9b87f5]"
+          terms={analysis.branded.terms.length}
+          percentage={analysis.branded.percentage}
+          clicks={analysis.branded.clicks}
+          change={analysis.branded.change}
+        />
+
+        <BrandedTermsCard
+          title="Non-Branded Terms"
+          titleColor="text-gray-700"
+          badgeColor="bg-gray-200"
+          badgeHoverColor="hover:bg-gray-300"
+          backgroundColor="bg-gray-50"
+          borderColor="border-gray-200"
+          terms={analysis.nonBranded.terms.length}
+          percentage={analysis.nonBranded.percentage}
+          clicks={analysis.nonBranded.clicks}
+          change={analysis.nonBranded.change}
+        />
+      </div>
 
       <Table>
         <TableHeader>
