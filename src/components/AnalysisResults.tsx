@@ -137,16 +137,50 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
     setIsGeneratingStrategy(true);
     try {
+      // Save the report to localStorage before navigating
+      localStorage.setItem('analysisReport', JSON.stringify(report));
+
+      // Prepare the analysis input
+      const analysisInput = {
+        ga4Data: {
+          monthly: report.monthly_analysis,
+          quarterly: report.quarterly_analysis,
+          yoy: report.ytd_analysis
+        },
+        gscData: {
+          searchTerms: report.weekly_analysis?.searchTerms || [],
+          pages: report.weekly_analysis?.pages || [],
+          monthlySearchTerms: report.monthly_analysis?.searchTerms || [],
+          monthlyPages: report.monthly_analysis?.pages || [],
+          quarterlySearchTerms: report.quarterly_analysis?.searchTerms || [],
+          quarterlyPages: report.quarterly_analysis?.pages || [],
+        }
+      };
+
+      // Generate strategy
+      const response = await supabase.functions.invoke('generate-seo-strategy', {
+        body: analysisInput
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to generate strategy');
+      }
+
+      // Store the generated strategy in localStorage
+      localStorage.setItem('generatedStrategy', JSON.stringify(response.data));
+
+      // Navigate to strategy page
       navigate("/seo-strategy");
+      
       toast({
         title: "Success",
-        description: "Navigated to SEO Strategy page. You can now generate your strategy.",
+        description: "SEO Strategy generated successfully.",
       });
     } catch (error) {
-      console.error('Error navigating to strategy page:', error);
+      console.error('Error generating strategy:', error);
       toast({
         title: "Error",
-        description: "Failed to navigate to strategy page. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate SEO strategy. Please try again.",
         variant: "destructive",
       });
     } finally {

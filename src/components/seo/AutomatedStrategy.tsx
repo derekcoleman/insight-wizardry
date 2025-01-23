@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ContentTopicCard } from "./ContentTopicCard";
 import { KeywordGapAnalysis } from "./KeywordGapAnalysis";
+import { useNavigate } from "react-router-dom";
 
 interface ContentTopic {
   title: string;
@@ -32,57 +33,50 @@ export function AutomatedStrategy() {
   const [contentTopics, setContentTopics] = useState<ContentTopic[]>([]);
   const [analysisData, setAnalysisData] = useState<AnalyticsReport | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchLatestAnalysis = async () => {
-      try {
-        const { data: reportData, error: reportError } = await supabase
-          .from('analytics_reports')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1);
+    // Try to get the stored analysis report and strategy
+    const storedReport = localStorage.getItem('analysisReport');
+    const storedStrategy = localStorage.getItem('generatedStrategy');
 
-        if (reportError) {
-          console.error('Failed to fetch analytics data:', reportError);
-          return;
-        }
+    if (storedReport) {
+      setAnalysisData(JSON.parse(storedReport));
+    }
 
-        if (!reportData || reportData.length === 0) {
-          console.log('No analytics data available');
-          return;
-        }
-
-        // Parse and validate JSON data
-        const mappedData: AnalyticsReport = {
-          weekly_analysis: reportData[0].weekly_analysis as AnalysisData || { searchTerms: [], pages: [] },
-          monthly_analysis: reportData[0].monthly_analysis as AnalysisData || { searchTerms: [], pages: [] },
-          quarterly_analysis: reportData[0].quarterly_analysis as AnalysisData || { searchTerms: [], pages: [] },
-          yoy_analysis: reportData[0].yoy_analysis as AnalysisData || { searchTerms: [], pages: [] },
-        };
-
-        setAnalysisData(mappedData);
-      } catch (error) {
-        console.error('Error fetching analysis data:', error);
+    if (storedStrategy) {
+      const strategy = JSON.parse(storedStrategy);
+      if (strategy.topics) {
+        setContentTopics(strategy.topics);
       }
-    };
-
-    fetchLatestAnalysis();
+    }
   }, []);
 
   const generateStrategy = async () => {
+    if (!analysisData) {
+      toast({
+        title: "No Analysis Data",
+        description: "Please run a complete analysis first.",
+        variant: "destructive",
+      });
+      navigate('/');
+      return;
+    }
+
     // Check if we have meaningful data in the analysis
-    const hasAnalysisData = analysisData && (
+    const hasSearchData = analysisData && (
       (analysisData.monthly_analysis?.searchTerms?.length > 0) ||
       (analysisData.quarterly_analysis?.searchTerms?.length > 0) ||
       (analysisData.yoy_analysis?.searchTerms?.length > 0)
     );
 
-    if (!hasAnalysisData) {
+    if (!hasSearchData) {
       toast({
-        title: "No Analysis Data",
+        title: "No Search Console Data",
         description: "Please run a complete analysis with Search Console data first.",
         variant: "destructive",
       });
+      navigate('/');
       return;
     }
 
@@ -120,6 +114,8 @@ export function AutomatedStrategy() {
       }
 
       setContentTopics(response.data.topics);
+      localStorage.setItem('generatedStrategy', JSON.stringify(response.data));
+      
       toast({
         title: "Strategy Generated",
         description: "Your SEO content strategy has been generated successfully.",
@@ -136,13 +132,6 @@ export function AutomatedStrategy() {
     }
   };
 
-  // Check if we have meaningful data in the analysis
-  const hasAnalysisData = analysisData && (
-    (analysisData.monthly_analysis?.searchTerms?.length > 0) ||
-    (analysisData.quarterly_analysis?.searchTerms?.length > 0) ||
-    (analysisData.yoy_analysis?.searchTerms?.length > 0)
-  );
-
   return (
     <div className="space-y-6">
       <Card>
@@ -155,14 +144,14 @@ export function AutomatedStrategy() {
           </p>
           <Button 
             onClick={generateStrategy} 
-            disabled={isLoading || !hasAnalysisData}
+            disabled={isLoading || !analysisData}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Generate Strategy
           </Button>
-          {!hasAnalysisData && (
+          {!analysisData && (
             <p className="text-sm text-red-500 mt-2">
-              Please run a complete analysis with Search Console data first.
+              Please run a complete analysis first.
             </p>
           )}
         </CardContent>
