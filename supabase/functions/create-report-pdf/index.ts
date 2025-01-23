@@ -1,6 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-import { format } from 'https://esm.sh/date-fns@2.30.0'
 import puppeteer from 'https://deno.land/x/puppeteer@16.2.0/mod.ts'
 
 const corsHeaders = {
@@ -15,7 +13,19 @@ serve(async (req) => {
   }
 
   try {
-    const { report, insights } = await req.json()
+    console.log('Received request to generate PDF')
+    
+    // Validate request body
+    let body
+    try {
+      body = await req.json()
+      console.log('Request body:', JSON.stringify(body))
+    } catch (error) {
+      console.error('Error parsing request body:', error)
+      throw new Error('Invalid JSON in request body')
+    }
+
+    const { report, insights } = body
     
     if (!report) {
       console.error('No report data provided')
@@ -131,7 +141,7 @@ function generateReportHtml(report: any, insights: string) {
       <body>
         <div class="header">
           <h1>Analytics Report</h1>
-          <p>${format(new Date(), 'MMMM d, yyyy')}</p>
+          <p>${new Date().toLocaleDateString()}</p>
         </div>
         
         ${insights ? `
