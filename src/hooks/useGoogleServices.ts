@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Account {
   id: string;
@@ -16,28 +15,31 @@ interface ConversionGoal {
 interface UseGoogleServicesReturn {
   gaAccounts: Account[];
   gscAccounts: Account[];
-  adsAccounts: Account[];
   conversionGoals: ConversionGoal[];
   isLoading: boolean;
   error: string | null;
   gaConnected: boolean;
   gscConnected: boolean;
-  adsConnected: boolean;
   handleLogin: () => void;
   fetchConversionGoals: (propertyId: string) => Promise<void>;
   accessToken: string | null;
 }
 
+const formatEventName = (eventName: string): string => {
+  return eventName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export function useGoogleServices(): UseGoogleServicesReturn {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
-  const [adsAccounts, setAdsAccounts] = useState<Account[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
-  const [adsConnected, setAdsConnected] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -169,13 +171,10 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       try {
         setGaAccounts([]);
         setGscAccounts([]);
-        setAdsAccounts([]);
         setConversionGoals([]);
         setGaConnected(false);
         setGscConnected(false);
-        setAdsConnected(false);
 
-        // Fetch GA4 accounts
         try {
           console.log("Fetching GA4 accounts...");
           const gaResponse = await fetch(
@@ -248,7 +247,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           handleApiError(error, "Google Analytics");
         }
 
-        // Fetch Search Console sites
         try {
           console.log("Fetching Search Console sites...");
           const gscResponse = await fetch(
@@ -291,40 +289,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           handleApiError(error, "Search Console");
         }
 
-        // Fetch Google Ads accounts through our Edge Function
-        try {
-          console.log("Fetching Google Ads accounts through Edge Function...");
-          
-          const { data: adsData, error: adsError } = await supabase.functions.invoke('google-ads-proxy', {
-            body: { accessToken: response.access_token }
-          });
-
-          if (adsError) {
-            console.error("Edge Function Error:", adsError);
-            throw new Error(adsError.message || "Failed to fetch Google Ads accounts");
-          }
-
-          if (!adsData?.accounts || adsData.accounts.length === 0) {
-            toast({
-              title: "Warning",
-              description: "No Google Ads accounts found",
-              variant: "destructive",
-            });
-          } else {
-            setAdsConnected(true);
-            toast({
-              title: "Success",
-              description: "Connected to Google Ads",
-            });
-            setAdsAccounts(adsData.accounts);
-          }
-        } catch (error: any) {
-          console.error("Google Ads API Error:", error);
-          handleApiError(error, "Google Ads");
-        }
-
       } catch (error: any) {
-        handleApiError(error, "Google Services");
+        handleApiError(error, "Google Analytics");
       } finally {
         setIsLoading(false);
       }
@@ -333,8 +299,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/analytics.readonly",
       "https://www.googleapis.com/auth/webmasters.readonly",
       "https://www.googleapis.com/auth/analytics",
-      "https://www.googleapis.com/auth/analytics.edit",
-      "https://www.googleapis.com/auth/adwords"
+      "https://www.googleapis.com/auth/analytics.edit"
     ].join(" "),
     flow: "implicit"
   });
@@ -342,13 +307,11 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   return {
     gaAccounts,
     gscAccounts,
-    adsAccounts,
     conversionGoals,
     isLoading,
     error,
     gaConnected,
     gscConnected,
-    adsConnected,
     handleLogin: () => login(),
     fetchConversionGoals,
     accessToken,

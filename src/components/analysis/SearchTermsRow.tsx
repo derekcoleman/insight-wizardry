@@ -1,7 +1,6 @@
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SearchTermRowProps {
   term: string;
@@ -9,12 +8,6 @@ interface SearchTermRowProps {
   current: number;
   previous: number;
   change: number;
-  paidData?: {
-    spend: number;
-    conversions: number;
-    cpc: number;
-  };
-  isOpportunity?: boolean;
 }
 
 export function SearchTermRow({
@@ -23,11 +16,9 @@ export function SearchTermRow({
   current,
   previous,
   change,
-  paidData,
-  isOpportunity,
 }: SearchTermRowProps) {
   return (
-    <TableRow className={isOpportunity ? "bg-blue-50" : undefined}>
+    <TableRow>
       <TableCell className="font-medium">
         <div className="flex items-center gap-2">
           {term}
@@ -38,20 +29,6 @@ export function SearchTermRow({
             >
               Branded
             </Badge>
-          )}
-          {isOpportunity && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                    Opportunity
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>High paid performance - opportunity for organic growth</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           )}
         </div>
       </TableCell>
@@ -67,13 +44,6 @@ export function SearchTermRow({
           {Math.abs(change)}%
         </span>
       </TableCell>
-      {paidData && (
-        <>
-          <TableCell className="text-right">${paidData.spend.toLocaleString()}</TableCell>
-          <TableCell className="text-right">{paidData.conversions}</TableCell>
-          <TableCell className="text-right">${paidData.cpc.toFixed(2)}</TableCell>
-        </>
-      )}
     </TableRow>
   );
 }
