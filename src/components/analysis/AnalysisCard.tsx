@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "./MetricCard";
 import { SearchTermsTable } from "./SearchTermsTable";
 import { TopPagesTable } from "./TopPagesTable";
+import { ProductPerformanceTable } from "./ProductPerformanceTable";
 
 interface AnalysisCardProps {
   title: string;
@@ -21,14 +22,6 @@ interface AnalysisCardProps {
     domain?: string;
   };
 }
-
-const formatEventName = (eventName: string): string => {
-  if (eventName === 'Total Events') return eventName;
-  return eventName
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
 
 export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
   return (
@@ -78,6 +71,12 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
               {data.summary}
             </div>
           )}
+          {data.current.products?.current && data.current.products.current.length > 0 && (
+            <>
+              <h3 className="text-lg font-semibold mt-6 mb-2">Top Products</h3>
+              <ProductPerformanceTable products={data.current.products} />
+            </>
+          )}
           {data.searchTerms && <SearchTermsTable searchTerms={data.searchTerms} domain={data.domain} />}
           {data.pages && (
             <>
@@ -90,3 +89,11 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
     </Card>
   );
 }
+
+const formatEventName = (eventName: string): string => {
+  if (eventName === 'Total Events') return eventName;
+  return eventName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
