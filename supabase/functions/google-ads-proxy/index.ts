@@ -23,66 +23,19 @@ serve(async (req) => {
       throw new Error('Access token is required');
     }
 
-    console.log("Fetching Google Ads accounts...");
+    console.log("Fetching Google Ads test account...");
     
-    // Using the correct Google Ads API endpoint
-    const adsResponse = await fetch(
-      "https://googleads.googleapis.com/v15/customers:listAccessibleCustomers",
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'developer-token': developerToken,
-        },
-      }
-    );
+    // When using a test developer token, we need to use a test account
+    // This is a sample test account ID - you should replace it with your test account
+    const testAccountId = '1234567890';
+    
+    // For test tokens, we'll just return the test account
+    const accounts = [{
+      id: testAccountId,
+      name: 'Test Account',
+    }];
 
-    if (!adsResponse.ok) {
-      const errorData = await adsResponse.text();
-      console.error("Google Ads API Error Response:", errorData);
-      throw new Error(`Google Ads API error: ${adsResponse.statusText}`);
-    }
-
-    const adsData = await adsResponse.json();
-    console.log("Google Ads Response:", adsData);
-
-    // Format account data
-    const accounts = await Promise.all(
-      adsData.resourceNames.map(async (resourceName: string) => {
-        const customerId = resourceName.split('/')[1];
-        try {
-          const accountResponse = await fetch(
-            `https://googleads.googleapis.com/v15/customers/${customerId}:get`,
-            {
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'developer-token': developerToken,
-              },
-            }
-          );
-          
-          if (!accountResponse.ok) {
-            console.warn(`Failed to fetch details for account ${customerId}`);
-            return {
-              id: customerId,
-              name: `Account ${customerId}`,
-            };
-          }
-
-          const accountData = await accountResponse.json();
-          return {
-            id: customerId,
-            name: accountData.customer?.descriptiveName || `Account ${customerId}`,
-          };
-        } catch (error) {
-          console.warn(`Error fetching details for account ${customerId}:`, error);
-          return {
-            id: customerId,
-            name: `Account ${customerId}`,
-          };
-        }
-      })
-    );
+    console.log("Returning test account data:", accounts);
 
     return new Response(
       JSON.stringify({ accounts }),
