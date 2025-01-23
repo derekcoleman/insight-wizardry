@@ -23,35 +23,32 @@ serve(async (req) => {
     const { ga4Data, gscData } = await req.json();
     console.log('Analyzing data:', { ga4Data, gscData });
 
-    // Prepare the data for OpenAI analysis
-    const analysisPrompt = `As an SEO expert, analyze this Google Analytics and Search Console data:
+    // Prepare a more concise prompt to reduce token usage
+    const analysisPrompt = `As an SEO expert, analyze this data and generate 10-15 strategic recommendations:
 
-GA4 Data:
-${JSON.stringify(ga4Data, null, 2)}
+Key metrics from GA4:
+- Monthly trends: ${JSON.stringify(ga4Data.monthly?.metrics || {})}
+- Quarterly trends: ${JSON.stringify(ga4Data.quarterly?.metrics || {})}
 
-Search Console Data (including page performance and search terms):
-${JSON.stringify(gscData, null, 2)}
+Search terms performance:
+${JSON.stringify(gscData.searchTerms?.slice(0, 50) || [])}
 
-Based on this data:
-1. Identify pages with declining organic traffic and recommend specific improvements
-2. Find pages with high impressions but low CTR and suggest title/meta optimizations
-3. Analyze current keyword rankings and identify expansion opportunities
-4. Consider user behavior patterns and conversion data
-5. Look for content gaps based on search term data
+Top performing pages:
+${JSON.stringify(gscData.pages?.slice(0, 20) || [])}
 
-Generate 10-15 strategic recommendations that would improve SEO performance, including both:
-A. Optimization of existing content (based on declining performance or opportunities)
-B. New content opportunities (based on keyword gaps and user intent)
+Generate strategic recommendations that would improve SEO performance, including:
+1. Optimization of existing content
+2. New content opportunities
+3. Technical improvements
 
 For each recommendation include:
-- A clear, actionable title
-- A brief description explaining the value and approach
-- Specific target keywords based on the data
-- Estimated impact on traffic and conversions
-- Priority level (high/medium/low) based on potential ROI
+- Title
+- Description explaining value and approach
+- Target keywords
+- Estimated impact
+- Priority (high/medium/low)
 
-Format your response as a JSON array of topic objects with these exact fields:
-title, description, targetKeywords (array), estimatedImpact (string), priority (high/medium/low)`;
+Format as JSON array with fields: title, description, targetKeywords (array), estimatedImpact (string), priority (high/medium/low)`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -60,7 +57,7 @@ title, description, targetKeywords (array), estimatedImpact (string), priority (
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
