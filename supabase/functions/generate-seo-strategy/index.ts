@@ -20,8 +20,35 @@ serve(async (req) => {
   }
 
   try {
-    // In a real implementation, we would fetch GA4 and GSC data here
-    // For now, we'll use OpenAI to generate recommendations based on a prompt
+    const { ga4Data, gscData } = await req.json();
+    console.log('Analyzing data:', { ga4Data, gscData });
+
+    // Prepare the data for OpenAI analysis
+    const analysisPrompt = `As an SEO expert, analyze this Google Analytics and Search Console data:
+
+GA4 Data:
+${JSON.stringify(ga4Data, null, 2)}
+
+Search Console Data:
+${JSON.stringify(gscData, null, 2)}
+
+Based on this data:
+1. Identify content gaps and opportunities
+2. Analyze current keyword rankings and potential
+3. Consider user behavior and conversion patterns
+4. Look for underperforming content that could be improved
+
+Generate 10-20 strategic content topics that would improve SEO performance. 
+For each topic include:
+- A clear, engaging title
+- A brief description explaining the value and approach
+- Specific target keywords based on the data
+- Estimated impact on traffic and conversions
+- Priority level (high/medium/low) based on potential ROI
+
+Format your response as a JSON array of topic objects with these exact fields:
+title, description, targetKeywords (array), estimatedImpact (string), priority (high/medium/low)`;
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -33,24 +60,20 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an SEO expert tasked with generating content strategy recommendations. 
-            Generate 10-20 content topics that would be valuable for a website. 
-            For each topic, include:
-            - A clear title
-            - A brief description
-            - Target keywords
-            - Estimated impact
-            - Priority level (high/medium/low)
-            Format the response as a JSON array of topics.`
+            content: "You are an expert SEO analyst specializing in content strategy development."
           },
           {
             role: "user",
-            content: "Generate a comprehensive SEO content strategy focusing on high-impact topics."
+            content: analysisPrompt
           }
         ],
         temperature: 0.7
       }),
     });
+
+    if (!response.ok) {
+      throw new Error('OpenAI API request failed');
+    }
 
     const openAIResponse = await response.json();
     let topics;
@@ -58,18 +81,19 @@ serve(async (req) => {
     try {
       // Parse the response content as JSON
       topics = JSON.parse(openAIResponse.choices[0].message.content);
+      console.log('Generated topics:', topics);
     } catch (e) {
-      // If parsing fails, try to extract structured data from the text
-      const content = openAIResponse.choices[0].message.content;
-      topics = [
-        {
-          title: "Default Topic",
-          description: "Generated content strategy unavailable. Please try again.",
-          targetKeywords: ["seo", "content strategy"],
-          estimatedImpact: "Unknown",
-          priority: "medium"
-        }
-      ];
+      console.error('Error parsing OpenAI response:', e);
+      console.log('Raw response:', openAIResponse.choices[0].message.content);
+      
+      // Fallback to a default topic if parsing fails
+      topics = [{
+        title: "Content Strategy Analysis Required",
+        description: "Unable to generate content strategy. Please try again or check the data input.",
+        targetKeywords: ["content strategy", "seo optimization"],
+        estimatedImpact: "Unknown - Analysis failed",
+        priority: "high"
+      }];
     }
 
     return new Response(

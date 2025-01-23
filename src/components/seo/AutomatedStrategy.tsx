@@ -23,8 +23,35 @@ export function AutomatedStrategy() {
   const generateStrategy = async () => {
     setIsLoading(true);
     try {
+      // Get the latest GA4 and GSC data from our analytics_reports table
+      const { data: reportData, error: reportError } = await supabase
+        .from('analytics_reports')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (reportError) {
+        throw new Error('Failed to fetch analytics data');
+      }
+
+      if (!reportData || reportData.length === 0) {
+        throw new Error('No analytics data available. Please run an analysis first.');
+      }
+
+      const latestReport = reportData[0];
+      const analysisData = {
+        ga4Data: {
+          monthly: latestReport.monthly_analysis,
+          quarterly: latestReport.quarterly_analysis,
+          yoy: latestReport.yoy_analysis
+        },
+        gscData: latestReport.weekly_analysis?.searchTerms || []
+      };
+
+      console.log('Sending analysis data to strategy generator:', analysisData);
+
       const response = await supabase.functions.invoke('generate-seo-strategy', {
-        body: {}
+        body: analysisData
       });
 
       if (response.error) {
@@ -44,7 +71,7 @@ export function AutomatedStrategy() {
       console.error('Error generating strategy:', error);
       toast({
         title: "Error",
-        description: "Failed to generate SEO strategy. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate SEO strategy. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -60,7 +87,7 @@ export function AutomatedStrategy() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground mb-4">
-            Generate content recommendations based on AI analysis.
+            Generate content recommendations based on your Google Analytics and Search Console data.
           </p>
           <Button 
             onClick={generateStrategy} 
