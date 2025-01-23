@@ -15,6 +15,11 @@ interface ContentTopic {
   priority: 'high' | 'medium' | 'low';
 }
 
+interface WeeklyAnalysis {
+  searchTerms?: string[];
+  // Add other properties as needed
+}
+
 export function AutomatedStrategy() {
   const [isLoading, setIsLoading] = useState(false);
   const [contentTopics, setContentTopics] = useState<ContentTopic[]>([]);
@@ -39,13 +44,15 @@ export function AutomatedStrategy() {
       }
 
       const latestReport = reportData[0];
+      const weeklyAnalysis = latestReport.weekly_analysis as WeeklyAnalysis | null;
+      
       const analysisData = {
         ga4Data: {
           monthly: latestReport.monthly_analysis,
           quarterly: latestReport.quarterly_analysis,
           yoy: latestReport.yoy_analysis
         },
-        gscData: latestReport.weekly_analysis?.searchTerms || []
+        gscData: weeklyAnalysis?.searchTerms || []
       };
 
       console.log('Sending analysis data to strategy generator:', analysisData);
