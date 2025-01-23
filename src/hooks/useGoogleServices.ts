@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Account {
   id: string;
@@ -293,9 +294,18 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         // Fetch Google Ads accounts with proper error handling
         try {
           console.log("Fetching Google Ads accounts...");
-          const developerToken = import.meta.env.VITE_GOOGLE_ADS_DEVELOPER_TOKEN;
           
-          if (!developerToken) {
+          // Get the developer token from Supabase Edge Function
+          const { data: secretData, error: secretError } = await supabase.functions.invoke('get-ads-token', {
+            body: { }
+          });
+
+          if (secretError) {
+            console.error("Error fetching Google Ads token:", secretError);
+            throw new Error("Failed to fetch Google Ads Developer Token");
+          }
+
+          if (!secretData?.developerToken) {
             throw new Error("Google Ads Developer Token is not configured");
           }
 
@@ -305,8 +315,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${response.access_token}`,
-                'developer-token': developerToken,
-                'login-customer-id': '1234567890', // Optional: Add if you have a manager account
+                'developer-token': secretData.developerToken,
                 'Content-Type': 'application/json',
               },
             }
@@ -344,7 +353,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
                     {
                       headers: {
                         'Authorization': `Bearer ${response.access_token}`,
-                        'developer-token': developerToken,
+                        'developer-token': secretData.developerToken,
                         'Content-Type': 'application/json',
                       },
                     }
