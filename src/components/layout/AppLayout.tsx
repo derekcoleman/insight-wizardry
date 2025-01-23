@@ -51,19 +51,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarContent>
         </Sidebar>
 
-        {/* Subtle toggle button */}
-        <div className="fixed left-0 top-1/2 -translate-y-1/2 z-50">
-          <SidebarTrigger>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="h-12 px-2 rounded-r-lg bg-white/50 backdrop-blur-sm shadow-sm hover:bg-white/80 border-y border-r border-gray-200"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </Button>
-          </SidebarTrigger>
-        </div>
-
         <div className="flex-1">
           <nav className="bg-[#221F26] shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
