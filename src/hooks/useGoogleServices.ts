@@ -15,31 +15,28 @@ interface ConversionGoal {
 interface UseGoogleServicesReturn {
   gaAccounts: Account[];
   gscAccounts: Account[];
+  adsAccounts: Account[];
   conversionGoals: ConversionGoal[];
   isLoading: boolean;
   error: string | null;
   gaConnected: boolean;
   gscConnected: boolean;
+  adsConnected: boolean;
   handleLogin: () => void;
   fetchConversionGoals: (propertyId: string) => Promise<void>;
   accessToken: string | null;
 }
 
-const formatEventName = (eventName: string): string => {
-  return eventName
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
-
 export function useGoogleServices(): UseGoogleServicesReturn {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
+  const [adsAccounts, setAdsAccounts] = useState<Account[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
+  const [adsConnected, setAdsConnected] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -171,10 +168,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       try {
         setGaAccounts([]);
         setGscAccounts([]);
+        setAdsAccounts([]);
         setConversionGoals([]);
         setGaConnected(false);
         setGscConnected(false);
+        setAdsConnected(false);
 
+        // Fetch GA4 accounts
         try {
           console.log("Fetching GA4 accounts...");
           const gaResponse = await fetch(
@@ -247,6 +247,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           handleApiError(error, "Google Analytics");
         }
 
+        // Fetch Search Console sites
         try {
           console.log("Fetching Search Console sites...");
           const gscResponse = await fetch(
@@ -289,8 +290,77 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           handleApiError(error, "Search Console");
         }
 
+        // Fetch Google Ads accounts
+        try {
+          console.log("Fetching Google Ads accounts...");
+          const adsResponse = await fetch(
+            "https://googleads.googleapis.com/v14/customers:listAccessibleCustomers",
+            {
+              headers: {
+                Authorization: `Bearer ${response.access_token}`,
+                'developer-token': `${import.meta.env.VITE_GOOGLE_ADS_DEVELOPER_TOKEN}`,
+              },
+            }
+          );
+
+          if (!adsResponse.ok) {
+            throw new Error(`Google Ads API error: ${adsResponse.statusText}`);
+          }
+
+          const adsData = await adsResponse.json();
+          console.log("Google Ads Response:", adsData);
+
+          if (!adsData.resourceNames || adsData.resourceNames.length === 0) {
+            toast({
+              title: "Warning",
+              description: "No Google Ads accounts found",
+              variant: "destructive",
+            });
+          } else {
+            setAdsConnected(true);
+            toast({
+              title: "Success",
+              description: "Connected to Google Ads",
+            });
+
+            // Format account data
+            const accounts = await Promise.all(
+              adsData.resourceNames.map(async (resourceName: string) => {
+                const customerId = resourceName.split('/')[1];
+                const accountResponse = await fetch(
+                  `https://googleads.googleapis.com/v14/${resourceName}`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${response.access_token}`,
+                      'developer-token': `${import.meta.env.VITE_GOOGLE_ADS_DEVELOPER_TOKEN}`,
+                    },
+                  }
+                );
+                
+                if (!accountResponse.ok) {
+                  console.warn(`Failed to fetch details for account ${customerId}`);
+                  return {
+                    id: customerId,
+                    name: `Account ${customerId}`,
+                  };
+                }
+
+                const accountData = await accountResponse.json();
+                return {
+                  id: customerId,
+                  name: accountData.customer.descriptiveName || `Account ${customerId}`,
+                };
+              })
+            );
+
+            setAdsAccounts(accounts);
+          }
+        } catch (error: any) {
+          handleApiError(error, "Google Ads");
+        }
+
       } catch (error: any) {
-        handleApiError(error, "Google Analytics");
+        handleApiError(error, "Google Services");
       } finally {
         setIsLoading(false);
       }
@@ -299,7 +369,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/analytics.readonly",
       "https://www.googleapis.com/auth/webmasters.readonly",
       "https://www.googleapis.com/auth/analytics",
-      "https://www.googleapis.com/auth/analytics.edit"
+      "https://www.googleapis.com/auth/analytics.edit",
+      "https://www.googleapis.com/auth/adwords"
     ].join(" "),
     flow: "implicit"
   });
@@ -307,11 +378,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   return {
     gaAccounts,
     gscAccounts,
+    adsAccounts,
     conversionGoals,
     isLoading,
     error,
     gaConnected,
     gscConnected,
+    adsConnected,
     handleLogin: () => login(),
     fetchConversionGoals,
     accessToken,

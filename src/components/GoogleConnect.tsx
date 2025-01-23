@@ -20,6 +20,7 @@ interface GoogleConnectProps {
 export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
   const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
+  const [selectedAdsAccount, setSelectedAdsAccount] = useState<string>("");
   const [selectedGoal, setSelectedGoal] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
@@ -29,19 +30,21 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
   const {
     gaAccounts,
     gscAccounts,
+    adsAccounts,
     conversionGoals,
     isLoading,
     error,
     gaConnected,
     gscConnected,
+    adsConnected,
     handleLogin,
     fetchConversionGoals,
     accessToken,
   } = useGoogleServices();
 
   useEffect(() => {
-    onConnectionChange?.(gaConnected || gscConnected);
-  }, [gaConnected, gscConnected, onConnectionChange]);
+    onConnectionChange?.(gaConnected || gscConnected || adsConnected);
+  }, [gaConnected, gscConnected, adsConnected, onConnectionChange]);
 
   const handleGaAccountChange = async (value: string) => {
     try {
@@ -81,6 +84,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
       console.log("Starting analysis with:", {
         ga4Property: selectedGaAccount,
         gscProperty: selectedGscAccount,
+        adsProperty: selectedAdsAccount,
         hasAccessToken: !!accessToken,
         mainConversionGoal: selectedGoal,
       });
@@ -89,6 +93,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
         body: {
           ga4Property: selectedGaAccount,
           gscProperty: selectedGscAccount,
+          adsProperty: selectedAdsAccount,
           accessToken: accessToken,
           mainConversionGoal: selectedGoal || undefined,
         },
@@ -140,7 +145,11 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
             <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
           </div>
 
-          <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
+          <ConnectionStatus 
+            gaConnected={gaConnected} 
+            gscConnected={gscConnected}
+            adsConnected={adsConnected}
+          />
 
           {gaAccounts.length > 0 && (
             <div className="max-w-md mx-auto">
@@ -164,7 +173,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
             </div>
           )}
 
-          {gaAccounts.length > 0 && gscAccounts.length > 0 && (
+          {(gaAccounts.length > 0 && (gscAccounts.length > 0 || adsAccounts.length > 0)) && (
             <Separator className="my-4" />
           )}
 
@@ -176,6 +185,18 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
                 value={selectedGscAccount}
                 onValueChange={setSelectedGscAccount}
                 placeholder="Select Search Console property"
+              />
+            </div>
+          )}
+
+          {adsAccounts.length > 0 && (
+            <div className="max-w-md mx-auto">
+              <PropertySelector
+                label="Select Google Ads Account"
+                accounts={adsAccounts}
+                value={selectedAdsAccount}
+                onValueChange={setSelectedAdsAccount}
+                placeholder="Select Google Ads account"
               />
             </div>
           )}
