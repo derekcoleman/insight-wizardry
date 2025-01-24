@@ -82,61 +82,61 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
     {
       format: (keyword: string, words: string[]) => 
         `THE ULTIMATE ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()} GUIDE FOR 2024`,
-      condition: (data: any) => data.impressions > 5000
+      condition: (groupData: any) => groupData.impressions > 5000
     },
     {
-      format: (keyword: string, words: string[]) => 
-        `${data.terms.length} PROVEN ${keyword.toUpperCase()} ${words[0].toUpperCase()} STRATEGIES THAT WORK`,
-      condition: (data: any) => data.terms.length > 5
+      format: (keyword: string, words: string[], groupData: any) => 
+        `${groupData.terms.length} PROVEN ${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''} STRATEGIES THAT WORK`,
+      condition: (groupData: any) => groupData.terms.length > 5
     },
     {
       format: (keyword: string, words: string[]) => 
         `HOW TO MASTER ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()}: EXPERT TIPS`,
-      condition: (data: any) => data.avgPosition > 15
+      condition: (groupData: any) => groupData.avgPosition > 15
     },
     {
       format: (keyword: string, words: string[]) => 
         `${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()}: INDUSTRY BEST PRACTICES`,
-      condition: (data: any) => data.totalClicks > 100
+      condition: (groupData: any) => groupData.totalClicks > 100
     },
     {
       format: (keyword: string, words: string[]) => 
-        `TOP 10 ${keyword.toUpperCase()} ${words[0].toUpperCase()} MISTAKES TO AVOID`,
-      condition: (data: any) => true
+        `TOP 10 ${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''} MISTAKES TO AVOID`,
+      condition: (groupData: any) => true
     },
     {
       format: (keyword: string, words: string[]) => 
         `MAXIMIZING ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()} ROI`,
-      condition: (data: any) => data.impressions > 1000
+      condition: (groupData: any) => groupData.impressions > 1000
     },
     {
       format: (keyword: string, words: string[]) => 
-        `${keyword.toUpperCase()} ${words[0].toUpperCase()} CHECKLIST: STEP-BY-STEP GUIDE`,
-      condition: (data: any) => true
+        `${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''} CHECKLIST: STEP-BY-STEP GUIDE`,
+      condition: (groupData: any) => true
     },
     {
       format: (keyword: string, words: string[]) => 
-        `COMPARING THE BEST ${keyword.toUpperCase()} ${words[0].toUpperCase()} SOLUTIONS`,
-      condition: (data: any) => data.terms.length > 3
+        `COMPARING THE BEST ${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''} SOLUTIONS`,
+      condition: (groupData: any) => groupData.terms.length > 3
     },
     {
       format: (keyword: string, words: string[]) => 
-        `${keyword.toUpperCase()} ${words[0].toUpperCase()}: FROM BEGINNER TO EXPERT`,
-      condition: (data: any) => true
+        `${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''}: FROM BEGINNER TO EXPERT`,
+      condition: (groupData: any) => true
     },
     {
       format: (keyword: string, words: string[]) => 
         `ESSENTIAL ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()} METRICS TO TRACK`,
-      condition: (data: any) => data.impressions > 2000
+      condition: (groupData: any) => groupData.impressions > 2000
     }
   ];
 
   // Convert groups to varied content topics
   return Object.entries(keywordGroups)
-    .flatMap(([keyword, data]: [string, any]) => {
-      const avgPosition = data.avgPosition / data.terms.length;
-      const relatedTerms = data.terms.map((t: any) => t.term);
-      const relatedWords = Array.from(data.relatedWords);
+    .flatMap(([keyword, groupData]: [string, any]) => {
+      const avgPosition = groupData.avgPosition / groupData.terms.length;
+      const relatedTerms = groupData.terms.map((t: any) => t.term);
+      const relatedWords = Array.from(groupData.relatedWords) as string[];
       
       const priority: 'high' | 'medium' | 'low' = 
         avgPosition > 20 ? 'high' :
@@ -144,13 +144,13 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
 
       // Generate multiple content ideas for each keyword group
       return contentTypes
-        .filter(type => type.condition(data))
+        .filter(type => type.condition(groupData))
         .slice(0, 2) // Take up to 2 content types per keyword group
         .map(type => ({
-          title: type.format(keyword, Array.from(relatedWords)),
+          title: type.format(keyword, relatedWords, groupData),
           description: `Create comprehensive, data-driven content focusing on ${relatedTerms.slice(0, 3).join(', ')}. Address specific pain points and questions around ${keyword} while incorporating industry insights and expert perspectives.`,
           targetKeywords: relatedTerms,
-          estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. High-value opportunity with ${data.impressions.toLocaleString()} impressions and ${data.totalClicks} clicks. Potential to capture significant traffic share in the ${keyword} space.`,
+          estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. High-value opportunity with ${groupData.impressions.toLocaleString()} impressions and ${groupData.totalClicks} clicks. Potential to capture significant traffic share in the ${keyword} space.`,
           priority,
           pageUrl: 'new',
           implementationSteps: [
