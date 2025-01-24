@@ -93,23 +93,27 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         throw new Error('No email found in Google response');
       }
 
-      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           queryParams: {
             access_token: accessToken,
-            prompt: 'consent',
+            expires_in: 3600,
+            token_type: 'Bearer',
+            scope: [
+              "https://www.googleapis.com/auth/analytics.readonly",
+              "https://www.googleapis.com/auth/webmasters.readonly",
+              "https://www.googleapis.com/auth/analytics",
+              "https://www.googleapis.com/auth/analytics.edit",
+              "email",
+              "profile"
+            ].join(" ")
           },
         },
       });
 
       if (signInError) {
         throw signInError;
-      }
-
-      if (data?.url) {
-        // Handle OAuth redirect if needed
-        window.location.href = data.url;
       }
 
       const { data: { user }, error: getUserError } = await supabase.auth.getUser();
@@ -228,7 +232,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setAccessToken(response.access_token);
       
       try {
-        // First sign in with Google
         await signInWithGoogle(response.access_token);
 
         setGaAccounts([]);
