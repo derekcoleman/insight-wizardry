@@ -60,7 +60,7 @@ serve(async (req) => {
 
     const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate EXACTLY 20 recommendations:
 
-IMPORTANT: You must return EXACTLY 10 recommendations for existing content optimization and EXACTLY 10 recommendations for new content opportunities. No more, no less.
+IMPORTANT: You MUST return EXACTLY 10 recommendations for existing content optimization and EXACTLY 10 recommendations for new content opportunities. No more, no less.
 
 1. Existing Content Optimization (EXACTLY 10 recommendations):
 Analyze these pages and their metrics:
@@ -98,7 +98,9 @@ Return a JSON object with a 'topics' array containing EXACTLY 20 objects (10 for
 - implementationSteps (array): Specific, actionable steps
 - conversionStrategy (string): How this will impact conversion rates
 
-IMPORTANT: Your response MUST contain EXACTLY 20 recommendations total - 10 for existing content optimization and 10 for new content opportunities. Each recommendation must be specific and based on the actual data provided.`;
+IMPORTANT: Your response MUST contain EXACTLY 20 recommendations total - 10 for existing content optimization and 10 for new content opportunities. Each recommendation must be specific and based on the actual data provided.
+
+If you cannot generate exactly 20 recommendations (10 existing + 10 new) based on the provided data, return an error message instead.`;
 
     console.log('Sending analysis prompt to OpenAI');
 
@@ -113,14 +115,15 @@ IMPORTANT: Your response MUST contain EXACTLY 20 recommendations total - 10 for 
         messages: [
           {
             role: "system",
-            content: "You are an expert SEO analyst specializing in data-driven content strategy. Always return exactly 20 recommendations - 10 for existing content optimization and 10 for new content opportunities. Never return fewer or more recommendations."
+            content: "You are an expert SEO analyst specializing in data-driven content strategy. You MUST return exactly 20 recommendations - 10 for existing content optimization and 10 for new content opportunities. Never return fewer or more recommendations. If you cannot generate exactly 20 recommendations based on the provided data, return an error message instead."
           },
           {
             role: "user",
             content: analysisPrompt
           }
         ],
-        temperature: 0.7
+        temperature: 0.7,
+        max_tokens: 4000
       }),
     });
 
