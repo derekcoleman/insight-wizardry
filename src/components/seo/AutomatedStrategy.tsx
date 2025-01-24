@@ -77,9 +77,63 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
       return groups;
     }, {});
 
+  // Content type templates with more variety
+  const contentTypes = [
+    {
+      format: (keyword: string, words: string[]) => 
+        `THE ULTIMATE ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()} GUIDE FOR 2024`,
+      condition: (data: any) => data.impressions > 5000
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `${data.terms.length} PROVEN ${keyword.toUpperCase()} ${words[0].toUpperCase()} STRATEGIES THAT WORK`,
+      condition: (data: any) => data.terms.length > 5
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `HOW TO MASTER ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()}: EXPERT TIPS`,
+      condition: (data: any) => data.avgPosition > 15
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()}: INDUSTRY BEST PRACTICES`,
+      condition: (data: any) => data.totalClicks > 100
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `TOP 10 ${keyword.toUpperCase()} ${words[0].toUpperCase()} MISTAKES TO AVOID`,
+      condition: (data: any) => true
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `MAXIMIZING ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()} ROI`,
+      condition: (data: any) => data.impressions > 1000
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `${keyword.toUpperCase()} ${words[0].toUpperCase()} CHECKLIST: STEP-BY-STEP GUIDE`,
+      condition: (data: any) => true
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `COMPARING THE BEST ${keyword.toUpperCase()} ${words[0].toUpperCase()} SOLUTIONS`,
+      condition: (data: any) => data.terms.length > 3
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `${keyword.toUpperCase()} ${words[0].toUpperCase()}: FROM BEGINNER TO EXPERT`,
+      condition: (data: any) => true
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `ESSENTIAL ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()} METRICS TO TRACK`,
+      condition: (data: any) => data.impressions > 2000
+    }
+  ];
+
   // Convert groups to varied content topics
   return Object.entries(keywordGroups)
-    .map(([keyword, data]: [string, any]) => {
+    .flatMap(([keyword, data]: [string, any]) => {
       const avgPosition = data.avgPosition / data.terms.length;
       const relatedTerms = data.terms.map((t: any) => t.term);
       const relatedWords = Array.from(data.relatedWords);
@@ -88,50 +142,28 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
         avgPosition > 20 ? 'high' :
         avgPosition > 10 ? 'medium' : 'low';
 
-      // Generate varied content types based on data patterns and metrics
-      const contentTypes = [
-        {
-          condition: data.impressions > 5000,
-          format: `The Complete ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ').toUpperCase()} Playbook`
-        },
-        {
-          condition: data.terms.length > 5,
-          format: `${data.terms.length} Proven ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 1).join(' ').toUpperCase()} Strategies That Work`
-        },
-        {
-          condition: avgPosition > 15,
-          format: `Expert ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ').toUpperCase()} Solutions`
-        },
-        {
-          condition: data.totalClicks > 100,
-          format: `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ').toUpperCase()}: Industry Best Practices`
-        },
-        {
-          condition: true, // fallback
-          format: `Advanced ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ').toUpperCase()} Techniques`
-        }
-      ];
-
-      const contentType = contentTypes.find(type => type.condition) || contentTypes[contentTypes.length - 1];
-      
-      return {
-        title: contentType.format,
-        description: `Create comprehensive, data-driven content focusing on ${relatedTerms.slice(0, 3).join(', ')}. Address specific pain points and questions around ${keyword} while incorporating industry insights and expert perspectives.`,
-        targetKeywords: relatedTerms,
-        estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. High-value opportunity with ${data.impressions.toLocaleString()} impressions and ${data.totalClicks} clicks. Potential to capture significant traffic share in the ${keyword} space.`,
-        priority,
-        pageUrl: 'new',
-        implementationSteps: [
-          `Conduct in-depth analysis of top-performing content in the ${keyword} space`,
-          'Create detailed content outline incorporating key subtopics',
-          'Include expert insights and industry statistics',
-          'Add relevant case studies and examples',
-          'Optimize for featured snippets and rich results',
-          'Create custom visuals and infographics',
-          'Implement strategic internal linking'
-        ],
-        conversionStrategy: `Implement targeted conversion points throughout the content, focusing on user intent stages. Include relevant CTAs, downloadable resources, and consultation opportunities.`
-      };
+      // Generate multiple content ideas for each keyword group
+      return contentTypes
+        .filter(type => type.condition(data))
+        .slice(0, 2) // Take up to 2 content types per keyword group
+        .map(type => ({
+          title: type.format(keyword, Array.from(relatedWords)),
+          description: `Create comprehensive, data-driven content focusing on ${relatedTerms.slice(0, 3).join(', ')}. Address specific pain points and questions around ${keyword} while incorporating industry insights and expert perspectives.`,
+          targetKeywords: relatedTerms,
+          estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. High-value opportunity with ${data.impressions.toLocaleString()} impressions and ${data.totalClicks} clicks. Potential to capture significant traffic share in the ${keyword} space.`,
+          priority,
+          pageUrl: 'new',
+          implementationSteps: [
+            `Research current trends and best practices in ${keyword} industry`,
+            'Create detailed content outline incorporating key subtopics',
+            'Include expert insights and industry statistics',
+            'Add relevant case studies and examples',
+            'Optimize for featured snippets and rich results',
+            'Create custom visuals and infographics',
+            'Implement strategic internal linking'
+          ],
+          conversionStrategy: `Implement targeted conversion points throughout the content, focusing on user intent stages. Include relevant CTAs, downloadable resources, and consultation opportunities.`
+        }));
     })
     .sort((a: ContentTopic, b: ContentTopic) => {
       const priorityOrder = { high: 0, medium: 1, low: 2 };
