@@ -40,30 +40,42 @@ interface AnalyticsReport {
 function generateRecommendedTopics(analysisData: AnalyticsReport | null): ContentTopic[] {
   if (!analysisData) return [];
 
+  // Get all search terms across different time periods
   const allSearchTerms = [
     ...(analysisData.monthly_analysis?.searchTerms || []),
     ...(analysisData.quarterly_analysis?.searchTerms || []),
     ...(analysisData.ytd_analysis?.searchTerms || [])
   ];
 
-  // Group related search terms
-  const keywordGroups = allSearchTerms.reduce((groups: any, term: any) => {
-    const words = term.term.split(' ');
-    const mainKeyword = words[0];
-    if (!groups[mainKeyword]) {
-      groups[mainKeyword] = {
-        terms: [],
-        totalClicks: 0,
-        avgPosition: 0,
-        relatedWords: new Set()
-      };
-    }
-    groups[mainKeyword].terms.push(term);
-    groups[mainKeyword].totalClicks += term.current.clicks;
-    groups[mainKeyword].avgPosition += parseFloat(term.current.position);
-    words.slice(1).forEach((word: string) => groups[mainKeyword].relatedWords.add(word));
-    return groups;
-  }, {});
+  // Get existing optimized keywords to avoid duplicates
+  const existingKeywords = new Set(
+    allSearchTerms
+      .slice(0, 10)
+      .map(term => term.term.toLowerCase())
+  );
+
+  // Group related search terms, excluding exact matches of existing keywords
+  const keywordGroups = allSearchTerms
+    .filter(term => !existingKeywords.has(term.term.toLowerCase()))
+    .reduce((groups: any, term: any) => {
+      const words = term.term.split(' ');
+      const mainKeyword = words[0];
+      if (!groups[mainKeyword]) {
+        groups[mainKeyword] = {
+          terms: [],
+          totalClicks: 0,
+          avgPosition: 0,
+          relatedWords: new Set(),
+          impressions: 0
+        };
+      }
+      groups[mainKeyword].terms.push(term);
+      groups[mainKeyword].totalClicks += term.current.clicks;
+      groups[mainKeyword].avgPosition += parseFloat(term.current.position);
+      groups[mainKeyword].impressions += term.current.impressions;
+      words.slice(1).forEach((word: string) => groups[mainKeyword].relatedWords.add(word));
+      return groups;
+    }, {});
 
   // Convert groups to varied content topics
   return Object.entries(keywordGroups)
@@ -76,56 +88,56 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
         avgPosition > 20 ? 'high' :
         avgPosition > 10 ? 'medium' : 'low';
 
-      // Generate varied content types based on data patterns
+      // Generate varied content types based on data patterns and metrics
       const contentTypes = [
         {
-          prefix: "Ultimate Guide:",
-          format: `Ultimate Guide to ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ')}`
+          condition: data.impressions > 5000,
+          format: `The Complete ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ').toUpperCase()} Playbook`
         },
         {
-          prefix: "How-to:",
-          format: `How to ${keyword} ${relatedWords.slice(0, 2).join(' ')} Like a Pro`
+          condition: data.terms.length > 5,
+          format: `${data.terms.length} Proven ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 1).join(' ').toUpperCase()} Strategies That Work`
         },
         {
-          prefix: "Tips:",
-          format: `${data.terms.length} Essential ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} Tips for ${relatedWords.slice(0, 2).join(' ')}`
+          condition: avgPosition > 15,
+          format: `Expert ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ').toUpperCase()} Solutions`
         },
         {
-          prefix: "Strategy:",
-          format: `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} Strategy: ${relatedWords.slice(0, 2).join(' ')} Guide`
+          condition: data.totalClicks > 100,
+          format: `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ').toUpperCase()}: Industry Best Practices`
         },
         {
-          prefix: "Best Practices:",
-          format: `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} Best Practices for ${relatedWords.slice(0, 2).join(' ')}`
+          condition: true, // fallback
+          format: `Advanced ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ').toUpperCase()} Techniques`
         }
       ];
 
-      const contentType = contentTypes[Math.floor(Math.random() * contentTypes.length)];
+      const contentType = contentTypes.find(type => type.condition) || contentTypes[contentTypes.length - 1];
       
       return {
         title: contentType.format,
-        description: `Create actionable content about ${keyword} focusing on ${relatedTerms.slice(0, 3).join(', ')}. This content addresses specific user needs and search intent around ${keyword}.`,
+        description: `Create comprehensive, data-driven content focusing on ${relatedTerms.slice(0, 3).join(', ')}. Address specific pain points and questions around ${keyword} while incorporating industry insights and expert perspectives.`,
         targetKeywords: relatedTerms,
-        estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. Opportunity to improve rankings for ${relatedTerms.length} related keywords with ${data.totalClicks} total clicks. High potential for traffic growth.`,
+        estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. High-value opportunity with ${data.impressions.toLocaleString()} impressions and ${data.totalClicks} clicks. Potential to capture significant traffic share in the ${keyword} space.`,
         priority,
         pageUrl: 'new',
         implementationSteps: [
-          `Research top-performing content for "${keyword}" related searches`,
-          `Create detailed content addressing user intent for ${relatedTerms.slice(0, 3).join(', ')}`,
-          'Structure content with clear headings and subheadings',
-          'Include relevant examples and case studies',
-          'Add data-driven insights and statistics',
-          'Optimize meta title and description',
-          'Include relevant internal and external links'
+          `Conduct in-depth analysis of top-performing content in the ${keyword} space`,
+          'Create detailed content outline incorporating key subtopics',
+          'Include expert insights and industry statistics',
+          'Add relevant case studies and examples',
+          'Optimize for featured snippets and rich results',
+          'Create custom visuals and infographics',
+          'Implement strategic internal linking'
         ],
-        conversionStrategy: `Target users searching for ${keyword}-related information with clear calls-to-action and relevant conversion points throughout the content.`
+        conversionStrategy: `Implement targeted conversion points throughout the content, focusing on user intent stages. Include relevant CTAs, downloadable resources, and consultation opportunities.`
       };
     })
     .sort((a: ContentTopic, b: ContentTopic) => {
       const priorityOrder = { high: 0, medium: 1, low: 2 };
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     })
-    .slice(0, 10); // Limit to top 10 opportunities
+    .slice(0, 10);
 }
 
 export function AutomatedStrategy() {
