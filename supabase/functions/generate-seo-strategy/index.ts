@@ -14,6 +14,7 @@ serve(async (req) => {
   }
 
   if (!openAIApiKey) {
+    console.error('OpenAI API key not configured');
     return new Response(
       JSON.stringify({ error: 'OpenAI API key not configured' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -38,7 +39,7 @@ serve(async (req) => {
     // Analyze search term trends
     const allSearchTerms = [...searchTerms, ...monthlySearchTerms, ...quarterlySearchTerms];
     const searchTermFrequency = allSearchTerms.reduce((acc: Record<string, number>, term: any) => {
-      const searchTerm = term.term.toLowerCase();
+      const searchTerm = term.term?.toLowerCase() || '';
       acc[searchTerm] = (acc[searchTerm] || 0) + 1;
       return acc;
     }, {});
@@ -52,44 +53,36 @@ serve(async (req) => {
     // Analyze page performance
     const pagePerformance = topPages.map(page => ({
       url: page.page,
-      clicks: page.current.clicks,
-      impressions: page.current.impressions,
-      ctr: parseFloat(page.current.ctr),
-      position: parseFloat(page.current.position)
+      clicks: page.current?.clicks || 0,
+      impressions: page.current?.impressions || 0,
+      ctr: parseFloat(page.current?.ctr || '0'),
+      position: parseFloat(page.current?.position || '0')
     }));
 
     const systemPrompt = `You are an expert SEO analyst specializing in data-driven content strategy. Your task is to generate EXACTLY 20 recommendations:
 - EXACTLY 10 recommendations for optimizing existing content
 - EXACTLY 10 recommendations for new content opportunities
 
-IMPORTANT: You MUST return a valid JSON object with this EXACT structure:
+You MUST return a valid JSON object with this EXACT structure:
 {
   "topics": [
-    // EXACTLY 10 items with pageUrl from the provided URLs
     {
       "title": "string",
       "description": "string",
       "targetKeywords": ["string"],
       "estimatedImpact": "string",
       "priority": "high|medium|low",
-      "pageUrl": "existing-url-from-data",
+      "pageUrl": "string",
       "currentMetrics": {},
-      "implementationSteps": ["string"],
-      "conversionStrategy": "string"
-    },
-    // EXACTLY 10 items with pageUrl set to "new"
-    {
-      "title": "string",
-      "description": "string",
-      "targetKeywords": ["string"],
-      "estimatedImpact": "string",
-      "priority": "high|medium|low",
-      "pageUrl": "new",
       "implementationSteps": ["string"],
       "conversionStrategy": "string"
     }
   ]
 }
+
+The response MUST contain EXACTLY 20 items in the topics array:
+- First 10 items MUST use actual URLs from the provided pagePerformance data
+- Last 10 items MUST have pageUrl set to "new"
 
 Any other format or number of recommendations will result in an error.`;
 
@@ -108,34 +101,11 @@ Key Performance Context:
 - Monthly Revenue: $${monthlyRevenue}
 - Main Conversion Goal: ${conversionGoal}
 
-For existing content (EXACTLY 10):
-- Focus on pages with high impressions but low CTR
-- Identify content gaps based on search terms
-- Suggest specific improvements based on current performance
-- Include clear implementation steps
-- MUST use actual URLs from the provided page performance data
-- Set pageUrl to the actual URL of the page being optimized
+IMPORTANT: You MUST generate EXACTLY:
+- 10 recommendations for existing content using actual URLs from pagePerformance
+- 10 recommendations for new content with pageUrl set to "new"
 
-For new content (EXACTLY 10):
-- Use trending search terms to identify opportunities
-- Consider search intent and user journey
-- Focus on topics with clear conversion potential
-- MUST set pageUrl to "new" for all recommendations
-
-The response MUST contain EXACTLY:
-- 10 recommendations using actual URLs from the provided data
-- 10 recommendations with pageUrl set to "new"
-
-Each recommendation MUST include:
-- title: Clear, action-oriented title
-- description: Detailed analysis and implementation plan
-- targetKeywords: Array of specific keywords from the data
-- estimatedImpact: Projected impact based on current metrics
-- priority: "high", "medium", or "low" with data-backed justification
-- pageUrl: Actual URL for existing content or "new" for new content
-- currentMetrics: Current performance data for existing pages
-- implementationSteps: Specific, actionable steps
-- conversionStrategy: How this will impact conversion rates`;
+Each recommendation MUST include all fields from the JSON structure provided.`;
 
     console.log('Sending analysis prompt to OpenAI');
 
@@ -146,15 +116,15 @@ Each recommendation MUST include:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: analysisPrompt }
         ],
-        temperature: 0.5, // Lower temperature for more consistent output
+        temperature: 0.2,
         max_tokens: 4000,
-        frequency_penalty: 0.3,
-        presence_penalty: 0.3
+        frequency_penalty: 0.5,
+        presence_penalty: 0.5
       }),
     });
 
@@ -168,6 +138,7 @@ Each recommendation MUST include:
     console.log('Received response from OpenAI');
     
     if (!openAIResponse.choices?.[0]?.message?.content) {
+      console.error('Invalid response format from OpenAI');
       throw new Error('Invalid response format from OpenAI');
     }
 
@@ -186,6 +157,7 @@ Each recommendation MUST include:
     }
 
     if (!parsedContent.topics || !Array.isArray(parsedContent.topics)) {
+      console.error('Response does not contain a topics array');
       throw new Error('Response does not contain a topics array');
     }
 
@@ -234,7 +206,7 @@ Each recommendation MUST include:
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        topics: [] // Return empty array instead of error topic
+        topics: []
       }),
       { 
         status: 500,
