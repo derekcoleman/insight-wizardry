@@ -65,7 +65,7 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
 
   // Group related keywords
   const keywordGroups = Array.from(keywordMetrics.entries())
-    .reduce((groups, [keyword, metrics]) => {
+    .reduce((groups: any, [keyword, metrics]: [string, any]) => {
       const words = keyword.toLowerCase().split(' ');
       const mainTopic = words[0];
       if (!groups[mainTopic]) {
@@ -85,8 +85,8 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
     }, {});
 
   // Convert groups to content topics
-  const topics = Object.entries(keywordGroups)
-    .sort(([, a]: any, [, b]: any) => b.totalImpressions - a.totalImpressions)
+  return Object.entries(keywordGroups)
+    .sort(([, a]: [string, any], [, b]: [string, any]) => b.totalImpressions - a.totalImpressions)
     .slice(0, 10)
     .map(([topic, data]: [string, any]) => {
       const relatedKeywords = data.keywords
@@ -96,7 +96,7 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
       const avgPosition = relatedKeywords.reduce((sum: number, k: any) => 
         sum + k.metrics.position, 0) / relatedKeywords.length;
 
-      const priority = avgPosition <= 20 ? 'high' : 
+      const priority: 'high' | 'medium' | 'low' = avgPosition <= 20 ? 'high' : 
         avgPosition <= 40 ? 'medium' : 'low';
 
       return {
@@ -106,6 +106,7 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
         estimatedImpact: `Potential to capture ${data.totalImpressions.toLocaleString()} monthly impressions based on current search volume.`,
         priority,
         pageUrl: 'new',
+        currentMetrics: null,
         implementationSteps: [
           'Research competitor content structure',
           'Create comprehensive outline',
@@ -116,8 +117,6 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
         conversionStrategy: `Target users in the research phase looking for ${topic} information. Include clear CTAs and relevant product recommendations.`
       };
     });
-
-  return topics;
 }
 
 export function AutomatedStrategy() {
@@ -162,7 +161,7 @@ export function AutomatedStrategy() {
     const hasSearchData = analysisData && (
       (analysisData.monthly_analysis?.searchTerms?.length > 0) ||
       (analysisData.quarterly_analysis?.searchTerms?.length > 0) ||
-      (analysisData.yoy_analysis?.searchTerms?.length > 0)
+      (analysisData.ytd_analysis?.searchTerms?.length > 0)
     );
 
     if (!hasSearchData) {
@@ -181,7 +180,7 @@ export function AutomatedStrategy() {
         ga4Data: {
           monthly: analysisData.monthly_analysis,
           quarterly: analysisData.quarterly_analysis,
-          yoy: analysisData.yoy_analysis
+          ytd: analysisData.ytd_analysis
         },
         gscData: {
           searchTerms: analysisData.weekly_analysis?.searchTerms || [],
@@ -221,21 +220,10 @@ export function AutomatedStrategy() {
   };
 
   const handleExportToDoc = async () => {
-    const topics = contentTopics.length > 0 ? contentTopics : recommendedTopics.map(topic => ({
-      title: topic.title,
-      description: topic.description,
-      targetKeywords: topic.targetKeywords,
-      estimatedImpact: `Target Audience: ${topic.targetAudience}\nFunnel Stage: ${topic.funnelStage}`,
-      priority: topic.priority,
-      pageUrl: 'new',
-      implementationSteps: [`Target Audience: ${topic.targetAudience}`, `Funnel Stage: ${topic.funnelStage}`],
-      conversionStrategy: `Optimized for ${topic.targetAudience} at the ${topic.funnelStage} stage`
-    }));
-
     setIsExporting(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-strategy-doc', {
-        body: { topics }
+        body: { topics: contentTopics }
       });
 
       if (error) throw error;
