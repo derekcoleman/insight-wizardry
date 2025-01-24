@@ -18,7 +18,6 @@ export type Database = {
           monthly_analysis: Json | null
           quarterly_analysis: Json | null
           status: string
-          user_id: string | null
           weekly_analysis: Json | null
           yoy_analysis: Json | null
         }
@@ -30,7 +29,6 @@ export type Database = {
           monthly_analysis?: Json | null
           quarterly_analysis?: Json | null
           status?: string
-          user_id?: string | null
           weekly_analysis?: Json | null
           yoy_analysis?: Json | null
         }
@@ -42,7 +40,6 @@ export type Database = {
           monthly_analysis?: Json | null
           quarterly_analysis?: Json | null
           status?: string
-          user_id?: string | null
           weekly_analysis?: Json | null
           yoy_analysis?: Json | null
         }
@@ -61,27 +58,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          created_at: string
-          email: string | null
-          id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          email?: string | null
-          id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          email?: string | null
           id?: string
           updated_at?: string
         }
