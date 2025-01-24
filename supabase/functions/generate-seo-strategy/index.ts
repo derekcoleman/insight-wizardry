@@ -61,7 +61,13 @@ serve(async (req) => {
     const systemPrompt = `You are an expert SEO analyst specializing in data-driven content strategy. Your task is to generate EXACTLY 20 recommendations:
 - EXACTLY 10 recommendations for optimizing existing content
 - EXACTLY 10 recommendations for new content opportunities
-Any other number of recommendations is unacceptable.`;
+Any other number of recommendations is unacceptable.
+
+IMPORTANT: You must return a valid JSON object containing exactly 20 recommendations in the 'topics' array.
+- 10 recommendations must have pageUrl set to an existing URL from the provided data
+- 10 recommendations must have pageUrl set to "new"
+
+Failure to meet these requirements will result in an error.`;
 
     const analysisPrompt = `Based on the provided analytics data, generate two sets of recommendations:
 
@@ -83,14 +89,15 @@ For existing content recommendations:
 - Identify content gaps based on search terms
 - Suggest specific improvements based on current performance
 - Include clear implementation steps
+- Set pageUrl to the actual URL of the page being optimized
 
 For new content recommendations:
 - Use trending search terms to identify topic opportunities
 - Consider search intent and user journey
 - Focus on topics with clear conversion potential
-- Ensure recommendations align with current performance data
+- Set pageUrl to "new" for all new content recommendations
 
-Return a JSON object with a 'topics' array containing EXACTLY 20 objects (10 for existing content, 10 for new content) with these fields:
+Return a JSON object with a 'topics' array containing EXACTLY 20 objects with these fields:
 - title (string): Clear, action-oriented title
 - description (string): Detailed analysis and implementation plan
 - targetKeywords (array): Specific keywords from the data
@@ -101,7 +108,10 @@ Return a JSON object with a 'topics' array containing EXACTLY 20 objects (10 for
 - implementationSteps (array): Specific, actionable steps
 - conversionStrategy (string): How this will impact conversion rates
 
-YOU MUST RETURN EXACTLY 20 RECOMMENDATIONS - 10 for existing content and 10 for new content.`;
+YOU MUST RETURN EXACTLY:
+- 10 recommendations with pageUrl set to actual URLs from the provided data
+- 10 recommendations with pageUrl set to "new"
+Any other distribution will result in an error.`;
 
     console.log('Sending analysis prompt to OpenAI');
 
