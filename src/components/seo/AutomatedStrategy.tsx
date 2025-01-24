@@ -41,80 +41,80 @@ const recommendedTopics = [
   {
     title: "Ultimate Guide to SEO Analytics",
     description: "Comprehensive guide covering key metrics, tools, and strategies for measuring SEO success",
-    targetKeywords: "seo analytics, seo metrics, seo measurement",
-    priority: "high",
+    targetKeywords: ["seo analytics", "seo metrics", "seo measurement"],
+    priority: "high" as const,
     targetAudience: "Marketing Managers, SEO Specialists",
     funnelStage: "awareness"
   },
   {
     title: "ROI Calculator for SEO Investments",
     description: "Interactive tool to help businesses calculate potential returns on SEO investments",
-    targetKeywords: "seo roi, seo investment calculator, seo returns",
-    priority: "high",
+    targetKeywords: ["seo roi", "seo investment calculator", "seo returns"],
+    priority: "high" as const,
     targetAudience: "Business Owners, Marketing Directors",
     funnelStage: "consideration"
   },
   {
     title: "Local SEO Success Stories",
     description: "Case studies of successful local businesses improving their search visibility",
-    targetKeywords: "local seo examples, local seo case studies",
-    priority: "medium",
+    targetKeywords: ["local seo examples", "local seo case studies"],
+    priority: "medium" as const,
     targetAudience: "Small Business Owners",
     funnelStage: "decision"
   },
   {
     title: "SEO for E-commerce Product Pages",
     description: "Best practices for optimizing e-commerce product pages for search engines",
-    targetKeywords: "ecommerce seo, product page optimization",
-    priority: "high",
+    targetKeywords: ["ecommerce seo", "product page optimization"],
+    priority: "high" as const,
     targetAudience: "E-commerce Managers",
     funnelStage: "consideration"
   },
   {
     title: "Voice Search Optimization Guide",
     description: "How to optimize content for voice search and virtual assistants",
-    targetKeywords: "voice search seo, voice search optimization",
-    priority: "medium",
+    targetKeywords: ["voice search seo", "voice search optimization"],
+    priority: "medium" as const,
     targetAudience: "Digital Marketers",
     funnelStage: "awareness"
   },
   {
     title: "SEO Audit Checklist Template",
     description: "Downloadable template for conducting comprehensive SEO audits",
-    targetKeywords: "seo audit template, seo checklist",
-    priority: "high",
+    targetKeywords: ["seo audit template", "seo checklist"],
+    priority: "high" as const,
     targetAudience: "SEO Consultants, In-house SEO Teams",
     funnelStage: "consideration"
   },
   {
     title: "Mobile SEO Implementation Guide",
     description: "Step-by-step guide to implementing mobile-first SEO strategies",
-    targetKeywords: "mobile seo, mobile-first indexing",
-    priority: "high",
+    targetKeywords: ["mobile seo", "mobile-first indexing"],
+    priority: "high" as const,
     targetAudience: "Web Developers, SEO Specialists",
     funnelStage: "consideration"
   },
   {
     title: "International SEO Strategy Blueprint",
     description: "Complete guide to expanding SEO efforts globally",
-    targetKeywords: "international seo, global seo strategy",
-    priority: "medium",
+    targetKeywords: ["international seo", "global seo strategy"],
+    priority: "medium" as const,
     targetAudience: "Enterprise Marketing Teams",
     funnelStage: "decision"
   },
   {
     title: "SEO Tools Comparison Guide",
     description: "Detailed comparison of popular SEO tools and their features",
-    targetKeywords: "seo tools comparison, best seo tools",
-    priority: "medium",
+    targetKeywords: ["seo tools comparison", "best seo tools"],
+    priority: "medium" as const,
     targetAudience: "Marketing Professionals",
     funnelStage: "consideration"
   },
   {
     title: "SEO ROI Case Studies",
     description: "Real-world examples of businesses achieving significant ROI through SEO",
-    targetKeywords: "seo success stories, seo case studies",
-    priority: "high",
+    targetKeywords: ["seo success stories", "seo case studies"],
+    priority: "high" as const,
     targetAudience: "C-Level Executives",
     funnelStage: "decision"
   }
@@ -262,7 +262,7 @@ export function AutomatedStrategy() {
               topic={{
                 title: topic.title,
                 description: topic.description,
-                targetKeywords: topic.targetKeywords.split(', '),
+                targetKeywords: topic.targetKeywords,
                 estimatedImpact: `Target Audience: ${topic.targetAudience}\nFunnel Stage: ${topic.funnelStage}`,
                 priority: topic.priority,
                 pageUrl: 'new',
