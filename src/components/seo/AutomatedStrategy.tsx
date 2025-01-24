@@ -86,7 +86,7 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
     },
     {
       format: (keyword: string, words: string[]) => 
-        `${groupData.terms.length} Essential ${toTitleCase(keyword)} ${words[0] || ''} Strategies`,
+        `${toTitleCase(keyword)} ${words[0] || ''} Essential Strategies`,
       condition: (groupData: any) => groupData.terms.length > 5
     },
     {
@@ -158,7 +158,7 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
         .slice(0, 2); // Take up to 2 content types per keyword group
 
       return eligibleTypes.map(type => ({
-        title: type.format(keyword, relatedWords, groupData),
+        title: type.format(keyword, relatedWords),
         description: `Create comprehensive, data-driven content focusing on ${relatedTerms.slice(0, 3).join(', ')}. Address specific pain points and questions around ${keyword} while incorporating industry insights and expert perspectives.`,
         targetKeywords: relatedTerms,
         estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. High-value opportunity with ${groupData.impressions.toLocaleString()} impressions and ${groupData.totalClicks} clicks. Potential to capture significant traffic share in the ${keyword} space.`,
@@ -383,4 +383,3 @@ export function AutomatedStrategy() {
     </div>
   );
 }
-
