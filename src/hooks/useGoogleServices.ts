@@ -98,7 +98,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         options: {
           queryParams: {
             access_token: accessToken,
-            expires_in: 3600,
+            expires_in: "3600",
             token_type: 'Bearer',
             scope: [
               "https://www.googleapis.com/auth/analytics.readonly",
