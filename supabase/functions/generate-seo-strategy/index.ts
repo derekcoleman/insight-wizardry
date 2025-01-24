@@ -21,19 +21,73 @@ serve(async (req) => {
   }
 
   try {
-    const { ga4Data, gscData } = await req.json();
-    console.log('Analyzing data:', { ga4Data, gscData });
+    const requestData = await req.json();
+    console.log('Received request data:', requestData);
 
-    // Extract conversion data from GA4
-    const monthlyConversions = ga4Data.monthly?.current?.conversions || 0;
-    const monthlyRevenue = ga4Data.monthly?.current?.revenue || 0;
-    const conversionGoal = ga4Data.monthly?.current?.conversionGoal || 'Total Conversions';
+    let analysisPrompt;
 
-    // Get top performing pages
-    const topPages = gscData.pages?.slice(0, 20) || [];
-    const searchTerms = gscData.searchTerms?.slice(0, 50) || [];
+    if (requestData.manualInput) {
+      // Handle manual input case
+      const { targetAudience, additionalInfo } = requestData.manualInput;
+      
+      analysisPrompt = `As an expert SEO and Content Strategy consultant, generate 15-20 highly specific, actionable content recommendations for the following target audience and context:
 
-    const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate 15-20 highly specific, actionable recommendations. Focus on increasing conversions and revenue through content optimization.
+Target Audience:
+${targetAudience}
+
+Additional Context:
+${additionalInfo || 'No additional context provided'}
+
+For each recommendation, provide:
+1. Content Focus:
+   - Specific topic and angle
+   - Target audience segment
+   - Content format and type
+   
+2. Strategic Analysis:
+   - Audience pain points addressed
+   - Content goals and objectives
+   - Competitive advantage
+   
+3. Implementation Plan:
+   - Content structure
+   - Key topics to cover
+   - Recommended content length
+   - Content promotion strategy
+   
+4. Expected Impact:
+   - Target engagement metrics
+   - Conversion potential
+   - Timeline for results
+   
+5. Priority Level:
+   - High/Medium/Low with reasoning
+   - Resource requirements
+   - Implementation complexity
+
+Return a JSON object with a 'topics' array containing objects with these fields:
+- title (string): Clear, action-oriented title
+- description (string): Detailed analysis and implementation plan
+- targetKeywords (array): Specific keywords to target
+- estimatedImpact (string): Projected impact on engagement and conversions
+- priority (string): "high", "medium", or "low" with justification
+- pageUrl (string): "new" for new content
+- implementationSteps (array): Specific, actionable steps
+- conversionStrategy (string): How this will drive conversions`;
+    } else {
+      // Handle automated analysis case
+      const { ga4Data, gscData } = requestData;
+      
+      // Extract conversion data from GA4
+      const monthlyConversions = ga4Data?.monthly?.current?.conversions || 0;
+      const monthlyRevenue = ga4Data?.monthly?.current?.revenue || 0;
+      const conversionGoal = ga4Data?.monthly?.current?.conversionGoal || 'Total Conversions';
+
+      // Get top performing pages
+      const topPages = gscData?.pages?.slice(0, 20) || [];
+      const searchTerms = gscData?.searchTerms?.slice(0, 50) || [];
+
+      analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate 15-20 highly specific, actionable recommendations. Focus on increasing conversions and revenue through content optimization.
 
 Key Performance Data:
 - Monthly Conversions: ${monthlyConversions}
@@ -84,6 +138,7 @@ Return a JSON object with a 'topics' array containing objects with these fields:
 - currentMetrics (object): Current performance data for existing pages
 - implementationSteps (array): Specific, actionable steps
 - conversionStrategy (string): How this will impact conversion rates`;
+    }
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -93,7 +148,7 @@ Return a JSON object with a 'topics' array containing objects with these fields:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "gpt-4",
           messages: [
             {
               role: "system",
