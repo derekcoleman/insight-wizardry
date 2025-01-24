@@ -78,11 +78,18 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const signInWithGoogle = async (accessToken: string) => {
     try {
-      const { data: userInfoResponse } = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${accessToken}` },
-      }).then(res => res.json());
+      });
 
-      if (!userInfoResponse.email) {
+      if (!userInfoResponse.ok) {
+        throw new Error('Failed to fetch user info from Google');
+      }
+
+      const userInfo = await userInfoResponse.json();
+      
+      if (!userInfo || !userInfo.email) {
+        console.error('Invalid user info response:', userInfo);
         throw new Error('No email found in Google response');
       }
 
