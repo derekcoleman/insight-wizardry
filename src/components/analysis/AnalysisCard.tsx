@@ -4,6 +4,7 @@ import { MetricCard } from "./MetricCard";
 import { SearchTermsTable } from "./SearchTermsTable";
 import { TopPagesTable } from "./TopPagesTable";
 import { ProductPerformanceTable } from "./ProductPerformanceTable";
+import { TrendsAnalysis } from "./TrendsAnalysis";
 
 interface AnalysisCardProps {
   title: string;
@@ -24,6 +25,9 @@ interface AnalysisCardProps {
 }
 
 export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
+  // Extract keywords from search terms
+  const keywords = data.searchTerms?.map(term => term.term) || [];
+
   return (
     <Card className="max-w-[75%] mx-auto">
       <CardHeader>
@@ -84,6 +88,7 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
               <TopPagesTable pages={data.pages} />
             </>
           )}
+          {keywords.length > 0 && <TrendsAnalysis keywords={keywords} />}
         </div>
       </CardContent>
     </Card>
