@@ -78,27 +78,32 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const signInWithGoogle = async (accessToken: string) => {
     try {
+      console.log("Starting Google sign-in process...");
+      
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
 
       if (!userInfoResponse.ok) {
+        console.error('Failed to fetch user info:', userInfoResponse.status);
         throw new Error('Failed to fetch user info from Google');
       }
 
       const userInfo = await userInfoResponse.json();
+      console.log("Received user info from Google:", userInfo);
       
       if (!userInfo || !userInfo.email) {
         console.error('Invalid user info response:', userInfo);
         throw new Error('No email found in Google response');
       }
 
+      console.log("Initiating Supabase OAuth sign-in...");
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           queryParams: {
             access_token: accessToken,
-            expires_in: "3600", // Changed to string type
+            expires_in: "3600",
             prompt: "consent",
             scope: [
               "https://www.googleapis.com/auth/analytics.readonly",
@@ -126,6 +131,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       if (user) {
+        console.log("Successfully signed in with Google");
         toast({
           title: "Success",
           description: "Successfully signed in with Google",
@@ -230,6 +236,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const login = useGoogleLogin({
     onSuccess: async (response) => {
+      console.log("Google login successful, received response:", response);
       setIsLoading(true);
       setError(null);
       setAccessToken(response.access_token);
