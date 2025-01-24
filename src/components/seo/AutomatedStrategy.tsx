@@ -195,15 +195,15 @@ export function AutomatedStrategy() {
   };
 
   const handleExportToDoc = async () => {
-    const topics = contentTopics.length > 0 ? contentTopics : recommendedTopics.map(topic => ({
+    const topics = contentTopics.length > 0 ? contentTopics : generateRecommendedTopics(analysisData).map(topic => ({
       title: topic.title,
       description: topic.description,
       targetKeywords: topic.targetKeywords,
-      estimatedImpact: `Target Audience: ${topic.targetAudience}\nFunnel Stage: ${topic.funnelStage}`,
+      estimatedImpact: topic.estimatedImpact,
       priority: topic.priority,
-      pageUrl: 'new',
-      implementationSteps: [`Target Audience: ${topic.targetAudience}`, `Funnel Stage: ${topic.funnelStage}`],
-      conversionStrategy: `Optimized for ${topic.targetAudience} at the ${topic.funnelStage} stage`
+      pageUrl: topic.pageUrl,
+      implementationSteps: topic.implementationSteps,
+      conversionStrategy: topic.conversionStrategy
     }));
 
     setIsExporting(true);
