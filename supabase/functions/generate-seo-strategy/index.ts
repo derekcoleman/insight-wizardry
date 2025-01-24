@@ -85,51 +85,63 @@ Return a JSON object with a 'topics' array containing objects with these fields:
 - implementationSteps (array): Specific, actionable steps
 - conversionStrategy (string): How this will impact conversion rates`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert SEO analyst specializing in conversion rate optimization. Always return a JSON object with a 'topics' array containing the recommendations."
-          },
-          {
-            role: "user",
-            content: analysisPrompt
-          }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('OpenAI API error:', errorData);
-      throw new Error('OpenAI API request failed');
-    }
-
-    const openAIResponse = await response.json();
-    console.log('OpenAI response:', openAIResponse);
-    
-    let topics;
     try {
-      const content = openAIResponse.choices[0].message.content;
-      console.log('Response content:', content);
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert SEO analyst specializing in conversion rate optimization. Always return a JSON object with a 'topics' array containing the recommendations."
+            },
+            {
+              role: "user",
+              content: analysisPrompt
+            }
+          ],
+          temperature: 0.7
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('OpenAI API error:', errorData);
+        throw new Error(`OpenAI API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const openAIResponse = await response.json();
+      console.log('OpenAI response:', openAIResponse);
       
-      const parsedContent = JSON.parse(content);
-      console.log('Parsed content:', parsedContent);
+      if (!openAIResponse.choices?.[0]?.message?.content) {
+        throw new Error('Invalid response format from OpenAI');
+      }
+
+      let content = openAIResponse.choices[0].message.content;
+      
+      // Clean up the content by removing any markdown formatting
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      console.log('Cleaned content:', content);
+      
+      let parsedContent;
+      try {
+        parsedContent = JSON.parse(content);
+      } catch (e) {
+        console.error('Error parsing OpenAI response:', e);
+        console.error('Content that failed to parse:', content);
+        throw new Error('Failed to parse OpenAI response as JSON');
+      }
 
       if (!parsedContent.topics || !Array.isArray(parsedContent.topics)) {
         throw new Error('Response does not contain a topics array');
       }
 
-      topics = parsedContent.topics.map(topic => ({
+      const topics = parsedContent.topics.map(topic => ({
         title: String(topic.title || ''),
         description: String(topic.description || ''),
         targetKeywords: Array.isArray(topic.targetKeywords) ? topic.targetKeywords.map(String) : [],
@@ -143,31 +155,51 @@ Return a JSON object with a 'topics' array containing objects with these fields:
         conversionStrategy: String(topic.conversionStrategy || '')
       }));
 
-    } catch (e) {
-      console.error('Error parsing OpenAI response:', e);
-      console.log('Raw response:', openAIResponse.choices[0].message.content);
-      
-      topics = [{
-        title: "Content Strategy Analysis Required",
-        description: "Unable to generate content strategy. Please try again or check the data input.",
-        targetKeywords: ["content strategy", "seo optimization"],
-        estimatedImpact: "Unknown - Analysis failed",
-        priority: "high",
-        pageUrl: "new",
-        currentMetrics: null,
-        implementationSteps: ["Retry analysis with valid data"],
-        conversionStrategy: "Not available"
-      }];
-    }
+      return new Response(
+        JSON.stringify({ topics }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
-    return new Response(
-      JSON.stringify({ topics }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    } catch (error) {
+      console.error('Error in OpenAI request:', error);
+      return new Response(
+        JSON.stringify({ 
+          error: error.message,
+          topics: [{
+            title: "Content Strategy Analysis Required",
+            description: "Unable to generate content strategy. Please try again or check the data input.",
+            targetKeywords: ["content strategy", "seo optimization"],
+            estimatedImpact: "Unknown - Analysis failed",
+            priority: "high",
+            pageUrl: "new",
+            currentMetrics: null,
+            implementationSteps: ["Retry analysis with valid data"],
+            conversionStrategy: "Not available"
+          }]
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
   } catch (error) {
     console.error('Error generating SEO strategy:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        topics: [{
+          title: "Error Processing Request",
+          description: "Failed to process the analysis request. Please check your input data and try again.",
+          targetKeywords: ["error"],
+          estimatedImpact: "Unknown",
+          priority: "high",
+          pageUrl: "new",
+          currentMetrics: null,
+          implementationSteps: ["Check input data", "Retry request"],
+          conversionStrategy: "Not available"
+        }]
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
