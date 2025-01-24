@@ -121,14 +121,19 @@ Return a JSON object with a 'topics' array containing objects with these fields:
         throw new Error('Invalid response format from OpenAI');
       }
 
-      const content = openAIResponse.choices[0].message.content;
-      console.log('Response content:', content);
+      let content = openAIResponse.choices[0].message.content;
+      
+      // Clean up the content by removing any markdown formatting
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      console.log('Cleaned content:', content);
       
       let parsedContent;
       try {
         parsedContent = JSON.parse(content);
       } catch (e) {
         console.error('Error parsing OpenAI response:', e);
+        console.error('Content that failed to parse:', content);
         throw new Error('Failed to parse OpenAI response as JSON');
       }
 
