@@ -58,7 +58,12 @@ serve(async (req) => {
       position: parseFloat(page.current.position)
     }));
 
-    const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate two sets of recommendations:
+    const systemPrompt = `You are an expert SEO analyst specializing in data-driven content strategy. Your task is to generate EXACTLY 20 recommendations:
+- EXACTLY 10 recommendations for optimizing existing content
+- EXACTLY 10 recommendations for new content opportunities
+Any other number of recommendations is unacceptable.`;
+
+    const analysisPrompt = `Based on the provided analytics data, generate two sets of recommendations:
 
 1. Existing Content Optimization (EXACTLY 10 recommendations):
 Analyze these pages and their metrics:
@@ -96,7 +101,7 @@ Return a JSON object with a 'topics' array containing EXACTLY 20 objects (10 for
 - implementationSteps (array): Specific, actionable steps
 - conversionStrategy (string): How this will impact conversion rates
 
-Ensure recommendations are specific, actionable, and directly tied to the provided data.`;
+YOU MUST RETURN EXACTLY 20 RECOMMENDATIONS - 10 for existing content and 10 for new content.`;
 
     console.log('Sending analysis prompt to OpenAI');
 
@@ -111,14 +116,15 @@ Ensure recommendations are specific, actionable, and directly tied to the provid
         messages: [
           {
             role: "system",
-            content: "You are an expert SEO analyst specializing in data-driven content strategy. Always return exactly 20 recommendations - 10 for existing content optimization and 10 for new content opportunities."
+            content: systemPrompt
           },
           {
             role: "user",
             content: analysisPrompt
           }
         ],
-        temperature: 0.7
+        temperature: 0.7,
+        max_tokens: 4000
       }),
     });
 
@@ -159,6 +165,15 @@ Ensure recommendations are specific, actionable, and directly tied to the provid
       throw new Error('Expected exactly 20 recommendations (10 existing + 10 new)');
     }
 
+    // Count existing vs new content recommendations
+    const existingContent = parsedContent.topics.filter(t => t.pageUrl !== 'new').length;
+    const newContent = parsedContent.topics.filter(t => t.pageUrl === 'new').length;
+
+    if (existingContent !== 10 || newContent !== 10) {
+      console.error('Incorrect distribution of recommendations:', { existingContent, newContent });
+      throw new Error(`Expected exactly 10 existing and 10 new content recommendations, got ${existingContent} existing and ${newContent} new`);
+    }
+
     // Process and validate each topic
     const topics = parsedContent.topics.map(topic => ({
       title: String(topic.title || ''),
@@ -189,17 +204,7 @@ Ensure recommendations are specific, actionable, and directly tied to the provid
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        topics: [{
-          title: "Error Processing Request",
-          description: "Failed to process the analysis request. Please check your input data and try again.",
-          targetKeywords: ["error"],
-          estimatedImpact: "Unknown",
-          priority: "high",
-          pageUrl: "new",
-          currentMetrics: null,
-          implementationSteps: ["Check input data", "Retry request"],
-          conversionStrategy: "Not available"
-        }]
+        topics: [] // Return empty array instead of error topic
       }),
       { 
         status: 500,
