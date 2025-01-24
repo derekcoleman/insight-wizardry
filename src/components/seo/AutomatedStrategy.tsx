@@ -34,91 +34,91 @@ interface AnalyticsReport {
   weekly_analysis: AnalysisData;
   monthly_analysis: AnalysisData;
   quarterly_analysis: AnalysisData;
-  yoy_analysis: AnalysisData;
+  ytd_analysis: AnalysisData;
 }
 
-const recommendedTopics = [
-  {
-    title: "Ultimate Guide to SEO Analytics",
-    description: "Comprehensive guide covering key metrics, tools, and strategies for measuring SEO success",
-    targetKeywords: ["seo analytics", "seo metrics", "seo measurement"],
-    priority: "high" as const,
-    targetAudience: "Marketing Managers, SEO Specialists",
-    funnelStage: "awareness"
-  },
-  {
-    title: "ROI Calculator for SEO Investments",
-    description: "Interactive tool to help businesses calculate potential returns on SEO investments",
-    targetKeywords: ["seo roi", "seo investment calculator", "seo returns"],
-    priority: "high" as const,
-    targetAudience: "Business Owners, Marketing Directors",
-    funnelStage: "consideration"
-  },
-  {
-    title: "Local SEO Success Stories",
-    description: "Case studies of successful local businesses improving their search visibility",
-    targetKeywords: ["local seo examples", "local seo case studies"],
-    priority: "medium" as const,
-    targetAudience: "Small Business Owners",
-    funnelStage: "decision"
-  },
-  {
-    title: "SEO for E-commerce Product Pages",
-    description: "Best practices for optimizing e-commerce product pages for search engines",
-    targetKeywords: ["ecommerce seo", "product page optimization"],
-    priority: "high" as const,
-    targetAudience: "E-commerce Managers",
-    funnelStage: "consideration"
-  },
-  {
-    title: "Voice Search Optimization Guide",
-    description: "How to optimize content for voice search and virtual assistants",
-    targetKeywords: ["voice search seo", "voice search optimization"],
-    priority: "medium" as const,
-    targetAudience: "Digital Marketers",
-    funnelStage: "awareness"
-  },
-  {
-    title: "SEO Audit Checklist Template",
-    description: "Downloadable template for conducting comprehensive SEO audits",
-    targetKeywords: ["seo audit template", "seo checklist"],
-    priority: "high" as const,
-    targetAudience: "SEO Consultants, In-house SEO Teams",
-    funnelStage: "consideration"
-  },
-  {
-    title: "Mobile SEO Implementation Guide",
-    description: "Step-by-step guide to implementing mobile-first SEO strategies",
-    targetKeywords: ["mobile seo", "mobile-first indexing"],
-    priority: "high" as const,
-    targetAudience: "Web Developers, SEO Specialists",
-    funnelStage: "consideration"
-  },
-  {
-    title: "International SEO Strategy Blueprint",
-    description: "Complete guide to expanding SEO efforts globally",
-    targetKeywords: ["international seo", "global seo strategy"],
-    priority: "medium" as const,
-    targetAudience: "Enterprise Marketing Teams",
-    funnelStage: "decision"
-  },
-  {
-    title: "SEO Tools Comparison Guide",
-    description: "Detailed comparison of popular SEO tools and their features",
-    targetKeywords: ["seo tools comparison", "best seo tools"],
-    priority: "medium" as const,
-    targetAudience: "Marketing Professionals",
-    funnelStage: "consideration"
-  },
-  {
-    title: "SEO ROI Case Studies",
-    description: "Real-world examples of businesses achieving significant ROI through SEO",
-    targetKeywords: ["seo success stories", "seo case studies"],
-    priority: "high" as const,
-    targetAudience: "C-Level Executives",
-    funnelStage: "decision"
-  }
-];
+function generateRecommendedTopics(analysisData: AnalyticsReport | null): ContentTopic[] {
+  if (!analysisData) return [];
+
+  const searchTerms = [
+    ...(analysisData.monthly_analysis?.searchTerms || []),
+    ...(analysisData.quarterly_analysis?.searchTerms || []),
+  ];
+
+  const pages = [
+    ...(analysisData.monthly_analysis?.pages || []),
+    ...(analysisData.quarterly_analysis?.pages || []),
+  ];
+
+  // Extract unique keywords and their metrics
+  const keywordMetrics = new Map();
+  searchTerms.forEach(term => {
+    if (!keywordMetrics.has(term.term)) {
+      keywordMetrics.set(term.term, {
+        clicks: term.current.clicks,
+        impressions: term.current.impressions,
+        ctr: parseFloat(term.current.ctr),
+        position: parseFloat(term.current.position)
+      });
+    }
+  });
+
+  // Group related keywords
+  const keywordGroups = Array.from(keywordMetrics.entries())
+    .reduce((groups, [keyword, metrics]) => {
+      const words = keyword.toLowerCase().split(' ');
+      const mainTopic = words[0];
+      if (!groups[mainTopic]) {
+        groups[mainTopic] = {
+          keywords: [],
+          totalClicks: 0,
+          totalImpressions: 0
+        };
+      }
+      groups[mainTopic].keywords.push({
+        keyword,
+        metrics
+      });
+      groups[mainTopic].totalClicks += metrics.clicks;
+      groups[mainTopic].totalImpressions += metrics.impressions;
+      return groups;
+    }, {});
+
+  // Convert groups to content topics
+  const topics = Object.entries(keywordGroups)
+    .sort(([, a]: any, [, b]: any) => b.totalImpressions - a.totalImpressions)
+    .slice(0, 10)
+    .map(([topic, data]: [string, any]) => {
+      const relatedKeywords = data.keywords
+        .sort((a: any, b: any) => b.metrics.impressions - a.metrics.impressions)
+        .slice(0, 5);
+
+      const avgPosition = relatedKeywords.reduce((sum: number, k: any) => 
+        sum + k.metrics.position, 0) / relatedKeywords.length;
+
+      const priority = avgPosition <= 20 ? 'high' : 
+        avgPosition <= 40 ? 'medium' : 'low';
+
+      return {
+        title: `Comprehensive Guide to ${topic.charAt(0).toUpperCase() + topic.slice(1)}`,
+        description: `Create an in-depth guide covering ${topic} based on search demand. Focus on addressing user questions and pain points revealed through search patterns.`,
+        targetKeywords: relatedKeywords.map((k: any) => k.keyword),
+        estimatedImpact: `Potential to capture ${data.totalImpressions.toLocaleString()} monthly impressions based on current search volume.`,
+        priority,
+        pageUrl: 'new',
+        implementationSteps: [
+          'Research competitor content structure',
+          'Create comprehensive outline',
+          'Develop detailed content addressing key user questions',
+          'Optimize for featured snippets',
+          'Include relevant internal links'
+        ],
+        conversionStrategy: `Target users in the research phase looking for ${topic} information. Include clear CTAs and relevant product recommendations.`
+      };
+    });
+
+  return topics;
+}
 
 export function AutomatedStrategy() {
   const [isLoading, setIsLoading] = useState(false);
@@ -133,13 +133,17 @@ export function AutomatedStrategy() {
     const storedStrategy = localStorage.getItem('generatedStrategy');
 
     if (storedReport) {
-      setAnalysisData(JSON.parse(storedReport));
+      const report = JSON.parse(storedReport);
+      setAnalysisData(report);
+      // Generate recommended topics based on analysis data
+      const recommendations = generateRecommendedTopics(report);
+      setContentTopics(recommendations);
     }
 
     if (storedStrategy) {
       const strategy = JSON.parse(storedStrategy);
       if (strategy.topics) {
-        setContentTopics(strategy.topics);
+        setContentTopics(prev => [...prev, ...strategy.topics]);
       }
     }
   }, []);
@@ -297,7 +301,7 @@ export function AutomatedStrategy() {
 
       {contentTopics.length > 0 && (
         <div className="space-y-6">
-          <h2 className="text-2xl font-bold">Generated Content Recommendations</h2>
+          <h2 className="text-2xl font-bold">Content Recommendations</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {contentTopics.map((topic, index) => (
               <ContentTopicCard key={index} topic={topic} />
@@ -305,27 +309,6 @@ export function AutomatedStrategy() {
           </div>
         </div>
       )}
-
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold mt-8">Recommended Content Ideas</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recommendedTopics.map((topic, index) => (
-            <ContentTopicCard 
-              key={`recommended-${index}`} 
-              topic={{
-                title: topic.title,
-                description: topic.description,
-                targetKeywords: topic.targetKeywords,
-                estimatedImpact: `Target Audience: ${topic.targetAudience}\nFunnel Stage: ${topic.funnelStage}`,
-                priority: topic.priority,
-                pageUrl: 'new',
-                implementationSteps: [`Target Audience: ${topic.targetAudience}`, `Funnel Stage: ${topic.funnelStage}`],
-                conversionStrategy: `Optimized for ${topic.targetAudience} at the ${topic.funnelStage} stage`
-              }} 
-            />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
