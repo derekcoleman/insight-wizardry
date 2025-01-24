@@ -28,7 +28,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
       .sort((a: any, b: any) => {
         return parseFloat(a.changes.clicks) - parseFloat(b.changes.clicks);
       })
-      .slice(0, 5);
+      .slice(0, 10); // Increased to 10 pages
   };
 
   // Get pages with opportunity (high impressions, low CTR)
@@ -43,11 +43,12 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
       .sort((a: any, b: any) => {
         return parseInt(b.current.impressions) - parseInt(a.current.impressions);
       })
-      .slice(0, 5);
+      .slice(0, 10); // Increased to 10 pages
   };
 
   const declinePages = getDeclinePages();
   const opportunityPages = getOpportunityPages();
+  const conversionGoal = analysisData.monthly_analysis?.current?.conversionGoal || 'Total Conversions';
 
   return (
     <Card>
@@ -68,6 +69,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                     <TableHead>Page</TableHead>
                     <TableHead className="text-right">Traffic Change</TableHead>
                     <TableHead className="text-right">Current Position</TableHead>
+                    <TableHead className="text-right">{conversionGoal}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -81,6 +83,9 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                       </TableCell>
                       <TableCell className="text-right">
                         {page.current.position}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {page.current.conversions || 0}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -101,6 +106,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                     <TableHead>Page</TableHead>
                     <TableHead className="text-right">Impressions</TableHead>
                     <TableHead className="text-right">Current CTR</TableHead>
+                    <TableHead className="text-right">{conversionGoal}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -116,6 +122,9 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                         <Badge variant={parseFloat(page.current.ctr) < 1 ? "destructive" : "secondary"}>
                           {page.current.ctr}%
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {page.current.conversions || 0}
                       </TableCell>
                     </TableRow>
                   ))}

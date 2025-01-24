@@ -78,58 +78,69 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
     }, {});
 
   // Content type templates with more variety
+
+  // Content type templates with more variety and proper title case
   const contentTypes = [
     {
       format: (keyword: string, words: string[]) => 
-        `THE ULTIMATE ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()} GUIDE FOR 2024`,
+        `The Ultimate ${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')} Guide for 2024`,
       condition: (groupData: any) => groupData.impressions > 5000
     },
     {
       format: (keyword: string, words: string[], groupData: any) => 
-        `${groupData.terms.length} PROVEN ${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''} STRATEGIES THAT WORK`,
+        `${groupData.terms.length} Proven ${toTitleCase(keyword)} ${words[0] || ''} Strategies That Work`,
       condition: (groupData: any) => groupData.terms.length > 5
     },
     {
       format: (keyword: string, words: string[]) => 
-        `HOW TO MASTER ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()}: EXPERT TIPS`,
+        `How to Master ${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')}: Expert Tips`,
       condition: (groupData: any) => groupData.avgPosition > 15
     },
     {
       format: (keyword: string, words: string[]) => 
-        `${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()}: INDUSTRY BEST PRACTICES`,
+        `${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')}: Industry Best Practices`,
       condition: (groupData: any) => groupData.totalClicks > 100
     },
     {
       format: (keyword: string, words: string[]) => 
-        `TOP 10 ${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''} MISTAKES TO AVOID`,
+        `Top 10 ${toTitleCase(keyword)} ${words[0] || ''} Mistakes to Avoid`,
       condition: (groupData: any) => true
     },
     {
       format: (keyword: string, words: string[]) => 
-        `MAXIMIZING ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()} ROI`,
+        `Maximizing ${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')} ROI`,
       condition: (groupData: any) => groupData.impressions > 1000
     },
     {
       format: (keyword: string, words: string[]) => 
-        `${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''} CHECKLIST: STEP-BY-STEP GUIDE`,
+        `${toTitleCase(keyword)} ${words[0] || ''} Checklist: Step-by-Step Guide`,
       condition: (groupData: any) => true
     },
     {
       format: (keyword: string, words: string[]) => 
-        `COMPARING THE BEST ${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''} SOLUTIONS`,
+        `Comparing the Best ${toTitleCase(keyword)} ${words[0] || ''} Solutions`,
       condition: (groupData: any) => groupData.terms.length > 3
     },
     {
       format: (keyword: string, words: string[]) => 
-        `${keyword.toUpperCase()} ${words[0]?.toUpperCase() || ''}: FROM BEGINNER TO EXPERT`,
+        `${toTitleCase(keyword)} ${words[0] || ''}: From Beginner to Expert`,
       condition: (groupData: any) => true
     },
     {
       format: (keyword: string, words: string[]) => 
-        `ESSENTIAL ${keyword.toUpperCase()} ${words.slice(0, 2).join(' ').toUpperCase()} METRICS TO TRACK`,
+        `Essential ${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')} Metrics to Track`,
       condition: (groupData: any) => groupData.impressions > 2000
     }
   ];
+
+  // Helper function to convert string to Title Case
+  const toTitleCase = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   // Convert groups to varied content topics
   return Object.entries(keywordGroups)
@@ -372,3 +383,4 @@ export function AutomatedStrategy() {
     </div>
   );
 }
+
