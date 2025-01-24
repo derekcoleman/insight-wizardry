@@ -122,60 +122,11 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
     const journeyData = await journeyResponse.json();
     console.log('GA4 Journey API Response:', journeyData);
 
-    // Fourth request: Get ecommerce product data
-    const productResponse = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          dateRanges: [{
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0],
-          }],
-          dimensions: [
-            { name: 'sessionDefaultChannelGrouping' },
-            { name: 'itemName' },
-            { name: 'itemId' },
-          ],
-          metrics: [
-            { name: 'itemsViewed' },
-            { name: 'itemsPurchased' },
-            { name: 'itemRevenue' },
-          ],
-          orderBys: [
-            {
-              metric: { metricName: 'itemRevenue' },
-              desc: true
-            }
-          ],
-          limit: 20
-        }),
-      }
-    );
-
-    if (!productResponse.ok) {
-      console.warn('Ecommerce data not available:', await productResponse.text());
-      return {
-        sessionData,
-        rows: eventData.rows || [],
-        journeyData: journeyData.rows || [],
-        conversionGoal: mainConversionGoal || 'Total Events',
-      };
-    }
-
-    const productData = await productResponse.json();
-    console.log('GA4 Product API Response:', productData);
-
     return {
       sessionData,
       rows: eventData.rows || [],
       journeyData: journeyData.rows || [],
       conversionGoal: mainConversionGoal || 'Total Events',
-      productData: productData.rows || [],
     };
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
