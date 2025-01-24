@@ -28,7 +28,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
       .sort((a: any, b: any) => {
         return parseFloat(a.changes.clicks) - parseFloat(b.changes.clicks);
       })
-      .slice(0, 10); // Increased to 10 pages
+      .slice(0, 10);
   };
 
   // Get pages with opportunity (high impressions, low CTR)
@@ -43,12 +43,30 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
       .sort((a: any, b: any) => {
         return parseInt(b.current.impressions) - parseInt(a.current.impressions);
       })
-      .slice(0, 10); // Increased to 10 pages
+      .slice(0, 10);
   };
 
   const declinePages = getDeclinePages();
   const opportunityPages = getOpportunityPages();
   const conversionGoal = analysisData.monthly_analysis?.current?.conversionGoal || 'Total Conversions';
+
+  // Helper function to format page-attributed conversions
+  const getPageAttributedConversions = (pageData: any) => {
+    // If the page has attributed_conversions data, use it
+    if (pageData.current.attributed_conversions !== undefined) {
+      return pageData.current.attributed_conversions;
+    }
+    // If the page has journey_conversions data (conversions from sessions that included this page)
+    if (pageData.current.journey_conversions !== undefined) {
+      return pageData.current.journey_conversions;
+    }
+    // If neither is available, try to get assisted conversions
+    if (pageData.current.assisted_conversions !== undefined) {
+      return pageData.current.assisted_conversions;
+    }
+    // Default to direct conversions if no other data is available
+    return pageData.current.conversions || 0;
+  };
 
   return (
     <Card>
@@ -69,7 +87,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                     <TableHead>Page</TableHead>
                     <TableHead className="text-right">Traffic Change</TableHead>
                     <TableHead className="text-right">Current Position</TableHead>
-                    <TableHead className="text-right">{conversionGoal}</TableHead>
+                    <TableHead className="text-right">Journey {conversionGoal}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -85,7 +103,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                         {page.current.position}
                       </TableCell>
                       <TableCell className="text-right">
-                        {page.current.conversions || 0}
+                        {getPageAttributedConversions(page)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -106,7 +124,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                     <TableHead>Page</TableHead>
                     <TableHead className="text-right">Impressions</TableHead>
                     <TableHead className="text-right">Current CTR</TableHead>
-                    <TableHead className="text-right">{conversionGoal}</TableHead>
+                    <TableHead className="text-right">Journey {conversionGoal}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -124,7 +142,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {page.current.conversions || 0}
+                        {getPageAttributedConversions(page)}
                       </TableCell>
                     </TableRow>
                   ))}
