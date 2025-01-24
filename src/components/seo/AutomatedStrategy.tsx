@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ContentTopicCard } from "./ContentTopicCard";
@@ -34,94 +34,73 @@ interface AnalyticsReport {
   weekly_analysis: AnalysisData;
   monthly_analysis: AnalysisData;
   quarterly_analysis: AnalysisData;
-  yoy_analysis: AnalysisData;
+  ytd_analysis: AnalysisData;
 }
 
-const recommendedTopics = [
-  {
-    title: "Ultimate Guide to SEO Analytics",
-    description: "Comprehensive guide covering key metrics, tools, and strategies for measuring SEO success",
-    targetKeywords: ["seo analytics", "seo metrics", "seo measurement"],
-    priority: "high" as const,
-    targetAudience: "Marketing Managers, SEO Specialists",
-    funnelStage: "awareness"
-  },
-  {
-    title: "ROI Calculator for SEO Investments",
-    description: "Interactive tool to help businesses calculate potential returns on SEO investments",
-    targetKeywords: ["seo roi", "seo investment calculator", "seo returns"],
-    priority: "high" as const,
-    targetAudience: "Business Owners, Marketing Directors",
-    funnelStage: "consideration"
-  },
-  {
-    title: "Local SEO Success Stories",
-    description: "Case studies of successful local businesses improving their search visibility",
-    targetKeywords: ["local seo examples", "local seo case studies"],
-    priority: "medium" as const,
-    targetAudience: "Small Business Owners",
-    funnelStage: "decision"
-  },
-  {
-    title: "SEO for E-commerce Product Pages",
-    description: "Best practices for optimizing e-commerce product pages for search engines",
-    targetKeywords: ["ecommerce seo", "product page optimization"],
-    priority: "high" as const,
-    targetAudience: "E-commerce Managers",
-    funnelStage: "consideration"
-  },
-  {
-    title: "Voice Search Optimization Guide",
-    description: "How to optimize content for voice search and virtual assistants",
-    targetKeywords: ["voice search seo", "voice search optimization"],
-    priority: "medium" as const,
-    targetAudience: "Digital Marketers",
-    funnelStage: "awareness"
-  },
-  {
-    title: "SEO Audit Checklist Template",
-    description: "Downloadable template for conducting comprehensive SEO audits",
-    targetKeywords: ["seo audit template", "seo checklist"],
-    priority: "high" as const,
-    targetAudience: "SEO Consultants, In-house SEO Teams",
-    funnelStage: "consideration"
-  },
-  {
-    title: "Mobile SEO Implementation Guide",
-    description: "Step-by-step guide to implementing mobile-first SEO strategies",
-    targetKeywords: ["mobile seo", "mobile-first indexing"],
-    priority: "high" as const,
-    targetAudience: "Web Developers, SEO Specialists",
-    funnelStage: "consideration"
-  },
-  {
-    title: "International SEO Strategy Blueprint",
-    description: "Complete guide to expanding SEO efforts globally",
-    targetKeywords: ["international seo", "global seo strategy"],
-    priority: "medium" as const,
-    targetAudience: "Enterprise Marketing Teams",
-    funnelStage: "decision"
-  },
-  {
-    title: "SEO Tools Comparison Guide",
-    description: "Detailed comparison of popular SEO tools and their features",
-    targetKeywords: ["seo tools comparison", "best seo tools"],
-    priority: "medium" as const,
-    targetAudience: "Marketing Professionals",
-    funnelStage: "consideration"
-  },
-  {
-    title: "SEO ROI Case Studies",
-    description: "Real-world examples of businesses achieving significant ROI through SEO",
-    targetKeywords: ["seo success stories", "seo case studies"],
-    priority: "high" as const,
-    targetAudience: "C-Level Executives",
-    funnelStage: "decision"
-  }
-];
+function generateRecommendedTopics(analysisData: AnalyticsReport | null): ContentTopic[] {
+  if (!analysisData) return [];
+
+  const allSearchTerms = [
+    ...(analysisData.monthly_analysis?.searchTerms || []),
+    ...(analysisData.quarterly_analysis?.searchTerms || []),
+    ...(analysisData.ytd_analysis?.searchTerms || [])
+  ];
+
+  // Group related search terms
+  const keywordGroups = allSearchTerms.reduce((groups: any, term: any) => {
+    const mainKeyword = term.term.split(' ')[0];
+    if (!groups[mainKeyword]) {
+      groups[mainKeyword] = {
+        terms: [],
+        totalClicks: 0,
+        avgPosition: 0
+      };
+    }
+    groups[mainKeyword].terms.push(term);
+    groups[mainKeyword].totalClicks += term.current.clicks;
+    groups[mainKeyword].avgPosition += parseFloat(term.current.position);
+    return groups;
+  }, {});
+
+  // Convert groups to content topics
+  return Object.entries(keywordGroups)
+    .map(([keyword, data]: [string, any]) => {
+      const avgPosition = data.avgPosition / data.terms.length;
+      const relatedTerms = data.terms.map((t: any) => t.term);
+      
+      const priority: 'high' | 'medium' | 'low' = 
+        avgPosition > 20 ? 'high' :
+        avgPosition > 10 ? 'medium' : 'low';
+
+      const title = `Comprehensive Guide to ${keyword.charAt(0).toUpperCase() + keyword.slice(1)}`;
+      
+      return {
+        title,
+        description: `Create an in-depth guide covering ${keyword}-related topics. This content addresses user queries around ${relatedTerms.slice(0, 3).join(', ')}, and more.`,
+        targetKeywords: relatedTerms,
+        estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. Potential to improve rankings for ${relatedTerms.length} related keywords with ${data.totalClicks} total clicks.`,
+        priority,
+        pageUrl: 'new',
+        implementationSteps: [
+          `Research competing content ranking for "${keyword}" related terms`,
+          `Create comprehensive content addressing user intent for ${relatedTerms.slice(0, 3).join(', ')}`,
+          'Implement proper header structure and internal linking',
+          'Add relevant images and media',
+          'Include clear calls-to-action'
+        ],
+        conversionStrategy: `Target users searching for ${keyword}-related information with clear next steps and relevant calls-to-action.`
+      };
+    })
+    .sort((a: ContentTopic, b: ContentTopic) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    })
+    .slice(0, 10); // Limit to top 10 opportunities
+}
 
 export function AutomatedStrategy() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [contentTopics, setContentTopics] = useState<ContentTopic[]>([]);
   const [analysisData, setAnalysisData] = useState<AnalyticsReport | null>(null);
   const { toast } = useToast();
@@ -157,7 +136,7 @@ export function AutomatedStrategy() {
     const hasSearchData = analysisData && (
       (analysisData.monthly_analysis?.searchTerms?.length > 0) ||
       (analysisData.quarterly_analysis?.searchTerms?.length > 0) ||
-      (analysisData.yoy_analysis?.searchTerms?.length > 0)
+      (analysisData.ytd_analysis?.searchTerms?.length > 0)
     );
 
     if (!hasSearchData) {
@@ -176,7 +155,7 @@ export function AutomatedStrategy() {
         ga4Data: {
           monthly: analysisData.monthly_analysis,
           quarterly: analysisData.quarterly_analysis,
-          yoy: analysisData.yoy_analysis
+          ytd: analysisData.ytd_analysis
         },
         gscData: {
           searchTerms: analysisData.weekly_analysis?.searchTerms || [],
@@ -215,11 +194,63 @@ export function AutomatedStrategy() {
     }
   };
 
+  const handleExportToDoc = async () => {
+    const topics = contentTopics.length > 0 ? contentTopics : generateRecommendedTopics(analysisData).map(topic => ({
+      title: topic.title,
+      description: topic.description,
+      targetKeywords: topic.targetKeywords,
+      estimatedImpact: topic.estimatedImpact,
+      priority: topic.priority,
+      pageUrl: topic.pageUrl,
+      implementationSteps: topic.implementationSteps,
+      conversionStrategy: topic.conversionStrategy
+    }));
+
+    setIsExporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-strategy-doc', {
+        body: { topics }
+      });
+
+      if (error) throw error;
+
+      if (data.docUrl) {
+        window.open(data.docUrl, '_blank');
+        toast({
+          title: "Success",
+          description: "Strategy document created successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating document:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create strategy document",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>Automated Content Strategy</CardTitle>
+          <Button 
+            onClick={handleExportToDoc} 
+            disabled={isExporting}
+            variant="outline"
+            className="ml-2"
+          >
+            {isExporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-2 h-4 w-4" />
+            )}
+            Export to Google Doc
+          </Button>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground mb-4">
@@ -256,19 +287,10 @@ export function AutomatedStrategy() {
       <div className="space-y-6">
         <h2 className="text-2xl font-bold mt-8">Recommended Content Ideas</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recommendedTopics.map((topic, index) => (
+          {generateRecommendedTopics(analysisData).map((topic, index) => (
             <ContentTopicCard 
               key={`recommended-${index}`} 
-              topic={{
-                title: topic.title,
-                description: topic.description,
-                targetKeywords: topic.targetKeywords,
-                estimatedImpact: `Target Audience: ${topic.targetAudience}\nFunnel Stage: ${topic.funnelStage}`,
-                priority: topic.priority,
-                pageUrl: 'new',
-                implementationSteps: [`Target Audience: ${topic.targetAudience}`, `Funnel Stage: ${topic.funnelStage}`],
-                conversionStrategy: `Optimized for ${topic.targetAudience} at the ${topic.funnelStage} stage`
-              }} 
+              topic={topic}
             />
           ))}
         </div>
