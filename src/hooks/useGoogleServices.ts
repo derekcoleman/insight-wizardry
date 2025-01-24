@@ -99,26 +99,31 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           queryParams: {
             access_token: accessToken,
             expires_in: "3600",
-            token_type: 'Bearer',
+            token_type: "Bearer",
+            prompt: "consent",
+            response_type: "token",
             scope: [
               "https://www.googleapis.com/auth/analytics.readonly",
               "https://www.googleapis.com/auth/webmasters.readonly",
               "https://www.googleapis.com/auth/analytics",
               "https://www.googleapis.com/auth/analytics.edit",
               "email",
-              "profile"
+              "profile",
+              "openid"
             ].join(" ")
           },
         },
       });
 
       if (signInError) {
+        console.error('Supabase sign in error:', signInError);
         throw signInError;
       }
 
       const { data: { user }, error: getUserError } = await supabase.auth.getUser();
       
       if (getUserError) {
+        console.error('Get user error:', getUserError);
         throw getUserError;
       }
 
@@ -355,7 +360,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         }
 
       } catch (error: any) {
-        handleApiError(error, "Google Analytics");
+        handleApiError(error, "Google Authentication");
       } finally {
         setIsLoading(false);
       }
@@ -366,7 +371,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/analytics",
       "https://www.googleapis.com/auth/analytics.edit",
       "email",
-      "profile"
+      "profile",
+      "openid"
     ].join(" "),
     flow: "implicit"
   });
