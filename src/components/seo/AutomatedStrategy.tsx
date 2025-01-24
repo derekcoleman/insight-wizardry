@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ContentTopicCard } from "./ContentTopicCard";
@@ -122,6 +122,7 @@ const recommendedTopics = [
 
 export function AutomatedStrategy() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [contentTopics, setContentTopics] = useState<ContentTopic[]>([]);
   const [analysisData, setAnalysisData] = useState<AnalyticsReport | null>(null);
   const { toast } = useToast();
@@ -215,11 +216,63 @@ export function AutomatedStrategy() {
     }
   };
 
+  const handleExportToDoc = async () => {
+    const topics = contentTopics.length > 0 ? contentTopics : recommendedTopics.map(topic => ({
+      title: topic.title,
+      description: topic.description,
+      targetKeywords: topic.targetKeywords,
+      estimatedImpact: `Target Audience: ${topic.targetAudience}\nFunnel Stage: ${topic.funnelStage}`,
+      priority: topic.priority,
+      pageUrl: 'new',
+      implementationSteps: [`Target Audience: ${topic.targetAudience}`, `Funnel Stage: ${topic.funnelStage}`],
+      conversionStrategy: `Optimized for ${topic.targetAudience} at the ${topic.funnelStage} stage`
+    }));
+
+    setIsExporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-strategy-doc', {
+        body: { topics }
+      });
+
+      if (error) throw error;
+
+      if (data.docUrl) {
+        window.open(data.docUrl, '_blank');
+        toast({
+          title: "Success",
+          description: "Strategy document created successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating document:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create strategy document",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>Automated Content Strategy</CardTitle>
+          <Button 
+            onClick={handleExportToDoc} 
+            disabled={isExporting}
+            variant="outline"
+            className="ml-2"
+          >
+            {isExporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-2 h-4 w-4" />
+            )}
+            Export to Google Doc
+          </Button>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground mb-4">
