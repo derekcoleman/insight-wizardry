@@ -86,7 +86,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         throw new Error('No email found in Google response');
       }
 
-      const { data: { user }, error: signInError } = await supabase.auth.signInWithOAuth({
+      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           queryParams: {
@@ -98,6 +98,17 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       if (signInError) {
         throw signInError;
+      }
+
+      if (data?.url) {
+        // Handle OAuth redirect if needed
+        window.location.href = data.url;
+      }
+
+      const { data: { user }, error: getUserError } = await supabase.auth.getUser();
+      
+      if (getUserError) {
+        throw getUserError;
       }
 
       if (user) {
