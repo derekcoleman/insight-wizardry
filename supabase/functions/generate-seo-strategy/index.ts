@@ -13,6 +13,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (!openAIApiKey) {
+    return new Response(
+      JSON.stringify({ error: 'OpenAI API key not configured' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const { ga4Data, gscData } = await req.json();
     console.log('Analyzing data:', { ga4Data, gscData });
@@ -22,93 +29,61 @@ serve(async (req) => {
     const monthlyRevenue = ga4Data.monthly?.current?.revenue || 0;
     const conversionGoal = ga4Data.monthly?.current?.conversionGoal || 'Total Conversions';
 
-    // Get top performing pages and search terms
-    const topPages = gscData.monthlyPages?.slice(0, 20) || [];
-    const searchTerms = gscData.monthlySearchTerms?.slice(0, 50) || [];
-    const quarterlySearchTerms = gscData.quarterlySearchTerms?.slice(0, 50) || [];
+    // Get top performing pages
+    const topPages = gscData.pages?.slice(0, 20) || [];
+    const searchTerms = gscData.searchTerms?.slice(0, 50) || [];
 
-    // Combine and analyze search terms for trends
-    const allSearchTerms = [...searchTerms, ...quarterlySearchTerms];
-    const searchTermFrequency = allSearchTerms.reduce((acc: any, term: any) => {
-      const key = term.term.toLowerCase();
-      if (!acc[key]) {
-        acc[key] = {
-          count: 0,
-          clicks: 0,
-          impressions: 0,
-          ctr: 0,
-          position: 0,
-        };
-      }
-      acc[key].count++;
-      acc[key].clicks += term.current.clicks;
-      acc[key].impressions += term.current.impressions;
-      acc[key].ctr = ((acc[key].clicks / acc[key].impressions) * 100).toFixed(2);
-      acc[key].position = (acc[key].position + parseFloat(term.current.position)) / 2;
-      return acc;
-    }, {});
-
-    // Analyze existing pages performance
-    const pagePerformance = topPages.map(page => ({
-      url: page.page,
-      clicks: page.current.clicks,
-      impressions: page.current.impressions,
-      ctr: parseFloat(page.current.ctr),
-      position: parseFloat(page.current.position),
-      clickChange: parseFloat(page.changes.clicks),
-    }));
-
-    const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate EXACTLY 20 specific, actionable content recommendations: 10 for optimizing existing content and 10 for new content opportunities. Base all recommendations on the actual performance data provided.
+    const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate 15-20 highly specific, actionable recommendations. Focus on increasing conversions and revenue through content optimization.
 
 Key Performance Data:
 - Monthly Conversions: ${monthlyConversions}
 - Monthly Revenue: $${monthlyRevenue}
 - Main Conversion Goal: ${conversionGoal}
 
-Existing page performance data:
-${JSON.stringify(pagePerformance, null, 2)}
+Top performing pages and their metrics:
+${JSON.stringify(topPages, null, 2)}
 
-Search term performance and trends:
-${JSON.stringify(Object.entries(searchTermFrequency)
-  .sort((a: any, b: any) => b[1].impressions - a[1].impressions)
-  .slice(0, 30), null, 2)}
-
-Requirements:
-1. Generate EXACTLY 10 recommendations for optimizing existing content:
-   - Use actual URLs from the provided page performance data
-   - Focus on pages with high impressions but low CTR
-   - Prioritize pages with declining clicks
-   - Include specific optimization steps based on search term data
-
-2. Generate EXACTLY 10 recommendations for new content:
-   - Base recommendations on search terms with high impressions but no matching content
-   - Focus on topics related to but not directly covered by existing content
-   - Ensure recommendations align with conversion goals
-   - Include specific keyword targeting strategies
+Search term performance:
+${JSON.stringify(searchTerms, null, 2)}
 
 For each recommendation, provide:
-1. Title: Clear, action-oriented title
-2. Description: Detailed analysis using real metrics
-3. Target Keywords: Actual keywords from the search data
-4. Estimated Impact: Projections based on current metrics
-5. Priority Level: Based on potential impact (high/medium/low)
-6. Page URL: Actual URL for existing content, "new" for new content
-7. Current Metrics: Include real performance data for existing content
-8. Implementation Steps: Specific, actionable steps
-9. Conversion Strategy: Based on the main conversion goal
+1. Specific Page/Content Focus:
+   - If existing page: Provide exact URL and current performance metrics
+   - If new content: Explain why this specific topic based on data
+   
+2. Detailed Analysis:
+   - Current performance metrics (for existing pages)
+   - User behavior patterns
+   - Conversion funnel position
+   - Content gaps identified
+   
+3. Specific Implementation Plan:
+   - Exact sections to optimize
+   - Specific keywords to target
+   - Content structure recommendations
+   - Internal linking strategy
+   
+4. Expected Impact:
+   - Projected traffic increase (percentage range)
+   - Estimated conversion rate improvement
+   - Revenue impact projection
+   - Timeline for results
+   
+5. Priority Level:
+   - High/Medium/Low with data-backed reasoning
+   - Resource requirements
+   - Implementation complexity
 
-Return a JSON object with a 'topics' array containing EXACTLY 20 objects (10 for existing content, 10 for new content) with these fields:
-- title (string)
-- description (string)
-- targetKeywords (string[])
-- estimatedImpact (string)
-- priority ("high" | "medium" | "low")
-- pageUrl (string)
-- currentMetrics (object | null)
-- implementationSteps (string[])
-- conversionStrategy (string)
-
-Ensure recommendations are specific, data-driven, and directly tied to improving ${conversionGoal}.`;
+Return a JSON object with a 'topics' array containing objects with these fields:
+- title (string): Clear, action-oriented title
+- description (string): Detailed analysis and implementation plan
+- targetKeywords (array): Specific keywords with search volume/competition data
+- estimatedImpact (string): Detailed projection of traffic, conversion, and revenue impact
+- priority (string): "high", "medium", or "low" with justification
+- pageUrl (string): Specific URL for existing pages or "new" for new content
+- currentMetrics (object): Current performance data for existing pages
+- implementationSteps (array): Specific, actionable steps
+- conversionStrategy (string): How this will impact conversion rates`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -118,11 +93,11 @@ Ensure recommendations are specific, data-driven, and directly tied to improving
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "system",
-              content: "You are an expert SEO analyst specializing in conversion rate optimization. Generate recommendations based on actual performance data, not generic advice. Always return exactly 20 recommendations."
+              content: "You are an expert SEO analyst specializing in conversion rate optimization. Always return a JSON object with a 'topics' array containing the recommendations."
             },
             {
               role: "user",
@@ -147,6 +122,8 @@ Ensure recommendations are specific, data-driven, and directly tied to improving
       }
 
       let content = openAIResponse.choices[0].message.content;
+      
+      // Clean up the content by removing any markdown formatting
       content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       
       console.log('Cleaned content:', content);
@@ -164,30 +141,19 @@ Ensure recommendations are specific, data-driven, and directly tied to improving
         throw new Error('Response does not contain a topics array');
       }
 
-      // Validate we have exactly 20 recommendations
-      if (parsedContent.topics.length !== 20) {
-        throw new Error(`Expected 20 topics but got ${parsedContent.topics.length}`);
-      }
-
       const topics = parsedContent.topics.map(topic => ({
         title: String(topic.title || ''),
         description: String(topic.description || ''),
         targetKeywords: Array.isArray(topic.targetKeywords) ? topic.targetKeywords.map(String) : [],
         estimatedImpact: String(topic.estimatedImpact || ''),
         priority: ['high', 'medium', 'low'].includes(topic.priority?.toLowerCase()) 
-          ? topic.priority.toLowerCase() as 'high' | 'medium' | 'low'
-          : 'medium' as const,
+          ? topic.priority.toLowerCase() 
+          : 'medium',
         pageUrl: String(topic.pageUrl || 'new'),
         currentMetrics: topic.currentMetrics || null,
         implementationSteps: Array.isArray(topic.implementationSteps) ? topic.implementationSteps.map(String) : [],
         conversionStrategy: String(topic.conversionStrategy || '')
       }));
-
-      // Validate the split between existing and new content
-      const existingContent = topics.filter(t => t.pageUrl !== 'new');
-      const newContent = topics.filter(t => t.pageUrl === 'new');
-
-      console.log(`Generated ${existingContent.length} existing content and ${newContent.length} new content recommendations`);
 
       return new Response(
         JSON.stringify({ topics }),
@@ -196,14 +162,43 @@ Ensure recommendations are specific, data-driven, and directly tied to improving
 
     } catch (error) {
       console.error('Error in OpenAI request:', error);
-      throw error;
+      return new Response(
+        JSON.stringify({ 
+          error: error.message,
+          topics: [{
+            title: "Content Strategy Analysis Required",
+            description: "Unable to generate content strategy. Please try again or check the data input.",
+            targetKeywords: ["content strategy", "seo optimization"],
+            estimatedImpact: "Unknown - Analysis failed",
+            priority: "high",
+            pageUrl: "new",
+            currentMetrics: null,
+            implementationSteps: ["Retry analysis with valid data"],
+            conversionStrategy: "Not available"
+          }]
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
   } catch (error) {
     console.error('Error generating SEO strategy:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        topics: []
+        topics: [{
+          title: "Error Processing Request",
+          description: "Failed to process the analysis request. Please check your input data and try again.",
+          targetKeywords: ["error"],
+          estimatedImpact: "Unknown",
+          priority: "high",
+          pageUrl: "new",
+          currentMetrics: null,
+          implementationSteps: ["Check input data", "Retry request"],
+          conversionStrategy: "Not available"
+        }]
       }),
       { 
         status: 500,
