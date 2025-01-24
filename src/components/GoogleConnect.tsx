@@ -85,18 +85,12 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
         mainConversionGoal: selectedGoal,
       });
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
       const result = await supabase.functions.invoke('analyze-ga4-data', {
         body: {
           ga4Property: selectedGaAccount,
           gscProperty: selectedGscAccount,
           accessToken: accessToken,
           mainConversionGoal: selectedGoal || undefined,
-          userId: user.id,
         },
       });
 

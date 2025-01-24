@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Account {
   id: string;
@@ -76,80 +75,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     });
   };
 
-  const signInWithGoogle = async (accessToken: string) => {
-    try {
-      console.log("Starting Google sign-in process...");
-      
-      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      if (!userInfoResponse.ok) {
-        console.error('Failed to fetch user info:', userInfoResponse.status);
-        throw new Error('Failed to fetch user info from Google');
-      }
-
-      const userInfo = await userInfoResponse.json();
-      console.log("Received user info from Google:", userInfo);
-      
-      if (!userInfo || !userInfo.email) {
-        console.error('Invalid user info response:', userInfo);
-        throw new Error('No email found in Google response');
-      }
-
-      console.log("Initiating Supabase OAuth sign-in...");
-      const { error: signInError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          queryParams: {
-            access_token: accessToken,
-            expires_in: "3600",
-            prompt: "consent",
-            scope: [
-              "https://www.googleapis.com/auth/analytics.readonly",
-              "https://www.googleapis.com/auth/webmasters.readonly",
-              "https://www.googleapis.com/auth/analytics",
-              "https://www.googleapis.com/auth/analytics.edit",
-              "email",
-              "profile",
-              "openid"
-            ].join(" ")
-          },
-        },
-      });
-
-      if (signInError) {
-        console.error('Supabase sign in error:', signInError);
-        throw signInError;
-      }
-
-      const { data: { user }, error: getUserError } = await supabase.auth.getUser();
-      
-      if (getUserError) {
-        console.error('Get user error:', getUserError);
-        throw getUserError;
-      }
-
-      if (user) {
-        console.log("Successfully signed in with Google");
-        toast({
-          title: "Success",
-          description: "Successfully signed in with Google",
-        });
-      }
-
-      return user;
-    } catch (error) {
-      console.error('Error signing in with Google:', error);
-      toast({
-        title: "Error",
-        description: "Failed to sign in with Google",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  };
-
   const fetchConversionGoals = async (propertyId: string) => {
     if (!accessToken) {
       console.log("No access token available for fetching events");
@@ -162,6 +87,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
       
+      // Fetch all available events
       const response = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
         {
@@ -194,6 +120,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const data = await response.json();
       console.log("Events data response:", data);
 
+      // Extract unique event names and sort them
       const uniqueEvents = new Set<string>();
       data.rows?.forEach((row: any) => {
         const eventName = row.dimensionValues?.[0]?.value;
@@ -204,6 +131,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       const eventsList = Array.from(uniqueEvents).sort();
       
+      // Create the goals list with Total Events as the first option and format event names
       const goals = [
         { id: 'Total Events', name: 'Total Events' },
         ...eventsList.map(event => ({
@@ -236,22 +164,17 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const login = useGoogleLogin({
     onSuccess: async (response) => {
-      console.log("Google login successful, received response:", response);
       setIsLoading(true);
       setError(null);
       setAccessToken(response.access_token);
       
       try {
-        await signInWithGoogle(response.access_token);
-
-        // Reset states
         setGaAccounts([]);
         setGscAccounts([]);
         setConversionGoals([]);
         setGaConnected(false);
         setGscConnected(false);
 
-        // Fetch GA4 accounts
         try {
           console.log("Fetching GA4 accounts...");
           const gaResponse = await fetch(
@@ -274,7 +197,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             throw new Error("No GA4 accounts found");
           }
 
-          // Fetch properties for all accounts
           console.log("Fetching GA4 properties for all accounts...");
           const allProperties = [];
           
@@ -325,7 +247,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           handleApiError(error, "Google Analytics");
         }
 
-        // Fetch Search Console sites
         try {
           console.log("Fetching Search Console sites...");
           const gscResponse = await fetch(
@@ -369,7 +290,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         }
 
       } catch (error: any) {
-        handleApiError(error, "Google Authentication");
+        handleApiError(error, "Google Analytics");
       } finally {
         setIsLoading(false);
       }
@@ -378,21 +299,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/analytics.readonly",
       "https://www.googleapis.com/auth/webmasters.readonly",
       "https://www.googleapis.com/auth/analytics",
-      "https://www.googleapis.com/auth/analytics.edit",
-      "email",
-      "profile",
-      "openid"
+      "https://www.googleapis.com/auth/analytics.edit"
     ].join(" "),
-    flow: "implicit",
-    onError: (errorResponse) => {
-      console.error("Google login error:", errorResponse);
-      setError("Failed to authenticate with Google. Please try again.");
-      toast({
-        title: "Error",
-        description: "Failed to authenticate with Google",
-        variant: "destructive",
-      });
-    }
+    flow: "implicit"
   });
 
   return {
