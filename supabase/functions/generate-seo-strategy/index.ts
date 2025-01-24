@@ -61,22 +61,46 @@ serve(async (req) => {
     const systemPrompt = `You are an expert SEO analyst specializing in data-driven content strategy. Your task is to generate EXACTLY 20 recommendations:
 - EXACTLY 10 recommendations for optimizing existing content
 - EXACTLY 10 recommendations for new content opportunities
-Any other number of recommendations is unacceptable.
 
-IMPORTANT: You must return a valid JSON object containing exactly 20 recommendations in the 'topics' array.
-- 10 recommendations must have pageUrl set to an existing URL from the provided data
-- 10 recommendations must have pageUrl set to "new"
+IMPORTANT: You MUST return a valid JSON object with this EXACT structure:
+{
+  "topics": [
+    // EXACTLY 10 items with pageUrl from the provided URLs
+    {
+      "title": "string",
+      "description": "string",
+      "targetKeywords": ["string"],
+      "estimatedImpact": "string",
+      "priority": "high|medium|low",
+      "pageUrl": "existing-url-from-data",
+      "currentMetrics": {},
+      "implementationSteps": ["string"],
+      "conversionStrategy": "string"
+    },
+    // EXACTLY 10 items with pageUrl set to "new"
+    {
+      "title": "string",
+      "description": "string",
+      "targetKeywords": ["string"],
+      "estimatedImpact": "string",
+      "priority": "high|medium|low",
+      "pageUrl": "new",
+      "implementationSteps": ["string"],
+      "conversionStrategy": "string"
+    }
+  ]
+}
 
-Failure to meet these requirements will result in an error.`;
+Any other format or number of recommendations will result in an error.`;
 
-    const analysisPrompt = `Based on the provided analytics data, generate two sets of recommendations:
+    const analysisPrompt = `Based on the provided analytics data, generate recommendations following these STRICT requirements:
 
-1. Existing Content Optimization (EXACTLY 10 recommendations):
-Analyze these pages and their metrics:
+1. For EXISTING content (EXACTLY 10 recommendations):
+Analyze these pages and metrics:
 ${JSON.stringify(pagePerformance, null, 2)}
 
-2. New Content Opportunities (EXACTLY 10 recommendations):
-Based on these trending search terms:
+2. For NEW content (EXACTLY 10 recommendations):
+Based on these trending terms:
 ${JSON.stringify(trendingTerms, null, 2)}
 
 Key Performance Context:
@@ -84,34 +108,34 @@ Key Performance Context:
 - Monthly Revenue: $${monthlyRevenue}
 - Main Conversion Goal: ${conversionGoal}
 
-For existing content recommendations:
+For existing content (EXACTLY 10):
 - Focus on pages with high impressions but low CTR
 - Identify content gaps based on search terms
 - Suggest specific improvements based on current performance
 - Include clear implementation steps
+- MUST use actual URLs from the provided page performance data
 - Set pageUrl to the actual URL of the page being optimized
 
-For new content recommendations:
-- Use trending search terms to identify topic opportunities
+For new content (EXACTLY 10):
+- Use trending search terms to identify opportunities
 - Consider search intent and user journey
 - Focus on topics with clear conversion potential
-- Set pageUrl to "new" for all new content recommendations
+- MUST set pageUrl to "new" for all recommendations
 
-Return a JSON object with a 'topics' array containing EXACTLY 20 objects with these fields:
-- title (string): Clear, action-oriented title
-- description (string): Detailed analysis and implementation plan
-- targetKeywords (array): Specific keywords from the data
-- estimatedImpact (string): Projected impact based on current metrics
-- priority (string): "high", "medium", or "low" with data-backed justification
-- pageUrl (string): URL for existing content or "new" for new content
-- currentMetrics (object): Current performance data for existing pages
-- implementationSteps (array): Specific, actionable steps
-- conversionStrategy (string): How this will impact conversion rates
-
-YOU MUST RETURN EXACTLY:
-- 10 recommendations with pageUrl set to actual URLs from the provided data
+The response MUST contain EXACTLY:
+- 10 recommendations using actual URLs from the provided data
 - 10 recommendations with pageUrl set to "new"
-Any other distribution will result in an error.`;
+
+Each recommendation MUST include:
+- title: Clear, action-oriented title
+- description: Detailed analysis and implementation plan
+- targetKeywords: Array of specific keywords from the data
+- estimatedImpact: Projected impact based on current metrics
+- priority: "high", "medium", or "low" with data-backed justification
+- pageUrl: Actual URL for existing content or "new" for new content
+- currentMetrics: Current performance data for existing pages
+- implementationSteps: Specific, actionable steps
+- conversionStrategy: How this will impact conversion rates`;
 
     console.log('Sending analysis prompt to OpenAI');
 
@@ -124,17 +148,13 @@ Any other distribution will result in an error.`;
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          {
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: analysisPrompt
-          }
+          { role: "system", content: systemPrompt },
+          { role: "user", content: analysisPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 4000
+        temperature: 0.5, // Lower temperature for more consistent output
+        max_tokens: 4000,
+        frequency_penalty: 0.3,
+        presence_penalty: 0.3
       }),
     });
 
