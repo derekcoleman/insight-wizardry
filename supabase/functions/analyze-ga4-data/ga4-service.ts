@@ -1,15 +1,3 @@
-import { fetchGA4Data } from './ga4-service.ts';
-import { extractOrganicMetrics } from './ga4-service.ts';
-import { extractGSCMetrics } from './gsc-service.ts';
-
-const formatEventName = (eventName: string): string => {
-  if (eventName === 'Total Events') return eventName;
-  return eventName
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
-
 export async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
   console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
   console.log('Using event metric:', mainConversionGoal || 'Total Events');
@@ -51,8 +39,8 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
     const sessionData = await sessionResponse.json();
     console.log('GA4 Session API Response:', sessionData);
 
-    // Second request: Get page path and conversion data
-    const pageConversionResponse = await fetch(
+    // Second request: Get event data with sessionDefaultChannelGrouping
+    const eventResponse = await fetch(
       `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
       {
         method: 'POST',
@@ -67,29 +55,27 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
           }],
           dimensions: [
             { name: 'sessionDefaultChannelGrouping' },
-            { name: 'pagePath' },
+            { name: 'eventName' },
           ],
           metrics: [
-            { name: mainConversionGoal || 'totalUsers' },
-            { name: 'sessions' },
-            { name: 'conversions' },
-            { name: 'sessionConversionRate' },
+            { name: 'eventCount' },
+            { name: 'totalRevenue' },
           ],
         }),
       }
     );
 
-    if (!pageConversionResponse.ok) {
-      const errorText = await pageConversionResponse.text();
-      console.error('GA4 Page Conversion API Error Response:', errorText);
-      throw new Error(`GA4 API error: ${pageConversionResponse.status} ${pageConversionResponse.statusText} - ${errorText}`);
+    if (!eventResponse.ok) {
+      const errorText = await eventResponse.text();
+      console.error('GA4 Event API Error Response:', errorText);
+      throw new Error(`GA4 API error: ${eventResponse.status} ${eventResponse.statusText} - ${errorText}`);
     }
 
-    const pageConversionData = await pageConversionResponse.json();
-    console.log('GA4 Page Conversion API Response:', pageConversionData);
+    const eventData = await eventResponse.json();
+    console.log('GA4 Event API Response:', eventData);
 
-    // Third request: Get journey-based conversion data
-    const journeyConversionResponse = await fetch(
+    // Third request: Get ecommerce product data
+    const productResponse = await fetch(
       `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
       {
         method: 'POST',
@@ -104,43 +90,42 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
           }],
           dimensions: [
             { name: 'sessionDefaultChannelGrouping' },
-            { name: 'pagePath' },
+            { name: 'itemName' },
+            { name: 'itemId' },
           ],
           metrics: [
-            { name: 'sessions' },
-            { name: 'conversions' },
-            { name: 'sessionConversionRate' },
+            { name: 'itemsViewed' },
+            { name: 'itemsPurchased' },
+            { name: 'itemRevenue' },
           ],
-          dimensionFilter: {
-            filter: {
-              fieldName: mainConversionGoal || 'conversions',
-              numericFilter: {
-                operation: 'GREATER_THAN',
-                value: { int64Value: '0' },
-              },
-            },
-          },
+          orderBys: [
+            {
+              metric: { metricName: 'itemRevenue' },
+              desc: true
+            }
+          ],
+          limit: 20
         }),
       }
     );
 
-    if (!journeyConversionResponse.ok) {
-      console.warn('Journey conversion data not available:', await journeyConversionResponse.text());
+    if (!productResponse.ok) {
+      console.warn('Ecommerce data not available:', await productResponse.text());
       return {
         sessionData,
-        pageConversionData,
+        rows: eventData.rows || [],
         conversionGoal: mainConversionGoal || 'Total Events',
       };
     }
 
-    const journeyConversionData = await journeyConversionResponse.json();
-    console.log('GA4 Journey Conversion API Response:', journeyConversionData);
+    const productData = await productResponse.json();
+    console.log('GA4 Product API Response:', productData);
 
     return {
       sessionData,
-      pageConversionData,
-      journeyConversionData,
+      rows: eventData.rows || [],
       conversionGoal: mainConversionGoal || 'Total Events',
+      productData: productData.rows || [],
     };
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
