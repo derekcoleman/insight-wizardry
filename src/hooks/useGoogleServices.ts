@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Account {
   id: string;
@@ -75,6 +76,49 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     });
   };
 
+  const signInWithGoogle = async (accessToken: string) => {
+    try {
+      const { data: userInfoResponse } = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }).then(res => res.json());
+
+      if (!userInfoResponse.email) {
+        throw new Error('No email found in Google response');
+      }
+
+      const { data: { user }, error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            access_token: accessToken,
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (signInError) {
+        throw signInError;
+      }
+
+      if (user) {
+        toast({
+          title: "Success",
+          description: "Successfully signed in with Google",
+        });
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Error signing in with Google:', error);
+      toast({
+        title: "Error",
+        description: "Failed to sign in with Google",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   const fetchConversionGoals = async (propertyId: string) => {
     if (!accessToken) {
       console.log("No access token available for fetching events");
@@ -87,7 +131,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
       
-      // Fetch all available events
       const response = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
         {
@@ -120,7 +163,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const data = await response.json();
       console.log("Events data response:", data);
 
-      // Extract unique event names and sort them
       const uniqueEvents = new Set<string>();
       data.rows?.forEach((row: any) => {
         const eventName = row.dimensionValues?.[0]?.value;
@@ -131,7 +173,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       const eventsList = Array.from(uniqueEvents).sort();
       
-      // Create the goals list with Total Events as the first option and format event names
       const goals = [
         { id: 'Total Events', name: 'Total Events' },
         ...eventsList.map(event => ({
@@ -169,6 +210,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setAccessToken(response.access_token);
       
       try {
+        // First sign in with Google
+        await signInWithGoogle(response.access_token);
+
         setGaAccounts([]);
         setGscAccounts([]);
         setConversionGoals([]);
@@ -299,7 +343,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/analytics.readonly",
       "https://www.googleapis.com/auth/webmasters.readonly",
       "https://www.googleapis.com/auth/analytics",
-      "https://www.googleapis.com/auth/analytics.edit"
+      "https://www.googleapis.com/auth/analytics.edit",
+      "email",
+      "profile"
     ].join(" "),
     flow: "implicit"
   });
