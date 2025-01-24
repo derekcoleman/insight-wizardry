@@ -37,12 +37,150 @@ interface AnalyticsReport {
   ytd_analysis: AnalysisData;
 }
 
-function toTitleCase(str: string): string {
-  return str
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+function generateRecommendedTopics(analysisData: AnalyticsReport | null): ContentTopic[] {
+  if (!analysisData) return [];
+
+  // Get all search terms across different time periods
+  const allSearchTerms = [
+    ...(analysisData.monthly_analysis?.searchTerms || []),
+    ...(analysisData.quarterly_analysis?.searchTerms || []),
+    ...(analysisData.ytd_analysis?.searchTerms || [])
+  ];
+
+  // Get existing optimized keywords to avoid duplicates
+  const existingKeywords = new Set(
+    allSearchTerms
+      .slice(0, 10)
+      .map(term => term.term.toLowerCase())
+  );
+
+  // Group related search terms, excluding exact matches of existing keywords
+  const keywordGroups = allSearchTerms
+    .filter(term => !existingKeywords.has(term.term.toLowerCase()))
+    .reduce((groups: any, term: any) => {
+      const words = term.term.split(' ');
+      const mainKeyword = words[0];
+      if (!groups[mainKeyword]) {
+        groups[mainKeyword] = {
+          terms: [],
+          totalClicks: 0,
+          avgPosition: 0,
+          relatedWords: new Set(),
+          impressions: 0
+        };
+      }
+      groups[mainKeyword].terms.push(term);
+      groups[mainKeyword].totalClicks += term.current.clicks;
+      groups[mainKeyword].avgPosition += parseFloat(term.current.position);
+      groups[mainKeyword].impressions += term.current.impressions;
+      words.slice(1).forEach((word: string) => groups[mainKeyword].relatedWords.add(word));
+      return groups;
+    }, {});
+
+  // Content type templates with more variety
+
+  // Content type templates with more variety and proper title case
+  const contentTypes = [
+    {
+      format: (keyword: string, words: string[]) => 
+        `The Ultimate ${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')} Guide for 2024`,
+      condition: (groupData: any) => groupData.impressions > 5000
+    },
+    {
+      format: (keyword: string, words: string[], groupData: any) => 
+        `${groupData.terms.length} Proven ${toTitleCase(keyword)} ${words[0] || ''} Strategies That Work`,
+      condition: (groupData: any) => groupData.terms.length > 5
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `How to Master ${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')}: Expert Tips`,
+      condition: (groupData: any) => groupData.avgPosition > 15
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')}: Industry Best Practices`,
+      condition: (groupData: any) => groupData.totalClicks > 100
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `Top 10 ${toTitleCase(keyword)} ${words[0] || ''} Mistakes to Avoid`,
+      condition: (groupData: any) => true
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `Maximizing ${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')} ROI`,
+      condition: (groupData: any) => groupData.impressions > 1000
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `${toTitleCase(keyword)} ${words[0] || ''} Checklist: Step-by-Step Guide`,
+      condition: (groupData: any) => true
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `Comparing the Best ${toTitleCase(keyword)} ${words[0] || ''} Solutions`,
+      condition: (groupData: any) => groupData.terms.length > 3
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `${toTitleCase(keyword)} ${words[0] || ''}: From Beginner to Expert`,
+      condition: (groupData: any) => true
+    },
+    {
+      format: (keyword: string, words: string[]) => 
+        `Essential ${toTitleCase(keyword)} ${words.slice(0, 2).join(' ')} Metrics to Track`,
+      condition: (groupData: any) => groupData.impressions > 2000
+    }
+  ];
+
+  // Helper function to convert string to Title Case
+  const toTitleCase = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Convert groups to varied content topics
+  return Object.entries(keywordGroups)
+    .flatMap(([keyword, groupData]: [string, any]) => {
+      const avgPosition = groupData.avgPosition / groupData.terms.length;
+      const relatedTerms = groupData.terms.map((t: any) => t.term);
+      const relatedWords = Array.from(groupData.relatedWords) as string[];
+      
+      const priority: 'high' | 'medium' | 'low' = 
+        avgPosition > 20 ? 'high' :
+        avgPosition > 10 ? 'medium' : 'low';
+
+      // Generate multiple content ideas for each keyword group
+      return contentTypes
+        .filter(type => type.condition(groupData))
+        .slice(0, 2) // Take up to 2 content types per keyword group
+        .map(type => ({
+          title: type.format(keyword, relatedWords, groupData),
+          description: `Create comprehensive, data-driven content focusing on ${relatedTerms.slice(0, 3).join(', ')}. Address specific pain points and questions around ${keyword} while incorporating industry insights and expert perspectives.`,
+          targetKeywords: relatedTerms,
+          estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. High-value opportunity with ${groupData.impressions.toLocaleString()} impressions and ${groupData.totalClicks} clicks. Potential to capture significant traffic share in the ${keyword} space.`,
+          priority,
+          pageUrl: 'new',
+          implementationSteps: [
+            `Research current trends and best practices in ${keyword} industry`,
+            'Create detailed content outline incorporating key subtopics',
+            'Include expert insights and industry statistics',
+            'Add relevant case studies and examples',
+            'Optimize for featured snippets and rich results',
+            'Create custom visuals and infographics',
+            'Implement strategic internal linking'
+          ],
+          conversionStrategy: `Implement targeted conversion points throughout the content, focusing on user intent stages. Include relevant CTAs, downloadable resources, and consultation opportunities.`
+        }));
+    })
+    .sort((a: ContentTopic, b: ContentTopic) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    })
+    .slice(0, 10);
 }
 
 export function AutomatedStrategy() {
@@ -50,35 +188,24 @@ export function AutomatedStrategy() {
   const [isExporting, setIsExporting] = useState(false);
   const [contentTopics, setContentTopics] = useState<ContentTopic[]>([]);
   const [analysisData, setAnalysisData] = useState<AnalyticsReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    try {
-      const storedReport = localStorage.getItem('analysisReport');
-      const storedStrategy = localStorage.getItem('generatedStrategy');
+    const storedReport = localStorage.getItem('analysisReport');
+    const storedStrategy = localStorage.getItem('generatedStrategy');
 
-      if (storedReport) {
-        setAnalysisData(JSON.parse(storedReport));
-      }
-
-      if (storedStrategy) {
-        const strategy = JSON.parse(storedStrategy);
-        if (strategy.topics) {
-          setContentTopics(strategy.topics);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading stored data:', err);
-      setError('Failed to load stored analysis data');
-      toast({
-        title: "Error",
-        description: "Failed to load stored analysis data. Please run the analysis again.",
-        variant: "destructive",
-      });
+    if (storedReport) {
+      setAnalysisData(JSON.parse(storedReport));
     }
-  }, [toast]);
+
+    if (storedStrategy) {
+      const strategy = JSON.parse(storedStrategy);
+      if (strategy.topics) {
+        setContentTopics(strategy.topics);
+      }
+    }
+  }, []);
 
   const generateStrategy = async () => {
     if (!analysisData) {
@@ -108,8 +235,6 @@ export function AutomatedStrategy() {
     }
 
     setIsLoading(true);
-    setError(null);
-    
     try {
       const analysisInput = {
         ga4Data: {
@@ -127,20 +252,12 @@ export function AutomatedStrategy() {
         }
       };
 
-      console.log('Sending analysis input:', analysisInput);
-
       const response = await supabase.functions.invoke('generate-seo-strategy', {
         body: analysisInput
       });
 
-      console.log('Strategy generation response:', response);
-
       if (response.error) {
         throw new Error(response.error.message || 'Failed to generate strategy');
-      }
-
-      if (!response.data?.topics || !Array.isArray(response.data.topics)) {
-        throw new Error('Invalid response format: missing topics array');
       }
 
       setContentTopics(response.data.topics);
@@ -152,7 +269,6 @@ export function AutomatedStrategy() {
       });
     } catch (error) {
       console.error('Error generating strategy:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate SEO strategy');
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to generate SEO strategy. Please try again.",
@@ -164,19 +280,21 @@ export function AutomatedStrategy() {
   };
 
   const handleExportToDoc = async () => {
-    if (!contentTopics.length) {
-      toast({
-        title: "No Content",
-        description: "Please generate a strategy first before exporting.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const topics = contentTopics.length > 0 ? contentTopics : generateRecommendedTopics(analysisData).map(topic => ({
+      title: topic.title,
+      description: topic.description,
+      targetKeywords: topic.targetKeywords,
+      estimatedImpact: topic.estimatedImpact,
+      priority: topic.priority,
+      pageUrl: topic.pageUrl,
+      implementationSteps: topic.implementationSteps,
+      conversionStrategy: topic.conversionStrategy
+    }));
 
     setIsExporting(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-strategy-doc', {
-        body: { topics: contentTopics }
+        body: { topics }
       });
 
       if (error) throw error;
@@ -200,30 +318,6 @@ export function AutomatedStrategy() {
     }
   };
 
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <Card className="bg-destructive/10">
-          <CardHeader>
-            <CardTitle className="text-destructive">Error Generating Strategy</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-destructive">{error}</p>
-            <Button 
-              onClick={() => {
-                setError(null);
-                navigate('/');
-              }}
-              className="mt-4"
-            >
-              Return to Analysis
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <Card>
@@ -231,7 +325,7 @@ export function AutomatedStrategy() {
           <CardTitle>Automated Content Strategy</CardTitle>
           <Button 
             onClick={handleExportToDoc} 
-            disabled={isExporting || !contentTopics.length}
+            disabled={isExporting}
             variant="outline"
             className="ml-2"
           >
@@ -274,6 +368,19 @@ export function AutomatedStrategy() {
           </div>
         </div>
       )}
+
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold mt-8">Recommended Content Ideas</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {generateRecommendedTopics(analysisData).map((topic, index) => (
+            <ContentTopicCard 
+              key={`recommended-${index}`} 
+              topic={topic}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
+

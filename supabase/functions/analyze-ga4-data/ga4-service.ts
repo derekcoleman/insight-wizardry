@@ -121,59 +121,11 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
     const productData = await productResponse.json();
     console.log('GA4 Product API Response:', productData);
 
-    // Add new request for page path based conversions
-    const pageConversionsResponse = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          dateRanges: [{
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0],
-          }],
-          dimensions: [
-            { name: 'pagePath' },
-            { name: 'sessionSourceMedium' },
-          ],
-          metrics: [
-            { name: mainConversionGoal ? 'conversions' : 'eventCount' },
-          ],
-          dimensionFilter: {
-            filter: {
-              fieldName: 'sessionSourceMedium',
-              stringFilter: {
-                matchType: 'CONTAINS',
-                value: 'organic',
-              },
-            },
-          },
-        }),
-      }
-    );
-
-    if (!pageConversionsResponse.ok) {
-      console.warn('Page conversions data not available:', await pageConversionsResponse.text());
-      return {
-        sessionData,
-        rows: eventData.rows || [],
-        conversionGoal: mainConversionGoal || 'Total Events',
-        productData: productData?.rows || [],
-      };
-    }
-
-    const pageConversionsData = await pageConversionsResponse.json();
-    console.log('GA4 Page Conversions Response:', pageConversionsData);
-
     return {
       sessionData,
       rows: eventData.rows || [],
       conversionGoal: mainConversionGoal || 'Total Events',
-      productData: productData?.rows || [],
-      pageConversionsData: pageConversionsData.rows || [],
+      productData: productData.rows || [],
     };
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
@@ -246,19 +198,6 @@ export function extractOrganicMetrics(data: any) {
       revenue: Number(row.metricValues?.[2]?.value || 0),
     })) || [];
 
-  // Add page conversions mapping
-  const pageConversions = new Map();
-  data.pageConversionsData?.forEach((row: any) => {
-    const pagePath = row.dimensionValues?.[0]?.value;
-    if (pagePath) {
-      const currentConversions = Number(row.metricValues?.[0]?.value || 0);
-      pageConversions.set(
-        pagePath, 
-        (pageConversions.get(pagePath) || 0) + currentConversions
-      );
-    }
-  });
-
   const metrics = {
     sessions: organicSessions,
     conversions,
@@ -267,7 +206,6 @@ export function extractOrganicMetrics(data: any) {
       current: currentProducts,
       previous: previousProducts,
     },
-    pageConversions,
   };
 
   console.log('Extracted GA4 metrics:', metrics);
