@@ -98,10 +98,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         options: {
           queryParams: {
             access_token: accessToken,
-            expires_in: "3600",
-            token_type: "Bearer",
+            expires_in: 3600,
             prompt: "consent",
-            response_type: "token",
             scope: [
               "https://www.googleapis.com/auth/analytics.readonly",
               "https://www.googleapis.com/auth/webmasters.readonly",
@@ -239,12 +237,14 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       try {
         await signInWithGoogle(response.access_token);
 
+        // Reset states
         setGaAccounts([]);
         setGscAccounts([]);
         setConversionGoals([]);
         setGaConnected(false);
         setGscConnected(false);
 
+        // Fetch GA4 accounts
         try {
           console.log("Fetching GA4 accounts...");
           const gaResponse = await fetch(
@@ -267,6 +267,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             throw new Error("No GA4 accounts found");
           }
 
+          // Fetch properties for all accounts
           console.log("Fetching GA4 properties for all accounts...");
           const allProperties = [];
           
@@ -317,6 +318,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           handleApiError(error, "Google Analytics");
         }
 
+        // Fetch Search Console sites
         try {
           console.log("Fetching Search Console sites...");
           const gscResponse = await fetch(
@@ -374,7 +376,16 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "profile",
       "openid"
     ].join(" "),
-    flow: "implicit"
+    flow: "implicit",
+    onError: (errorResponse) => {
+      console.error("Google login error:", errorResponse);
+      setError("Failed to authenticate with Google. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to authenticate with Google",
+        variant: "destructive",
+      });
+    }
   });
 
   return {
