@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisInsights } from "./AnalysisInsights";
 import { AnalysisCard } from "./analysis/AnalysisCard";
@@ -7,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useToast } from "./ui/use-toast";
 import { ExportButtons } from "./analysis/ExportButtons";
+import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 interface AnalysisResultsProps {
   report: {
@@ -24,7 +27,9 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isCreatingDoc, setIsCreatingDoc] = useState(false);
   const [isCreatingPdf, setIsCreatingPdf] = useState(false);
+  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const generateInsights = async () => {
@@ -114,6 +119,75 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     }
   };
 
+  const handleGenerateStrategy = async () => {
+    const hasSearchData = report && (
+      (report.monthly_analysis?.searchTerms?.length > 0) ||
+      (report.quarterly_analysis?.searchTerms?.length > 0) ||
+      (report.ytd_analysis?.searchTerms?.length > 0)
+    );
+
+    if (!hasSearchData) {
+      toast({
+        title: "No Search Console Data",
+        description: "Please run a complete analysis with Search Console data first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingStrategy(true);
+    try {
+      // Save the report to localStorage before navigating
+      localStorage.setItem('analysisReport', JSON.stringify(report));
+
+      // Prepare the analysis input
+      const analysisInput = {
+        ga4Data: {
+          monthly: report.monthly_analysis,
+          quarterly: report.quarterly_analysis,
+          yoy: report.ytd_analysis
+        },
+        gscData: {
+          searchTerms: report.weekly_analysis?.searchTerms || [],
+          pages: report.weekly_analysis?.pages || [],
+          monthlySearchTerms: report.monthly_analysis?.searchTerms || [],
+          monthlyPages: report.monthly_analysis?.pages || [],
+          quarterlySearchTerms: report.quarterly_analysis?.searchTerms || [],
+          quarterlyPages: report.quarterly_analysis?.pages || [],
+        }
+      };
+
+      // Generate strategy
+      const response = await supabase.functions.invoke('generate-seo-strategy', {
+        body: analysisInput
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to generate strategy');
+      }
+
+      // Store the generated strategy in localStorage
+      localStorage.setItem('generatedStrategy', JSON.stringify(response.data));
+
+      // Navigate to strategy page
+      navigate("/seo-strategy");
+      
+      toast({
+        title: "Success",
+        description: "SEO Strategy generated successfully.",
+      });
+    } catch (error) {
+      console.error('Error generating strategy:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate SEO strategy. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingStrategy(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="w-full text-left">
@@ -171,13 +245,23 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     <div className="w-full space-y-6 text-left">
       <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-bold">Analysis Results</h2>
-        <ExportButtons
-          onExportDoc={handleCreateDoc}
-          onExportPdf={handleCreatePdf}
-          isCreatingDoc={isCreatingDoc}
-          isCreatingPdf={isCreatingPdf}
-          isGeneratingInsights={isGeneratingInsights}
-        />
+        <div className="flex gap-2">
+          <Button
+            onClick={handleGenerateStrategy}
+            disabled={isGeneratingStrategy}
+            variant="secondary"
+          >
+            {isGeneratingStrategy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Generate SEO Strategy
+          </Button>
+          <ExportButtons
+            onExportDoc={handleCreateDoc}
+            onExportPdf={handleCreatePdf}
+            isCreatingDoc={isCreatingDoc}
+            isCreatingPdf={isCreatingPdf}
+            isGeneratingInsights={isGeneratingInsights}
+          />
+        </div>
       </div>
       <div className="px-4 sm:px-6 lg:px-8">
         <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
