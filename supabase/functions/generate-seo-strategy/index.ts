@@ -58,34 +58,32 @@ serve(async (req) => {
       position: parseFloat(page.current.position)
     }));
 
-    const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate EXACTLY 20 recommendations:
-
-IMPORTANT: You MUST return EXACTLY 10 recommendations for existing content optimization and EXACTLY 10 recommendations for new content opportunities. No more, no less.
+    const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate two sets of recommendations:
 
 1. Existing Content Optimization (EXACTLY 10 recommendations):
 Analyze these pages and their metrics:
 ${JSON.stringify(pagePerformance, null, 2)}
 
-Focus on:
-- Pages with high impressions but low CTR (opportunity for title/meta optimization)
-- Pages with good CTR but low position (opportunity for content enhancement)
-- Pages with declining clicks or impressions
-- Pages that could be expanded based on related search terms
-
 2. New Content Opportunities (EXACTLY 10 recommendations):
 Based on these trending search terms:
 ${JSON.stringify(trendingTerms, null, 2)}
-
-Focus on:
-- Search terms with high volume but no dedicated content
-- Related topics that could be grouped into comprehensive guides
-- Questions and informational queries that show user intent
-- Topics that align with conversion goals
 
 Key Performance Context:
 - Monthly Conversions: ${monthlyConversions}
 - Monthly Revenue: $${monthlyRevenue}
 - Main Conversion Goal: ${conversionGoal}
+
+For existing content recommendations:
+- Focus on pages with high impressions but low CTR
+- Identify content gaps based on search terms
+- Suggest specific improvements based on current performance
+- Include clear implementation steps
+
+For new content recommendations:
+- Use trending search terms to identify topic opportunities
+- Consider search intent and user journey
+- Focus on topics with clear conversion potential
+- Ensure recommendations align with current performance data
 
 Return a JSON object with a 'topics' array containing EXACTLY 20 objects (10 for existing content, 10 for new content) with these fields:
 - title (string): Clear, action-oriented title
@@ -98,9 +96,7 @@ Return a JSON object with a 'topics' array containing EXACTLY 20 objects (10 for
 - implementationSteps (array): Specific, actionable steps
 - conversionStrategy (string): How this will impact conversion rates
 
-IMPORTANT: Your response MUST contain EXACTLY 20 recommendations total - 10 for existing content optimization and 10 for new content opportunities. Each recommendation must be specific and based on the actual data provided.
-
-If you cannot generate exactly 20 recommendations (10 existing + 10 new) based on the provided data, return an error message instead.`;
+Ensure recommendations are specific, actionable, and directly tied to the provided data.`;
 
     console.log('Sending analysis prompt to OpenAI');
 
@@ -115,15 +111,14 @@ If you cannot generate exactly 20 recommendations (10 existing + 10 new) based o
         messages: [
           {
             role: "system",
-            content: "You are an expert SEO analyst specializing in data-driven content strategy. You MUST return exactly 20 recommendations - 10 for existing content optimization and 10 for new content opportunities. Never return fewer or more recommendations. If you cannot generate exactly 20 recommendations based on the provided data, return an error message instead."
+            content: "You are an expert SEO analyst specializing in data-driven content strategy. Always return exactly 20 recommendations - 10 for existing content optimization and 10 for new content opportunities."
           },
           {
             role: "user",
             content: analysisPrompt
           }
         ],
-        temperature: 0.7,
-        max_tokens: 4000
+        temperature: 0.7
       }),
     });
 
@@ -164,15 +159,6 @@ If you cannot generate exactly 20 recommendations (10 existing + 10 new) based o
       throw new Error('Expected exactly 20 recommendations (10 existing + 10 new)');
     }
 
-    // Count existing vs new content recommendations
-    const existingContent = parsedContent.topics.filter(t => t.pageUrl !== 'new').length;
-    const newContent = parsedContent.topics.filter(t => t.pageUrl === 'new').length;
-
-    if (existingContent !== 10 || newContent !== 10) {
-      console.error('Incorrect distribution of recommendations:', { existingContent, newContent });
-      throw new Error('Expected exactly 10 existing content and 10 new content recommendations');
-    }
-
     // Process and validate each topic
     const topics = parsedContent.topics.map(topic => ({
       title: String(topic.title || ''),
@@ -203,7 +189,17 @@ If you cannot generate exactly 20 recommendations (10 existing + 10 new) based o
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        topics: [] // Return empty array instead of single error topic
+        topics: [{
+          title: "Error Processing Request",
+          description: "Failed to process the analysis request. Please check your input data and try again.",
+          targetKeywords: ["error"],
+          estimatedImpact: "Unknown",
+          priority: "high",
+          pageUrl: "new",
+          currentMetrics: null,
+          implementationSteps: ["Check input data", "Retry request"],
+          conversionStrategy: "Not available"
+        }]
       }),
       { 
         status: 500,
