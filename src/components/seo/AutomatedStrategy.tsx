@@ -48,47 +48,77 @@ function generateRecommendedTopics(analysisData: AnalyticsReport | null): Conten
 
   // Group related search terms
   const keywordGroups = allSearchTerms.reduce((groups: any, term: any) => {
-    const mainKeyword = term.term.split(' ')[0];
+    const words = term.term.split(' ');
+    const mainKeyword = words[0];
     if (!groups[mainKeyword]) {
       groups[mainKeyword] = {
         terms: [],
         totalClicks: 0,
-        avgPosition: 0
+        avgPosition: 0,
+        relatedWords: new Set()
       };
     }
     groups[mainKeyword].terms.push(term);
     groups[mainKeyword].totalClicks += term.current.clicks;
     groups[mainKeyword].avgPosition += parseFloat(term.current.position);
+    words.slice(1).forEach((word: string) => groups[mainKeyword].relatedWords.add(word));
     return groups;
   }, {});
 
-  // Convert groups to content topics
+  // Convert groups to varied content topics
   return Object.entries(keywordGroups)
     .map(([keyword, data]: [string, any]) => {
       const avgPosition = data.avgPosition / data.terms.length;
       const relatedTerms = data.terms.map((t: any) => t.term);
+      const relatedWords = Array.from(data.relatedWords);
       
       const priority: 'high' | 'medium' | 'low' = 
         avgPosition > 20 ? 'high' :
         avgPosition > 10 ? 'medium' : 'low';
 
-      const title = `Comprehensive Guide to ${keyword.charAt(0).toUpperCase() + keyword.slice(1)}`;
+      // Generate varied content types based on data patterns
+      const contentTypes = [
+        {
+          prefix: "Ultimate Guide:",
+          format: `Ultimate Guide to ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} ${relatedWords.slice(0, 2).join(' ')}`
+        },
+        {
+          prefix: "How-to:",
+          format: `How to ${keyword} ${relatedWords.slice(0, 2).join(' ')} Like a Pro`
+        },
+        {
+          prefix: "Tips:",
+          format: `${data.terms.length} Essential ${keyword.charAt(0).toUpperCase() + keyword.slice(1)} Tips for ${relatedWords.slice(0, 2).join(' ')}`
+        },
+        {
+          prefix: "Strategy:",
+          format: `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} Strategy: ${relatedWords.slice(0, 2).join(' ')} Guide`
+        },
+        {
+          prefix: "Best Practices:",
+          format: `${keyword.charAt(0).toUpperCase() + keyword.slice(1)} Best Practices for ${relatedWords.slice(0, 2).join(' ')}`
+        }
+      ];
+
+      const contentType = contentTypes[Math.floor(Math.random() * contentTypes.length)];
       
       return {
-        title,
-        description: `Create an in-depth guide covering ${keyword}-related topics. This content addresses user queries around ${relatedTerms.slice(0, 3).join(', ')}, and more.`,
+        title: contentType.format,
+        description: `Create actionable content about ${keyword} focusing on ${relatedTerms.slice(0, 3).join(', ')}. This content addresses specific user needs and search intent around ${keyword}.`,
         targetKeywords: relatedTerms,
-        estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. Potential to improve rankings for ${relatedTerms.length} related keywords with ${data.totalClicks} total clicks.`,
+        estimatedImpact: `Current average position: ${avgPosition.toFixed(1)}. Opportunity to improve rankings for ${relatedTerms.length} related keywords with ${data.totalClicks} total clicks. High potential for traffic growth.`,
         priority,
         pageUrl: 'new',
         implementationSteps: [
-          `Research competing content ranking for "${keyword}" related terms`,
-          `Create comprehensive content addressing user intent for ${relatedTerms.slice(0, 3).join(', ')}`,
-          'Implement proper header structure and internal linking',
-          'Add relevant images and media',
-          'Include clear calls-to-action'
+          `Research top-performing content for "${keyword}" related searches`,
+          `Create detailed content addressing user intent for ${relatedTerms.slice(0, 3).join(', ')}`,
+          'Structure content with clear headings and subheadings',
+          'Include relevant examples and case studies',
+          'Add data-driven insights and statistics',
+          'Optimize meta title and description',
+          'Include relevant internal and external links'
         ],
-        conversionStrategy: `Target users searching for ${keyword}-related information with clear next steps and relevant calls-to-action.`
+        conversionStrategy: `Target users searching for ${keyword}-related information with clear calls-to-action and relevant conversion points throughout the content.`
       };
     })
     .sort((a: ContentTopic, b: ContentTopic) => {
