@@ -17,6 +17,17 @@ interface KeywordGapAnalysisProps {
 export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
   if (!analysisData) return null;
 
+  const getPageJourneyConversions = (pagePath: string) => {
+    const journeyData = analysisData.monthly_analysis?.journeyData || [];
+    const pageJourneys = journeyData.filter((journey: any) => 
+      journey.dimensionValues?.[0]?.value === pagePath
+    );
+
+    return pageJourneys.reduce((total: number, journey: any) => {
+      return total + Number(journey.metricValues?.[1]?.value || 0);
+    }, 0);
+  };
+
   // Get pages with declining performance
   const getDeclinePages = () => {
     const monthlyPages = analysisData.monthly_analysis?.pages || [];
@@ -28,7 +39,11 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
       .sort((a: any, b: any) => {
         return parseFloat(a.changes.clicks) - parseFloat(b.changes.clicks);
       })
-      .slice(0, 10); // Increased to 10 pages
+      .slice(0, 10)
+      .map((page: any) => ({
+        ...page,
+        journeyConversions: getPageJourneyConversions(page.page)
+      }));
   };
 
   // Get pages with opportunity (high impressions, low CTR)
@@ -43,7 +58,11 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
       .sort((a: any, b: any) => {
         return parseInt(b.current.impressions) - parseInt(a.current.impressions);
       })
-      .slice(0, 10); // Increased to 10 pages
+      .slice(0, 10)
+      .map((page: any) => ({
+        ...page,
+        journeyConversions: getPageJourneyConversions(page.page)
+      }));
   };
 
   const declinePages = getDeclinePages();
@@ -69,7 +88,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                     <TableHead>Page</TableHead>
                     <TableHead className="text-right">Traffic Change</TableHead>
                     <TableHead className="text-right">Current Position</TableHead>
-                    <TableHead className="text-right">{conversionGoal}</TableHead>
+                    <TableHead className="text-right">Journey {conversionGoal}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -85,7 +104,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                         {page.current.position}
                       </TableCell>
                       <TableCell className="text-right">
-                        {page.current.conversions || 0}
+                        {page.journeyConversions}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -106,7 +125,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                     <TableHead>Page</TableHead>
                     <TableHead className="text-right">Impressions</TableHead>
                     <TableHead className="text-right">Current CTR</TableHead>
-                    <TableHead className="text-right">{conversionGoal}</TableHead>
+                    <TableHead className="text-right">Journey {conversionGoal}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -124,7 +143,7 @@ export function KeywordGapAnalysis({ analysisData }: KeywordGapAnalysisProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {page.current.conversions || 0}
+                        {page.journeyConversions}
                       </TableCell>
                     </TableRow>
                   ))}
