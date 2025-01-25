@@ -99,40 +99,49 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
       <Card key={keyword} className="p-4">
         <h3 className="font-medium mb-4">{keyword}</h3>
         
-        {/* Top Related Queries */}
-        <div className="space-y-2 mb-4">
-          <h4 className="text-sm font-medium">Top Related Queries:</h4>
-          <ul className="text-sm space-y-2">
-            {queries.top.slice(0, 3).map((query, index) => (
-              <li key={index} className="flex justify-between items-center bg-muted p-2 rounded">
-                <span>{query.query}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {query.value}
+        {/* Related Queries Section */}
+        <div className="space-y-4">
+          {/* Top Related Queries */}
+          <div>
+            <h4 className="text-sm font-medium mb-2">Related Queries:</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {queries.top.slice(0, 3).map((query, index) => (
+                <div 
+                  key={index} 
+                  className="flex justify-between items-center bg-muted p-2 rounded"
+                >
+                  <span className="text-sm">{query.query}</span>
+                  <span className={`text-xs ${
+                    query.trend === "rising" ? "text-green-500" : 
+                    query.trend === "declining" ? "text-red-500" : 
+                    "text-gray-500"
+                  }`}>
+                    {query.trend === "rising" ? "↑" : 
+                     query.trend === "declining" ? "↓" : 
+                     "→"}
                   </span>
-                  {query.trend === "rising" && (
-                    <span className="text-xs text-green-500">↑</span>
-                  )}
-                  {query.trend === "declining" && (
-                    <span className="text-xs text-red-500">↓</span>
-                  )}
                 </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+              ))}
+            </div>
+          </div>
 
-        {/* Rising Queries */}
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium">Breakout Queries:</h4>
-          <ul className="text-sm space-y-2">
-            {queries.rising.slice(0, 2).map((query, index) => (
-              <li key={index} className="flex justify-between items-center bg-muted p-2 rounded">
-                <span>{query.query}</span>
-                <span className="text-xs text-green-500">Breakout</span>
-              </li>
-            ))}
-          </ul>
+          {/* Breakout Queries */}
+          {queries.rising.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium mb-2">Trending Queries:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {queries.rising.slice(0, 2).map((query, index) => (
+                  <div 
+                    key={index} 
+                    className="flex justify-between items-center bg-green-50 p-2 rounded border border-green-100"
+                  >
+                    <span className="text-sm">{query.query}</span>
+                    <span className="text-xs text-green-600">Breakout</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </Card>
     );
@@ -219,7 +228,7 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
             </div>
 
             {/* Keyword-specific insights */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {keywords.slice(0, 5).map(keyword => renderKeywordInsights(keyword))}
             </div>
           </div>
