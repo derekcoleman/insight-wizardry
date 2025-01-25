@@ -16,15 +16,18 @@ serve(async (req) => {
     // Analyze the provided keywords and trends data to generate insights
     const generateSeasonalPatterns = (keywords: string[]) => {
       return keywords.map(keyword => {
-        // Check if the keyword is present in trendsData
         const keywordData = trendsData?.interest_over_time?.filter(point => point[keyword]);
         if (!keywordData?.length) return null;
 
-        // Look for seasonal patterns in the data
-        const pattern = `Search interest for '${keyword}' shows ${
-          Math.random() > 0.5 ? 'higher volume during Q4' : 'consistent growth year-over-year'
-        }`;
-        return pattern;
+        const relatedQueries = trendsData?.related_queries?.[keyword];
+        if (!relatedQueries) return null;
+
+        // Use actual related queries to generate meaningful patterns
+        const topQueries = relatedQueries.top || [];
+        if (topQueries.length > 0) {
+          return `Search interest for '${keyword}' shows strong correlation with '${topQueries[0].query}', suggesting related content opportunities`;
+        }
+        return `Search interest for '${keyword}' shows consistent search patterns worth monitoring`;
       }).filter(Boolean);
     };
 
@@ -33,10 +36,10 @@ serve(async (req) => {
         const relatedQueries = trendsData?.related_queries?.[keyword];
         if (!relatedQueries) return null;
 
-        // Use rising queries to identify trending topics
+        // Use actual rising queries to identify trending topics
         const risingQueries = relatedQueries.rising || [];
         if (risingQueries.length > 0) {
-          return `Rising interest in '${risingQueries[0].query}' related to ${keyword}`;
+          return `Increasing search interest in '${risingQueries[0].query}' indicates growing demand in ${keyword} space`;
         }
         return null;
       }).filter(Boolean);
@@ -47,15 +50,15 @@ serve(async (req) => {
         const relatedQueries = trendsData?.related_queries?.[keyword];
         if (!relatedQueries) return null;
 
-        // Combine top and rising queries for recommendations
-        const allQueries = [
-          ...(relatedQueries.top || []),
-          ...(relatedQueries.rising || [])
-        ];
-
-        if (allQueries.length > 0) {
-          const topQuery = allQueries[0].query;
-          return `Create content targeting '${topQuery}' to capture growing search interest related to ${keyword}`;
+        // Use actual queries for recommendations
+        const topQueries = relatedQueries.top || [];
+        const risingQueries = relatedQueries.rising || [];
+        
+        if (topQueries.length > 0 || risingQueries.length > 0) {
+          const targetQuery = risingQueries[0]?.query || topQueries[0]?.query;
+          if (targetQuery) {
+            return `Create content exploring the relationship between '${keyword}' and '${targetQuery}' to capture growing search interest`;
+          }
         }
         return null;
       }).filter(Boolean);
