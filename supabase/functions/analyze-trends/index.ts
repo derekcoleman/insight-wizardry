@@ -22,12 +22,11 @@ serve(async (req) => {
         const relatedQueries = trendsData?.related_queries?.[keyword];
         if (!relatedQueries) return null;
 
-        // Use actual related queries to generate meaningful patterns
         const topQueries = relatedQueries.top || [];
         if (topQueries.length > 0) {
-          return `Search interest for '${keyword}' shows strong correlation with '${topQueries[0].query}', suggesting related content opportunities`;
+          return `'${keyword}' searches frequently appear alongside '${topQueries[0].query}', suggesting valuable content opportunities`;
         }
-        return `Search interest for '${keyword}' shows consistent search patterns worth monitoring`;
+        return `'${keyword}' maintains consistent search patterns worth monitoring`;
       }).filter(Boolean);
     };
 
@@ -36,10 +35,9 @@ serve(async (req) => {
         const relatedQueries = trendsData?.related_queries?.[keyword];
         if (!relatedQueries) return null;
 
-        // Use actual rising queries to identify trending topics
         const risingQueries = relatedQueries.rising || [];
         if (risingQueries.length > 0) {
-          return `Increasing search interest in '${risingQueries[0].query}' indicates growing demand in ${keyword} space`;
+          return `'${risingQueries[0].query}' is gaining significant search volume in the ${keyword} space`;
         }
         return null;
       }).filter(Boolean);
@@ -50,14 +48,13 @@ serve(async (req) => {
         const relatedQueries = trendsData?.related_queries?.[keyword];
         if (!relatedQueries) return null;
 
-        // Use actual queries for recommendations
         const topQueries = relatedQueries.top || [];
         const risingQueries = relatedQueries.rising || [];
         
         if (topQueries.length > 0 || risingQueries.length > 0) {
           const targetQuery = risingQueries[0]?.query || topQueries[0]?.query;
           if (targetQuery) {
-            return `Create content exploring the relationship between '${keyword}' and '${targetQuery}' to capture growing search interest`;
+            return `Create content that explores '${targetQuery}' to capture growing interest in the ${keyword} market`;
           }
         }
         return null;
