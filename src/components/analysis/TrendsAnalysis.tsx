@@ -22,6 +22,7 @@ interface TrendsAnalysisProps {
 interface RelatedQuery {
   query: string;
   value: number;
+  trend: "rising" | "steady" | "declining";
 }
 
 interface TrendsData {
@@ -30,7 +31,11 @@ interface TrendsData {
     top: RelatedQuery[];
     rising: RelatedQuery[];
   }>;
-  analysis?: string;
+  analysis?: {
+    seasonal_patterns: string[];
+    trending_topics: string[];
+    keyword_recommendations: string[];
+  };
 }
 
 export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
@@ -50,14 +55,12 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
 
     setIsLoading(true);
     try {
-      // First get trends data
       const { data: trendsResult, error: trendsError } = await supabase.functions.invoke('google-trends', {
         body: { keywords: keywords.slice(0, 5) }
       });
 
       if (trendsError) throw trendsError;
 
-      // Then get AI analysis of the trends
       const { data: analysisResult, error: analysisError } = await supabase.functions.invoke('analyze-trends', {
         body: { 
           keywords,
@@ -88,22 +91,50 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
     }
   };
 
-  const renderRelatedQueries = (keyword: string) => {
+  const renderKeywordInsights = (keyword: string) => {
     const queries = trendsData?.related_queries[keyword];
     if (!queries) return null;
 
     return (
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium">Top Related Queries:</h4>
-        <ul className="text-sm space-y-1">
-          {queries.top.slice(0, 3).map((query, index) => (
-            <li key={index} className="flex justify-between">
-              <span>{query.query}</span>
-              <span className="text-muted-foreground">{query.value}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <Card key={keyword} className="p-4">
+        <h3 className="font-medium mb-4">{keyword}</h3>
+        
+        {/* Top Related Queries */}
+        <div className="space-y-2 mb-4">
+          <h4 className="text-sm font-medium">Top Related Queries:</h4>
+          <ul className="text-sm space-y-2">
+            {queries.top.slice(0, 3).map((query, index) => (
+              <li key={index} className="flex justify-between items-center bg-muted p-2 rounded">
+                <span>{query.query}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {query.value}
+                  </span>
+                  {query.trend === "rising" && (
+                    <span className="text-xs text-green-500">↑</span>
+                  )}
+                  {query.trend === "declining" && (
+                    <span className="text-xs text-red-500">↓</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Rising Queries */}
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium">Breakout Queries:</h4>
+          <ul className="text-sm space-y-2">
+            {queries.rising.slice(0, 2).map((query, index) => (
+              <li key={index} className="flex justify-between items-center bg-muted p-2 rounded">
+                <span>{query.query}</span>
+                <span className="text-xs text-green-500">Breakout</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Card>
     );
   };
 
@@ -111,7 +142,7 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
     <Card className="mt-6">
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle>Google Trends Analysis</CardTitle>
+          <CardTitle>Search Trends Analysis</CardTitle>
           <Button
             onClick={analyzeTrends}
             disabled={isLoading}
@@ -125,12 +156,48 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
       <CardContent>
         {trendsData && (
           <div className="space-y-6">
+            {/* Key Insights */}
             {trendsData.analysis && (
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="text-sm">{trendsData.analysis}</p>
+              <div className="space-y-4">
+                {/* Seasonal Patterns */}
+                {trendsData.analysis.seasonal_patterns.length > 0 && (
+                  <Card className="p-4">
+                    <h3 className="font-medium mb-2">Seasonal Patterns</h3>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {trendsData.analysis.seasonal_patterns.map((pattern, i) => (
+                        <li key={i} className="text-sm">{pattern}</li>
+                      ))}
+                    </ul>
+                  </Card>
+                )}
+
+                {/* Trending Topics */}
+                {trendsData.analysis.trending_topics.length > 0 && (
+                  <Card className="p-4">
+                    <h3 className="font-medium mb-2">Trending Topics</h3>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {trendsData.analysis.trending_topics.map((topic, i) => (
+                        <li key={i} className="text-sm">{topic}</li>
+                      ))}
+                    </ul>
+                  </Card>
+                )}
+
+                {/* Recommendations */}
+                {trendsData.analysis.keyword_recommendations.length > 0 && (
+                  <Card className="p-4">
+                    <h3 className="font-medium mb-2">Content Recommendations</h3>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {trendsData.analysis.keyword_recommendations.map((rec, i) => (
+                        <li key={i} className="text-sm">{rec}</li>
+                      ))}
+                    </ul>
+                  </Card>
+                )}
               </div>
             )}
             
+            {/* Search Interest Over Time */}
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trendsData.interest_over_time}>
@@ -151,20 +218,16 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
               </ResponsiveContainer>
             </div>
 
+            {/* Keyword-specific insights */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {keywords.slice(0, 5).map(keyword => (
-                <Card key={keyword} className="p-4">
-                  <h3 className="font-medium mb-3">{keyword}</h3>
-                  {renderRelatedQueries(keyword)}
-                </Card>
-              ))}
+              {keywords.slice(0, 5).map(keyword => renderKeywordInsights(keyword))}
             </div>
           </div>
         )}
 
         {!trendsData && !isLoading && (
           <p className="text-muted-foreground">
-            Click "Analyze Trends" to see Google Trends data for your keywords.
+            Click "Analyze Trends" to see search trends and related queries for your keywords.
           </p>
         )}
       </CardContent>
