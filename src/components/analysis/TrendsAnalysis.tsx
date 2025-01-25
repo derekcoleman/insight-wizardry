@@ -19,9 +19,23 @@ interface TrendsAnalysisProps {
   keywords: string[];
 }
 
+interface RelatedQuery {
+  query: string;
+  value: number;
+}
+
+interface TrendsData {
+  interest_over_time: any[];
+  related_queries: Record<string, {
+    top: RelatedQuery[];
+    rising: RelatedQuery[];
+  }>;
+  analysis?: string;
+}
+
 export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [trendsData, setTrendsData] = useState<any>(null);
+  const [trendsData, setTrendsData] = useState<TrendsData | null>(null);
   const { toast } = useToast();
 
   const analyzeTrends = async () => {
@@ -36,12 +50,27 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('google-trends', {
-        body: { keywords: keywords.slice(0, 5) } // Google Trends API limits to 5 keywords
+      // First get trends data
+      const { data: trendsResult, error: trendsError } = await supabase.functions.invoke('google-trends', {
+        body: { keywords: keywords.slice(0, 5) }
       });
 
-      if (error) throw error;
-      setTrendsData(data);
+      if (trendsError) throw trendsError;
+
+      // Then get AI analysis of the trends
+      const { data: analysisResult, error: analysisError } = await supabase.functions.invoke('analyze-trends', {
+        body: { 
+          keywords,
+          trendsData: trendsResult
+        }
+      });
+
+      if (analysisError) throw analysisError;
+
+      setTrendsData({
+        ...trendsResult,
+        analysis: analysisResult?.analysis
+      });
       
       toast({
         title: "Success",
@@ -57,6 +86,25 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const renderRelatedQueries = (keyword: string) => {
+    const queries = trendsData?.related_queries[keyword];
+    if (!queries) return null;
+
+    return (
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium">Top Related Queries:</h4>
+        <ul className="text-sm space-y-1">
+          {queries.top.slice(0, 3).map((query, index) => (
+            <li key={index} className="flex justify-between">
+              <span>{query.query}</span>
+              <span className="text-muted-foreground">{query.value}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   };
 
   return (
@@ -77,8 +125,13 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
       <CardContent>
         {trendsData && (
           <div className="space-y-6">
-            <div className="h-[400px]">
-              <h3 className="text-lg font-semibold mb-4">Interest Over Time</h3>
+            {trendsData.analysis && (
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="text-sm">{trendsData.analysis}</p>
+              </div>
+            )}
+            
+            <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trendsData.interest_over_time}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -98,67 +151,12 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
               </ResponsiveContainer>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {keywords.slice(0, 5).map((keyword) => (
-                <div key={keyword} className="space-y-4">
-                  <h4 className="text-lg font-semibold">{keyword}</h4>
-                  
-                  {trendsData.related_queries[keyword] && (
-                    <div>
-                      <h5 className="font-medium mb-2">Related Queries</h5>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <h6 className="text-sm font-medium mb-1">Top</h6>
-                          <ul className="text-sm space-y-1">
-                            {trendsData.related_queries[keyword].top.slice(0, 5).map((query: any) => (
-                              <li key={query.query}>
-                                {query.query} ({query.value})
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <h6 className="text-sm font-medium mb-1">Rising</h6>
-                          <ul className="text-sm space-y-1">
-                            {trendsData.related_queries[keyword].rising.slice(0, 5).map((query: any) => (
-                              <li key={query.query}>
-                                {query.query} ({query.value}%)
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {trendsData.related_topics[keyword] && (
-                    <div>
-                      <h5 className="font-medium mb-2">Related Topics</h5>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <h6 className="text-sm font-medium mb-1">Top</h6>
-                          <ul className="text-sm space-y-1">
-                            {trendsData.related_topics[keyword].top.slice(0, 5).map((topic: any) => (
-                              <li key={topic.topic_title}>
-                                {topic.topic_title} ({topic.value})
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <h6 className="text-sm font-medium mb-1">Rising</h6>
-                          <ul className="text-sm space-y-1">
-                            {trendsData.related_topics[keyword].rising.slice(0, 5).map((topic: any) => (
-                              <li key={topic.topic_title}>
-                                {topic.topic_title} ({topic.value}%)
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {keywords.slice(0, 5).map(keyword => (
+                <Card key={keyword} className="p-4">
+                  <h3 className="font-medium mb-3">{keyword}</h3>
+                  {renderRelatedQueries(keyword)}
+                </Card>
               ))}
             </div>
           </div>
