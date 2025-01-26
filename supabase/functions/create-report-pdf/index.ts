@@ -74,19 +74,29 @@ serve(async (req) => {
           formatChange(data.changes?.revenue)]
       ]
 
-      // Call autoTable directly as a function
-      autoTable(doc, {
-        startY: yPosition,
-        head: [metrics[0]],
-        body: metrics.slice(1),
-        theme: 'striped',
-        headStyles: { fillColor: [66, 139, 202] },
-        margin: { left: 15 }
-      })
+      // Initialize autoTable plugin
+      try {
+        (autoTable as any)(doc, {
+          startY: yPosition,
+          head: [metrics[0]],
+          body: metrics.slice(1),
+          theme: 'striped',
+          headStyles: { fillColor: [66, 139, 202] },
+          margin: { left: 15 }
+        })
 
-      // Get the last table's end position and update yPosition
-      const lastTable = (doc as any).lastAutoTable
-      yPosition = lastTable.finalY + 15
+        // Get the last table's end position
+        const lastTable = (doc as any).lastAutoTable
+        yPosition = lastTable.finalY + 15
+      } catch (error) {
+        console.error('Error generating table:', error)
+        // Fallback to basic text if table generation fails
+        metrics.forEach(row => {
+          doc.text(row.join(' | '), 15, yPosition)
+          yPosition += 7
+        })
+        yPosition += 8
+      }
 
       // Add summary if available
       if (data.summary) {
