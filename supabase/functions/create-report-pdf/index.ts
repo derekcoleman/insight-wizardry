@@ -30,6 +30,20 @@ serve(async (req) => {
     doc.text(`Generated on ${new Date().toLocaleDateString()}`, 15, yPosition)
     yPosition += 10
 
+    // Add insights if available - moved to top of document
+    if (insights) {
+      console.log('Adding insights to PDF')
+      checkPageBreak(40)
+      doc.setFontSize(16)
+      doc.text('AI Analysis', 15, yPosition)
+      yPosition += 10
+
+      doc.setFontSize(12)
+      const insightLines = doc.splitTextToSize(insights, 180)
+      doc.text(insightLines, 15, yPosition)
+      yPosition += (insightLines.length * 7) + 10
+    }
+
     // Helper function to format changes
     const formatChange = (change: number | undefined): string => {
       if (change === undefined) return 'N/A'
@@ -184,19 +198,6 @@ serve(async (req) => {
       addAnalysisSection('Monthly Analysis', report.monthly_analysis)
       addAnalysisSection('Quarterly Analysis', report.quarterly_analysis)
       addAnalysisSection('Year to Date Analysis', report.ytd_analysis)
-    }
-
-    // Add insights if available
-    if (insights) {
-      console.log('Adding insights to PDF')
-      checkPageBreak(40)
-      doc.setFontSize(16)
-      doc.text('AI Analysis', 15, yPosition)
-      yPosition += 10
-
-      doc.setFontSize(12)
-      const insightLines = doc.splitTextToSize(insights, 180)
-      doc.text(insightLines, 15, yPosition)
     }
 
     // Generate PDF
