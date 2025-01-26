@@ -15,17 +15,18 @@ serve(async (req) => {
 
   try {
     const { report, insights } = await req.json()
+    console.log('Generating PDF with report data:', { hasReport: !!report, hasInsights: !!insights })
 
     // Create PDF document
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
-    });
+    })
 
-    // Add autoTable plugin to doc
-    // @ts-ignore
-    doc.autoTable = autoTable;
+    // Initialize autoTable plugin
+    const autoTablePlugin = autoTable.default || autoTable
+    doc.autoTable = autoTablePlugin
 
     // Add title
     doc.setFontSize(20)
@@ -53,6 +54,7 @@ serve(async (req) => {
     // Add analysis sections
     const addAnalysisSection = (title: string, data: any) => {
       if (!data) return
+      console.log(`Adding analysis section: ${title}`)
 
       // Add section title
       doc.setFontSize(16)
@@ -76,7 +78,6 @@ serve(async (req) => {
           formatChange(data.changes?.revenue)]
       ]
 
-      // @ts-ignore
       doc.autoTable({
         startY: yPosition,
         head: [metrics[0]],
@@ -87,8 +88,7 @@ serve(async (req) => {
       })
 
       // Update yPosition after table
-      // @ts-ignore
-      yPosition = doc.lastAutoTable.finalY + 15
+      yPosition = (doc as any).lastAutoTable.finalY + 15
 
       // Add summary if available
       if (data.summary) {
@@ -101,6 +101,7 @@ serve(async (req) => {
 
     // Add each analysis section
     if (report) {
+      console.log('Adding analysis sections to PDF')
       addAnalysisSection('Weekly Analysis', report.weekly_analysis)
       addAnalysisSection('Monthly Analysis', report.monthly_analysis)
       addAnalysisSection('Quarterly Analysis', report.quarterly_analysis)
@@ -109,6 +110,7 @@ serve(async (req) => {
 
     // Add insights if available
     if (insights) {
+      console.log('Adding insights to PDF')
       doc.setFontSize(16)
       doc.text('AI Analysis', 15, yPosition)
       yPosition += 10
@@ -119,6 +121,7 @@ serve(async (req) => {
     }
 
     // Generate PDF
+    console.log('Generating final PDF output')
     const pdfBytes = doc.output('arraybuffer')
 
     return new Response(

@@ -2,6 +2,6 @@
   "imports": {
     "https://deno.land/std@0.168.0/http/server.ts": "https://deno.land/std@0.168.0/http/server.ts",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.1"
+    "jspdf-autotable": "https://cdn.skypack.dev/jspdf-autotable@3.5.28"
   }
 }
