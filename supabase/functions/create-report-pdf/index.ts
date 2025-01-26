@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { PDFDocument, rgb, StandardFonts } from 'https://cdn.skypack.dev/pdf-lib'
+import { jsPDF } from 'jspdf'
+import 'jspdf-autotable'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,238 +13,201 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Received request to generate PDF')
-    
-    let body
-    try {
-      body = await req.json()
-      console.log('Request body:', JSON.stringify(body))
-    } catch (error) {
-      console.error('Error parsing request body:', error)
-      throw new Error('Invalid JSON in request body')
+    const { report, insights } = await req.json()
+    console.log('Generating PDF with report data:', { hasReport: !!report, hasInsights: !!insights })
+
+    // Create PDF document
+    const doc = new jsPDF()
+
+    let yPosition = 20
+
+    // Helper function to format changes
+    const formatChange = (change: number | undefined): string => {
+      if (change === undefined) return 'N/A'
+      return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`
     }
 
-    const { report, insights } = body
-    
-    if (!report) {
-      console.error('No report data provided')
-      throw new Error('No report data provided')
-    }
-
-    console.log('Creating PDF document...')
-    const pdfDoc = await PDFDocument.create()
-    
-    // Add fonts
-    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
-    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-    const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
-    
-    let currentPage = pdfDoc.addPage([595.276, 841.890]) // A4 size
-    const { width, height } = currentPage.getSize()
-    
-    // Colors
-    const black = rgb(0, 0, 0)
-    const red = rgb(0.8, 0, 0)
-    const green = rgb(0, 0.5, 0)
-    const gray = rgb(0.5, 0.5, 0.5)
-    
-    let yOffset = height - 50 // Start from top with margin
-    const margin = 50
-    const lineHeight = 14 // Reduced line height for better spacing
-    const pageBreakThreshold = margin + 50 // Minimum space needed before starting new content
-    
-    // Helper function to sanitize text for PDF
-    const sanitizeText = (text: string) => {
-      if (!text) return '';
-      return text.replace(/[\n\r]/g, ' ').trim()
+    // Helper function to format numbers
+    const formatNumber = (num: number | undefined): string => {
+      if (num === undefined) return 'N/A'
+      return num.toLocaleString()
     }
 
     // Helper function to check if we need a new page
-    const checkNewPage = (neededSpace: number) => {
-      if (yOffset - neededSpace < pageBreakThreshold) {
-        currentPage = pdfDoc.addPage([595.276, 841.890])
-        yOffset = height - 50
-        return true
+    const checkPageBreak = (requiredSpace: number) => {
+      if (yPosition + requiredSpace > 280) {
+        doc.addPage()
+        yPosition = 20
       }
-      return false
     }
-    
-    // Helper function to write text with word wrap
-    const writeText = (text: string, options: {
-      font?: typeof helveticaFont,
-      size?: number,
-      color?: typeof black,
-      indent?: number,
-      maxWidth?: number,
-      addSpacing?: boolean
-    } = {}) => {
-      const {
-        font = helveticaFont,
-        size = 11,
-        color = black,
-        indent = 0,
-        maxWidth = width - (margin * 2),
-        addSpacing = true
-      } = options
 
-      const sanitizedText = sanitizeText(text)
-      if (!sanitizedText) return;
-      
-      const words = sanitizedText.split(' ')
-      let line = ''
-      let estimatedLines = Math.ceil(font.widthOfTextAtSize(sanitizedText, size) / maxWidth)
-      
-      // Check if we need a new page
-      checkNewPage(estimatedLines * lineHeight)
-      
-      for (const word of words) {
-        const testLine = line + (line ? ' ' : '') + word
-        const testWidth = font.widthOfTextAtSize(testLine, size)
-        
-        if (testWidth > maxWidth) {
-          if (line) {
-            if (checkNewPage(lineHeight)) {
-              // Reset line if we're starting a new page
-              line = word
-              continue
-            }
-            currentPage.drawText(line, {
-              x: margin + indent,
-              y: yOffset,
-              size,
-              font,
-              color
-            })
-            yOffset -= lineHeight
-          }
-          line = word
-        } else {
-          line = testLine
-        }
-      }
-      
-      if (line) {
-        currentPage.drawText(line, {
-          x: margin + indent,
-          y: yOffset,
-          size,
-          font,
-          color
-        })
-        yOffset -= lineHeight
-      }
-      
-      if (addSpacing) {
-        yOffset -= 8 // Add some padding between paragraphs
-      }
-    }
-    
-    // Title and Date
-    writeText('Analytics Report', { font: helveticaBold, size: 24 })
-    writeText(new Date().toLocaleDateString(), { size: 12, color: gray })
-    yOffset -= 20
-    
-    // Key Insights
+    // Add title
+    doc.setFontSize(20)
+    doc.text('Analytics Report', 15, yPosition)
+    yPosition += 10
+
+    // Add date
+    doc.setFontSize(12)
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 15, yPosition)
+    yPosition += 10
+
+    // Add insights if available - moved to top of document
     if (insights) {
-      writeText('Key Insights', { font: helveticaBold, size: 18 })
-      yOffset -= 10
-      writeText(insights, { size: 11 })
-      yOffset -= 20
+      console.log('Adding insights to PDF')
+      checkPageBreak(40)
+      doc.setFontSize(16)
+      doc.text('AI Analysis', 15, yPosition)
+      yPosition += 10
+
+      doc.setFontSize(12)
+      const insightLines = doc.splitTextToSize(insights, 180)
+      doc.text(insightLines, 15, yPosition)
+      yPosition += (insightLines.length * 7) + 10
     }
-    
-    // Analysis Sections
-    const writeSectionData = (title: string, data: any) => {
-      if (!data?.current) return
-      
-      checkNewPage(100) // Estimate space needed for section header and initial content
-      
-      writeText(title, { font: helveticaBold, size: 16 })
-      yOffset -= 10
-      
-      if (data.period) {
-        writeText(`Period: ${data.period}`, { font: helveticaOblique, size: 11, color: gray })
-        yOffset -= 10
-      }
-      
-      // Metrics table
+
+    // Add analysis sections
+    const addAnalysisSection = (title: string, data: any) => {
+      if (!data) return
+      console.log(`Adding analysis section: ${title}`)
+
+      // Check if we need a new page for the section title
+      checkPageBreak(50)
+
+      // Add section title
+      doc.setFontSize(16)
+      doc.text(title, 15, yPosition)
+      yPosition += 10
+
+      // Add metrics table
       const metrics = [
-        {
-          label: 'Sessions',
-          current: data.current.sessions?.toLocaleString() ?? '0',
-          change: data.changes?.sessions
-        },
-        {
-          label: 'Conversions',
-          current: data.current.conversions?.toLocaleString() ?? '0',
-          change: data.changes?.conversions
-        },
-        {
-          label: 'Revenue',
-          current: data.current.revenue ? `$${data.current.revenue.toLocaleString()}` : '$0',
-          change: data.changes?.revenue
-        }
+        ['Metric', 'Current', 'Previous', 'Change'],
+        ['Sessions', 
+          formatNumber(data.current?.sessions),
+          formatNumber(data.previous?.sessions),
+          formatChange(data.changes?.sessions)],
+        ['Conversions',
+          formatNumber(data.current?.conversions),
+          formatNumber(data.previous?.conversions),
+          formatChange(data.changes?.conversions)],
+        ['Revenue ($)',
+          formatNumber(data.current?.revenue),
+          formatNumber(data.previous?.revenue),
+          formatChange(data.changes?.revenue)]
       ]
-      
-      metrics.forEach(metric => {
-        if (metric.current !== '0' && metric.current !== '$0') {
-          checkNewPage(lineHeight * 3) // Space for metric and its change
-          
-          writeText(`${metric.label}: ${metric.current}`, { size: 11, addSpacing: false })
-          if (metric.change !== undefined) {
-            const changeColor = metric.change >= 0 ? green : red
-            const changeSymbol = metric.change >= 0 ? '+' : ''
-            writeText(`Change: ${changeSymbol}${metric.change.toFixed(1)}%`, {
-              size: 11,
-              color: changeColor,
-              indent: 20,
-              addSpacing: false
-            })
+
+      try {
+        // @ts-ignore
+        doc.autoTable({
+          startY: yPosition,
+          head: [metrics[0]],
+          body: metrics.slice(1),
+          theme: 'striped',
+          headStyles: { fillColor: [66, 139, 202] },
+          margin: { left: 15 },
+          didDrawPage: (data: any) => {
+            yPosition = data.cursor.y + 15
           }
-          yOffset -= 8
-        }
-      })
-      
-      yOffset -= 12
-      
+        })
+      } catch (error) {
+        console.error('Error generating table:', error)
+        metrics.forEach(row => {
+          checkPageBreak(7)
+          doc.text(row.join(' | '), 15, yPosition)
+          yPosition += 7
+        })
+        yPosition += 8
+      }
+
       // Add summary if available
       if (data.summary) {
-        checkNewPage(60) // Estimate space needed for summary
-        writeText('Summary:', { font: helveticaBold, size: 11 })
-        writeText(sanitizeText(data.summary), { size: 11 })
-        yOffset -= 10
+        checkPageBreak(20)
+        doc.setFontSize(12)
+        const summaryLines = doc.splitTextToSize(data.summary, 180)
+        doc.text(summaryLines, 15, yPosition)
+        yPosition += (summaryLines.length * 7) + 10
+      }
+
+      // Add search terms if available
+      if (data.searchTerms && data.searchTerms.length > 0) {
+        checkPageBreak(40)
+        doc.setFontSize(14)
+        doc.text('Top Search Terms', 15, yPosition)
+        yPosition += 10
+
+        try {
+          const searchTermsData = data.searchTerms.slice(0, 10).map((term: any) => [
+            term.term,
+            term.current.clicks?.toString() || 'N/A',
+            term.current.impressions?.toString() || 'N/A',
+            term.current.ctr ? `${term.current.ctr}%` : 'N/A'
+          ])
+
+          // @ts-ignore
+          doc.autoTable({
+            startY: yPosition,
+            head: [['Term', 'Clicks', 'Impressions', 'CTR']],
+            body: searchTermsData,
+            theme: 'striped',
+            headStyles: { fillColor: [66, 139, 202] },
+            margin: { left: 15 },
+            didDrawPage: (data: any) => {
+              yPosition = data.cursor.y + 15
+            }
+          })
+        } catch (error) {
+          console.error('Error generating search terms table:', error)
+        }
+      }
+
+      // Add top pages if available
+      if (data.pages && data.pages.length > 0) {
+        checkPageBreak(40)
+        doc.setFontSize(14)
+        doc.text('Top Pages', 15, yPosition)
+        yPosition += 10
+
+        try {
+          const pagesData = data.pages.slice(0, 10).map((page: any) => [
+            page.page,
+            page.current.clicks?.toString() || 'N/A',
+            page.current.impressions?.toString() || 'N/A',
+            page.current.ctr ? `${page.current.ctr}%` : 'N/A'
+          ])
+
+          // @ts-ignore
+          doc.autoTable({
+            startY: yPosition,
+            head: [['Page', 'Clicks', 'Impressions', 'CTR']],
+            body: pagesData,
+            theme: 'striped',
+            headStyles: { fillColor: [66, 139, 202] },
+            margin: { left: 15 },
+            didDrawPage: (data: any) => {
+              yPosition = data.cursor.y + 15
+            }
+          })
+        } catch (error) {
+          console.error('Error generating pages table:', error)
+        }
       }
     }
-    
-    // Write each analysis section
-    if (report.weekly_analysis) {
-      writeSectionData('Weekly Analysis', report.weekly_analysis)
-    }
-    if (report.monthly_analysis) {
-      writeSectionData('Monthly Analysis', report.monthly_analysis)
-    }
-    if (report.quarterly_analysis) {
-      writeSectionData('Quarterly Analysis', report.quarterly_analysis)
-    }
-    if (report.ytd_analysis) {
-      writeSectionData('Year to Date Analysis', report.ytd_analysis)
-    }
-    if (report.last28_yoy_analysis) {
-      writeSectionData('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis)
-    }
-    
-    // Generate PDF
-    console.log('Generating PDF bytes...')
-    const pdfBytes = await pdfDoc.save()
-    
-    // Convert to base64
-    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes))
-    const pdfUrl = `data:application/pdf;base64,${pdfBase64}`
 
-    console.log('PDF generated successfully')
+    // Add each analysis section
+    if (report) {
+      console.log('Adding analysis sections to PDF')
+      addAnalysisSection('Weekly Analysis', report.weekly_analysis)
+      addAnalysisSection('Monthly Analysis', report.monthly_analysis)
+      addAnalysisSection('Quarterly Analysis', report.quarterly_analysis)
+      addAnalysisSection('Year to Date Analysis', report.ytd_analysis)
+    }
+
+    // Generate PDF
+    console.log('Generating final PDF output')
+    const pdfBytes = doc.output('arraybuffer')
+
     return new Response(
       JSON.stringify({ 
-        pdfUrl,
-        success: true 
+        pdfUrl: `data:application/pdf;base64,${btoa(String.fromCharCode(...new Uint8Array(pdfBytes)))}` 
       }),
       { 
         headers: { 
@@ -255,16 +219,13 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error generating PDF:', error)
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Failed to generate PDF',
-        success: false
-      }),
+      JSON.stringify({ error: `Error generating PDF: ${error.message}` }),
       { 
-        status: 500, 
+        status: 500,
         headers: { 
           ...corsHeaders,
-          'Content-Type': 'application/json' 
-        } 
+          'Content-Type': 'application/json'
+        }
       }
     )
   }
