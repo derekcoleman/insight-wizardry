@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { jsPDF } from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,6 +37,10 @@ serve(async (req) => {
       unit: 'mm',
       format: 'a4'
     });
+
+    // Add jsPDF-AutoTable plugin
+    // @ts-ignore
+    doc.autoTable = autoTable;
 
     // Add title
     doc.setFontSize(20)
@@ -91,7 +95,7 @@ serve(async (req) => {
          formatChange(data.changes?.revenue)]
       ]
 
-      // @ts-ignore - autoTable is added globally by the import
+      // @ts-ignore
       doc.autoTable({
         startY: yPosition,
         head: [metrics[0]],
@@ -102,7 +106,8 @@ serve(async (req) => {
         margin: { left: 15 }
       })
 
-      // @ts-ignore - lastAutoTable is added by autoTable
+      // Update yPosition after table
+      // @ts-ignore
       yPosition = doc.lastAutoTable.finalY + 15
 
       // Add summary if available
