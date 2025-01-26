@@ -6,6 +6,124 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper function to create a table
+const createTable = (rows: string[][], startIndex: number) => {
+  const requests = [];
+  
+  // Calculate table dimensions
+  const numRows = rows.length;
+  const numCols = rows[0]?.length || 0;
+  
+  // Insert a blank line before table
+  requests.push({
+    insertText: {
+      location: { index: startIndex },
+      text: "\n"
+    }
+  });
+  
+  // Create table
+  requests.push({
+    insertTable: {
+      location: { index: startIndex + 1 },
+      rows: numRows,
+      columns: numCols
+    }
+  });
+  
+  // Fill table cells
+  let currentIndex = startIndex + 1;
+  rows.forEach((row, rowIndex) => {
+    row.forEach((cell, colIndex) => {
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: cell
+        }
+      });
+      
+      // Apply header formatting to first row
+      if (rowIndex === 0) {
+        requests.push({
+          updateTextStyle: {
+            range: {
+              startIndex: currentIndex,
+              endIndex: currentIndex + cell.length
+            },
+            textStyle: {
+              bold: true,
+              backgroundColor: { color: { rgbColor: { red: 0.9, green: 0.9, blue: 0.9 } } }
+            },
+            fields: "bold,backgroundColor"
+          }
+        });
+      }
+      
+      currentIndex += cell.length + 1;
+    });
+  });
+  
+  // Apply table styling
+  requests.push({
+    updateTableCellStyle: {
+      tableRange: {
+        tableCells: {
+          rowSpan: numRows,
+          columnSpan: numCols
+        }
+      },
+      tableCellStyle: {
+        backgroundColor: { color: { rgbColor: { red: 1, green: 1, blue: 1 } } },
+        borderBottom: {
+          color: { color: { rgbColor: { red: 0.8, green: 0.8, blue: 0.8 } } },
+          width: { magnitude: 1, unit: "PT" },
+          dashStyle: "SOLID"
+        },
+        borderRight: {
+          color: { color: { rgbColor: { red: 0.8, green: 0.8, blue: 0.8 } } },
+          width: { magnitude: 1, unit: "PT" },
+          dashStyle: "SOLID"
+        },
+        paddingBottom: { magnitude: 5, unit: "PT" },
+        paddingTop: { magnitude: 5, unit: "PT" },
+        paddingLeft: { magnitude: 5, unit: "PT" },
+        paddingRight: { magnitude: 5, unit: "PT" }
+      },
+      fields: "*"
+    }
+  });
+  
+  return { requests, endIndex: currentIndex };
+};
+
+// Helper function to create a section heading
+const createHeading = (text: string, level: number, startIndex: number) => {
+  const requests = [
+    {
+      insertText: {
+        location: { index: startIndex },
+        text: `${text}\n`
+      }
+    },
+    {
+      updateParagraphStyle: {
+        range: {
+          startIndex: startIndex,
+          endIndex: startIndex + text.length
+        },
+        paragraphStyle: {
+          namedStyleType: `HEADING_${level}`,
+          spaceAbove: { magnitude: 20, unit: "PT" },
+          spaceBelow: { magnitude: 10, unit: "PT" }
+        },
+        fields: "namedStyleType,spaceAbove,spaceBelow"
+      }
+    }
+  ];
+  
+  return { requests, endIndex: startIndex + text.length + 1 };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -34,7 +152,7 @@ serve(async (req) => {
     const docs = google.docs({ version: 'v1', auth });
     const drive = google.drive({ version: 'v3', auth });
 
-    console.log('Creating new document...');
+    // Create new document
     const document = await docs.documents.create({
       requestBody: {
         title: `Analytics Report - ${new Date().toLocaleDateString()}`,
@@ -46,7 +164,7 @@ serve(async (req) => {
       throw new Error('Failed to create document');
     }
 
-    console.log('Setting document permissions...');
+    // Set document permissions
     await drive.permissions.create({
       fileId: docId,
       requestBody: {
@@ -55,285 +173,228 @@ serve(async (req) => {
       },
     });
 
-    // Create document content
-    const requests = [];
     let currentIndex = 1;
+    const requests = [];
 
     // Add title
+    const titleSection = createHeading('Analytics Report', 1, currentIndex);
+    requests.push(...titleSection.requests);
+    currentIndex = titleSection.endIndex;
+
+    // Add date
     requests.push({
       insertText: {
         location: { index: currentIndex },
-        text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`
+        text: `${new Date().toLocaleDateString()}\n\n`
       }
     });
+    currentIndex += new Date().toLocaleDateString().length + 2;
 
-    // Format title
-    requests.push({
-      updateParagraphStyle: {
-        range: {
-          startIndex: currentIndex,
-          endIndex: currentIndex + "Analytics Report".length
-        },
-        paragraphStyle: {
-          namedStyleType: "HEADING_1",
-          alignment: "CENTER"
-        },
-        fields: "namedStyleType,alignment"
-      }
-    });
-
-    currentIndex += `Analytics Report\n${new Date().toLocaleDateString()}\n\n`.length;
-
-    // Add insights if available
+    // Add AI Analysis section if available
     if (insights) {
+      const insightsHeading = createHeading('AI Analysis', 2, currentIndex);
+      requests.push(...insightsHeading.requests);
+      currentIndex = insightsHeading.endIndex;
+
       requests.push({
         insertText: {
           location: { index: currentIndex },
-          text: `AI Analysis\n\n${insights}\n\n`
+          text: `${insights}\n\n`
         }
       });
-
-      // Format insights heading
-      requests.push({
-        updateParagraphStyle: {
-          range: {
-            startIndex: currentIndex,
-            endIndex: currentIndex + "AI Analysis".length
-          },
-          paragraphStyle: {
-            namedStyleType: "HEADING_2"
-          },
-          fields: "namedStyleType"
-        }
-      });
-
-      currentIndex += `AI Analysis\n\n${insights}\n\n`.length;
+      currentIndex += insights.length + 2;
     }
 
-    // Helper function to create a metrics section
-    const createMetricsSection = (title: string, data: any) => {
-      if (!data?.current) return [];
+    // Helper function to format metrics data for table
+    const formatMetricsData = (data: any) => {
+      if (!data?.current) return null;
       
-      const sectionRequests = [];
+      const rows = [['Metric', 'Current Value', 'Previous Value', 'Change']];
       
-      // Add section title
-      sectionRequests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: `${title}\n`
-        }
-      });
-
-      // Format section title
-      sectionRequests.push({
-        updateParagraphStyle: {
-          range: {
-            startIndex: currentIndex,
-            endIndex: currentIndex + title.length
-          },
-          paragraphStyle: {
-            namedStyleType: "HEADING_2"
-          },
-          fields: "namedStyleType"
-        }
-      });
-
-      currentIndex += title.length + 1;
-
-      // Add period if available
-      if (data.period) {
-        const periodText = `Period: ${data.period}\n\n`;
-        sectionRequests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: periodText
-          }
-        });
-        currentIndex += periodText.length;
-      }
-
-      // Add summary text if available
-      if (data.summary) {
-        const summaryText = `${data.summary}\n\n`;
-        sectionRequests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: summaryText
-          }
-        });
-        currentIndex += summaryText.length;
-      }
-
-      // Create metrics table
-      const metrics = [];
-      
-      // Add traffic metrics if available
+      // Add traffic metrics
       if (data.current.sessions !== undefined) {
-        metrics.push(`Sessions\t${data.current.sessions}\t${data.previous.sessions}\t${data.changes.sessions.toFixed(1)}%`);
+        rows.push([
+          'Sessions',
+          data.current.sessions.toString(),
+          data.previous.sessions.toString(),
+          `${data.changes.sessions.toFixed(1)}%`
+        ]);
       }
       
-      // Add conversion metrics if available
+      // Add conversion metrics
       if (data.current.conversions !== undefined) {
         const conversionType = data.current.conversionGoal || 'Total Conversions';
-        metrics.push(`Conversions (${conversionType})\t${data.current.conversions}\t${data.previous.conversions}\t${data.changes.conversions.toFixed(1)}%`);
+        rows.push([
+          `Conversions (${conversionType})`,
+          data.current.conversions.toString(),
+          data.previous.conversions.toString(),
+          `${data.changes.conversions.toFixed(1)}%`
+        ]);
       }
       
-      // Add revenue metrics if available
+      // Add revenue metrics
       if (data.current.revenue !== undefined && data.current.revenue > 0) {
-        metrics.push(`Revenue\t$${data.current.revenue}\t$${data.previous.revenue}\t${data.changes.revenue.toFixed(1)}%`);
+        rows.push([
+          'Revenue',
+          `$${data.current.revenue}`,
+          `$${data.previous.revenue}`,
+          `${data.changes.revenue.toFixed(1)}%`
+        ]);
       }
       
-      // Add Search Console metrics if available
+      // Add Search Console metrics
       if (data.current.clicks !== undefined) {
-        metrics.push(`Clicks\t${Math.round(data.current.clicks)}\t${Math.round(data.previous.clicks)}\t${data.changes.clicks.toFixed(1)}%`);
-        metrics.push(`Impressions\t${Math.round(data.current.impressions)}\t${Math.round(data.previous.impressions)}\t${data.changes.impressions.toFixed(1)}%`);
-        metrics.push(`CTR\t${data.current.ctr.toFixed(1)}%\t${data.previous.ctr.toFixed(1)}%\t${data.changes.ctr.toFixed(1)}%`);
-        metrics.push(`Average Position\t${data.current.position.toFixed(1)}\t${data.previous.position.toFixed(1)}\t${data.changes.position.toFixed(1)}%`);
+        rows.push([
+          'Clicks',
+          Math.round(data.current.clicks).toString(),
+          Math.round(data.previous.clicks).toString(),
+          `${data.changes.clicks.toFixed(1)}%`
+        ]);
+        rows.push([
+          'Impressions',
+          Math.round(data.current.impressions).toString(),
+          Math.round(data.previous.impressions).toString(),
+          `${data.changes.impressions.toFixed(1)}%`
+        ]);
+        rows.push([
+          'CTR',
+          `${data.current.ctr.toFixed(1)}%`,
+          `${data.previous.ctr.toFixed(1)}%`,
+          `${data.changes.ctr.toFixed(1)}%`
+        ]);
+        rows.push([
+          'Average Position',
+          data.current.position.toFixed(1),
+          data.previous.position.toFixed(1),
+          `${data.changes.position.toFixed(1)}%`
+        ]);
       }
+      
+      return rows;
+    };
 
-      if (metrics.length > 0) {
-        const tableText = [
-          "Metric\tCurrent Value\tPrevious Value\tChange",
-          ...metrics
-        ].join('\n') + '\n\n';
+    // Add analysis sections
+    const sections = [
+      { title: 'Weekly Analysis', data: report.weekly_analysis },
+      { title: 'Monthly Analysis', data: report.monthly_analysis },
+      { title: 'Quarterly Analysis', data: report.quarterly_analysis },
+      { title: 'Year to Date Analysis', data: report.ytd_analysis },
+      { title: 'Last 28 Days Year over Year Analysis', data: report.last28_yoy_analysis }
+    ];
 
-        sectionRequests.push({
+    for (const section of sections) {
+      if (!section.data) continue;
+
+      // Add section heading
+      const headingSection = createHeading(section.title, 2, currentIndex);
+      requests.push(...headingSection.requests);
+      currentIndex = headingSection.endIndex;
+
+      // Add period if available
+      if (section.data.period) {
+        requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: tableText
+            text: `Period: ${section.data.period}\n\n`
           }
         });
+        currentIndex += `Period: ${section.data.period}\n\n`.length;
+      }
 
-        currentIndex += tableText.length;
+      // Add summary if available
+      if (section.data.summary) {
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: `${section.data.summary}\n\n`
+          }
+        });
+        currentIndex += section.data.summary.length + 2;
+      }
+
+      // Add metrics table
+      const metricsData = formatMetricsData(section.data);
+      if (metricsData) {
+        const tableSection = createTable(metricsData, currentIndex);
+        requests.push(...tableSection.requests);
+        currentIndex = tableSection.endIndex;
       }
 
       // Add branded vs non-branded analysis if available
-      if (data.searchTerms) {
-        const brandedTerms = data.searchTerms.filter((term: any) => term.isBranded);
-        const nonBrandedTerms = data.searchTerms.filter((term: any) => !term.isBranded);
+      if (section.data.searchTerms) {
+        const brandedTerms = section.data.searchTerms.filter((term: any) => term.isBranded);
+        const nonBrandedTerms = section.data.searchTerms.filter((term: any) => !term.isBranded);
         
         if (brandedTerms.length > 0 || nonBrandedTerms.length > 0) {
-          sectionRequests.push({
-            insertText: {
-              location: { index: currentIndex },
-              text: "\nBranded vs Non-Branded Search Terms\n"
-            }
-          });
-
-          // Format subsection title
-          sectionRequests.push({
-            updateParagraphStyle: {
-              range: {
-                startIndex: currentIndex + 1,
-                endIndex: currentIndex + 1 + "Branded vs Non-Branded Search Terms".length
-              },
-              paragraphStyle: {
-                namedStyleType: "HEADING_3"
-              },
-              fields: "namedStyleType"
-            }
-          });
-
-          currentIndex += "\nBranded vs Non-Branded Search Terms\n".length;
-
-          const brandedMetrics = [
-            "Term\tClicks\tImpressions\tCTR\tPosition",
-            ...brandedTerms.map((term: any) => 
-              `${term.term}\t${term.current.clicks}\t${term.current.impressions}\t${term.current.ctr}%\t${term.current.position}`
-            )
-          ].join('\n');
-
-          const nonBrandedMetrics = [
-            "Term\tClicks\tImpressions\tCTR\tPosition",
-            ...nonBrandedTerms.map((term: any) => 
-              `${term.term}\t${term.current.clicks}\t${term.current.impressions}\t${term.current.ctr}%\t${term.current.position}`
-            )
-          ].join('\n');
+          const searchTermsHeading = createHeading('Branded vs Non-Branded Search Terms', 3, currentIndex);
+          requests.push(...searchTermsHeading.requests);
+          currentIndex = searchTermsHeading.endIndex;
 
           if (brandedTerms.length > 0) {
-            const brandedText = `\nBranded Terms:\n${brandedMetrics}\n\n`;
-            sectionRequests.push({
-              insertText: {
-                location: { index: currentIndex },
-                text: brandedText
-              }
-            });
-            currentIndex += brandedText.length;
+            const brandedTableData = [
+              ['Term', 'Clicks', 'Impressions', 'CTR', 'Position'],
+              ...brandedTerms.map((term: any) => [
+                term.term,
+                term.current.clicks.toString(),
+                term.current.impressions.toString(),
+                `${term.current.ctr}%`,
+                term.current.position
+              ])
+            ];
+            
+            const brandedHeading = createHeading('Branded Terms', 4, currentIndex);
+            requests.push(...brandedHeading.requests);
+            currentIndex = brandedHeading.endIndex;
+            
+            const brandedTable = createTable(brandedTableData, currentIndex);
+            requests.push(...brandedTable.requests);
+            currentIndex = brandedTable.endIndex;
           }
 
           if (nonBrandedTerms.length > 0) {
-            const nonBrandedText = `\nNon-Branded Terms:\n${nonBrandedMetrics}\n\n`;
-            sectionRequests.push({
-              insertText: {
-                location: { index: currentIndex },
-                text: nonBrandedText
-              }
-            });
-            currentIndex += nonBrandedText.length;
+            const nonBrandedTableData = [
+              ['Term', 'Clicks', 'Impressions', 'CTR', 'Position'],
+              ...nonBrandedTerms.map((term: any) => [
+                term.term,
+                term.current.clicks.toString(),
+                term.current.impressions.toString(),
+                `${term.current.ctr}%`,
+                term.current.position
+              ])
+            ];
+            
+            const nonBrandedHeading = createHeading('Non-Branded Terms', 4, currentIndex);
+            requests.push(...nonBrandedHeading.requests);
+            currentIndex = nonBrandedHeading.endIndex;
+            
+            const nonBrandedTable = createTable(nonBrandedTableData, currentIndex);
+            requests.push(...nonBrandedTable.requests);
+            currentIndex = nonBrandedTable.endIndex;
           }
         }
       }
 
       // Add top pages analysis if available
-      if (data.pages) {
-        sectionRequests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: "\nTop Pages Performance\n"
-          }
-        });
+      if (section.data.pages) {
+        const pagesHeading = createHeading('Top Pages Performance', 3, currentIndex);
+        requests.push(...pagesHeading.requests);
+        currentIndex = pagesHeading.endIndex;
 
-        // Format subsection title
-        sectionRequests.push({
-          updateParagraphStyle: {
-            range: {
-              startIndex: currentIndex + 1,
-              endIndex: currentIndex + 1 + "Top Pages Performance".length
-            },
-            paragraphStyle: {
-              namedStyleType: "HEADING_3"
-            },
-            fields: "namedStyleType"
-          }
-        });
-
-        currentIndex += "\nTop Pages Performance\n".length;
-
-        const pagesMetrics = [
-          "Page\tClicks\tImpressions\tCTR\tPosition",
-          ...data.pages.map((page: any) => 
-            `${page.page}\t${page.current.clicks}\t${page.current.impressions}\t${page.current.ctr}%\t${page.current.position}`
-          )
-        ].join('\n') + '\n\n';
-
-        sectionRequests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: pagesMetrics
-          }
-        });
-
-        currentIndex += pagesMetrics.length;
+        const pagesTableData = [
+          ['Page', 'Clicks', 'Impressions', 'CTR', 'Position'],
+          ...section.data.pages.map((page: any) => [
+            page.page,
+            page.current.clicks.toString(),
+            page.current.impressions.toString(),
+            `${page.current.ctr}%`,
+            page.current.position
+          ])
+        ];
+        
+        const pagesTable = createTable(pagesTableData, currentIndex);
+        requests.push(...pagesTable.requests);
+        currentIndex = pagesTable.endIndex;
       }
-
-      return sectionRequests;
-    };
-
-    // Add analysis sections
-    if (report.weekly_analysis) {
-      requests.push(...createMetricsSection('Weekly Analysis', report.weekly_analysis));
-    }
-    if (report.monthly_analysis) {
-      requests.push(...createMetricsSection('Monthly Analysis', report.monthly_analysis));
-    }
-    if (report.quarterly_analysis) {
-      requests.push(...createMetricsSection('Quarterly Analysis', report.quarterly_analysis));
-    }
-    if (report.ytd_analysis) {
-      requests.push(...createMetricsSection('Year to Date Analysis', report.ytd_analysis));
-    }
-    if (report.last28_yoy_analysis) {
-      requests.push(...createMetricsSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis));
     }
 
     // Process requests in batches
@@ -362,10 +423,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in create-report-doc function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'An unknown error occurred',
-        details: error instanceof Error ? error.stack : undefined
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'An unknown error occurred' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
