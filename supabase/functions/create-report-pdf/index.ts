@@ -8,7 +8,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -17,12 +16,15 @@ serve(async (req) => {
     const { report, insights } = await req.json()
     console.log('Generating PDF with report data:', { hasReport: !!report, hasInsights: !!insights })
 
-    // Create PDF document
+    // Create PDF document with auto page break enabled
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'a4'
+      format: 'a4',
     })
+
+    // Enable auto page break
+    doc.setAutoPageBreak(true, 15)
 
     // Add title
     doc.setFontSize(20)
@@ -47,10 +49,22 @@ serve(async (req) => {
       return num.toLocaleString()
     }
 
+    // Helper function to check if we need a new page
+    const checkPageBreak = (requiredSpace: number) => {
+      const pageHeight = doc.internal.pageSize.height
+      if (yPosition + requiredSpace > pageHeight - 15) {
+        doc.addPage()
+        yPosition = 20
+      }
+    }
+
     // Add analysis sections
     const addAnalysisSection = (title: string, data: any) => {
       if (!data) return
       console.log(`Adding analysis section: ${title}`)
+
+      // Check if we need a new page for the section title
+      checkPageBreak(50)
 
       // Add section title
       doc.setFontSize(16)
@@ -82,16 +96,17 @@ serve(async (req) => {
           body: metrics.slice(1),
           theme: 'striped',
           headStyles: { fillColor: [66, 139, 202] },
-          margin: { left: 15 }
+          margin: { left: 15 },
+          didDrawPage: (data: any) => {
+            // Update yPosition after table is drawn
+            yPosition = data.cursor.y + 15
+          }
         })
-
-        // Get the last table's end position
-        const lastTable = (doc as any).lastAutoTable
-        yPosition = lastTable.finalY + 15
       } catch (error) {
         console.error('Error generating table:', error)
         // Fallback to basic text if table generation fails
         metrics.forEach(row => {
+          checkPageBreak(7)
           doc.text(row.join(' | '), 15, yPosition)
           yPosition += 7
         })
@@ -100,10 +115,73 @@ serve(async (req) => {
 
       // Add summary if available
       if (data.summary) {
+        checkPageBreak(20)
         doc.setFontSize(12)
         const summaryLines = doc.splitTextToSize(data.summary, 180)
         doc.text(summaryLines, 15, yPosition)
         yPosition += (summaryLines.length * 7) + 10
+      }
+
+      // Add search terms if available
+      if (data.searchTerms && data.searchTerms.length > 0) {
+        checkPageBreak(40)
+        doc.setFontSize(14)
+        doc.text('Top Search Terms', 15, yPosition)
+        yPosition += 10
+
+        try {
+          const searchTermsData = data.searchTerms.slice(0, 10).map((term: any) => [
+            term.term,
+            term.clicks?.toString() || 'N/A',
+            term.impressions?.toString() || 'N/A',
+            term.ctr ? `${(term.ctr * 100).toFixed(1)}%` : 'N/A'
+          ])
+
+          ;(autoTable as any)(doc, {
+            startY: yPosition,
+            head: [['Term', 'Clicks', 'Impressions', 'CTR']],
+            body: searchTermsData,
+            theme: 'striped',
+            headStyles: { fillColor: [66, 139, 202] },
+            margin: { left: 15 },
+            didDrawPage: (data: any) => {
+              yPosition = data.cursor.y + 15
+            }
+          })
+        } catch (error) {
+          console.error('Error generating search terms table:', error)
+        }
+      }
+
+      // Add top pages if available
+      if (data.pages && data.pages.length > 0) {
+        checkPageBreak(40)
+        doc.setFontSize(14)
+        doc.text('Top Pages', 15, yPosition)
+        yPosition += 10
+
+        try {
+          const pagesData = data.pages.slice(0, 10).map((page: any) => [
+            page.page,
+            page.clicks?.toString() || 'N/A',
+            page.impressions?.toString() || 'N/A',
+            page.ctr ? `${(page.ctr * 100).toFixed(1)}%` : 'N/A'
+          ])
+
+          ;(autoTable as any)(doc, {
+            startY: yPosition,
+            head: [['Page', 'Clicks', 'Impressions', 'CTR']],
+            body: pagesData,
+            theme: 'striped',
+            headStyles: { fillColor: [66, 139, 202] },
+            margin: { left: 15 },
+            didDrawPage: (data: any) => {
+              yPosition = data.cursor.y + 15
+            }
+          })
+        } catch (error) {
+          console.error('Error generating pages table:', error)
+        }
       }
     }
 
@@ -119,6 +197,7 @@ serve(async (req) => {
     // Add insights if available
     if (insights) {
       console.log('Adding insights to PDF')
+      checkPageBreak(40)
       doc.setFontSize(16)
       doc.text('AI Analysis', 15, yPosition)
       yPosition += 10
