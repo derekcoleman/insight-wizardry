@@ -25,7 +25,10 @@ serve(async (req) => {
     })
 
     // Initialize autoTable plugin
-    doc.autoTable = autoTable
+    // @ts-ignore - the types are not properly defined for the jsPDF extension
+    doc.autoTable = function(...args) {
+      return autoTable(this, ...args);
+    };
 
     // Add title
     doc.setFontSize(20)
@@ -77,6 +80,7 @@ serve(async (req) => {
           formatChange(data.changes?.revenue)]
       ]
 
+      // @ts-ignore - the types are not properly defined for the jsPDF extension
       doc.autoTable({
         startY: yPosition,
         head: [metrics[0]],
@@ -87,7 +91,8 @@ serve(async (req) => {
       })
 
       // Update yPosition after table
-      yPosition = (doc as any).lastAutoTable.finalY + 15
+      // @ts-ignore - lastAutoTable is not properly typed
+      yPosition = doc.lastAutoTable.finalY + 15
 
       // Add summary if available
       if (data.summary) {
