@@ -24,6 +24,12 @@ serve(async (req) => {
       format: 'a4'
     })
 
+    // Initialize autoTable plugin
+    // @ts-ignore - the types are not properly defined for the jsPDF extension
+    doc.autoTable = function(...args) {
+      return autoTable(this, ...args);
+    };
+
     // Add title
     doc.setFontSize(20)
     doc.text('Analytics Report', 15, 20)
@@ -74,8 +80,8 @@ serve(async (req) => {
           formatChange(data.changes?.revenue)]
       ]
 
-      // Use autoTable directly as a function
-      autoTable(doc, {
+      // @ts-ignore - the types are not properly defined for the jsPDF extension
+      doc.autoTable({
         startY: yPosition,
         head: [metrics[0]],
         body: metrics.slice(1),
@@ -84,9 +90,9 @@ serve(async (req) => {
         margin: { left: 15 }
       })
 
-      // Get the last table's end position
-      const lastTable = (doc as any).lastAutoTable
-      yPosition = lastTable.finalY + 15
+      // Update yPosition after table
+      // @ts-ignore - lastAutoTable is not properly typed
+      yPosition = doc.lastAutoTable.finalY + 15
 
       // Add summary if available
       if (data.summary) {
