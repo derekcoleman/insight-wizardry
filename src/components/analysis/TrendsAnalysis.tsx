@@ -85,15 +85,24 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
     }
   };
 
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-4 border rounded shadow">
-          <p className="font-medium">{new Date(label).toLocaleDateString()}</p>
+          <p className="font-medium mb-2">{formatDate(label)}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color }}>
-              {entry.name}: {entry.value}
-            </p>
+            <div key={index} className="flex justify-between items-center gap-4">
+              <span style={{ color: entry.color }}>{entry.name}:</span>
+              <span className="font-medium">{entry.value} interest</span>
+            </div>
           ))}
         </div>
       );
@@ -121,15 +130,16 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
           <div className="space-y-6">
             {/* Search Interest Over Time */}
             <Card className="p-4">
-              <h3 className="font-medium mb-4">Search Interest Over Time</h3>
+              <h3 className="font-medium mb-4">Search Interest Trends</h3>
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendsData.interest_over_time}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis 
                       dataKey="date" 
-                      tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                      tickFormatter={formatDate}
                       stroke="#6b7280"
+                      tick={{ fill: '#6b7280' }}
                     />
                     <YAxis 
                       label={{ 
@@ -139,6 +149,7 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
                         style: { fill: '#6b7280' }
                       }}
                       stroke="#6b7280"
+                      tick={{ fill: '#6b7280' }}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
@@ -151,6 +162,7 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
                         strokeWidth={2}
                         dot={false}
                         activeDot={{ r: 6 }}
+                        name={keyword}
                       />
                     ))}
                   </LineChart>
@@ -160,14 +172,14 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
 
             {/* AI-Generated Insights */}
             {trendsData.analysis && (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Seasonal Patterns */}
                 {trendsData.analysis.seasonal_patterns.length > 0 && (
                   <Card className="p-4">
-                    <h3 className="font-medium mb-2">Seasonal Patterns</h3>
+                    <h3 className="font-medium mb-2">Search Patterns</h3>
                     <ul className="list-disc pl-4 space-y-2">
                       {trendsData.analysis.seasonal_patterns.map((pattern, i) => (
-                        <li key={i} className="text-gray-700">{pattern}</li>
+                        <li key={i} className="text-gray-700 text-sm">{pattern}</li>
                       ))}
                     </ul>
                   </Card>
@@ -176,10 +188,10 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
                 {/* Trending Topics */}
                 {trendsData.analysis.trending_topics.length > 0 && (
                   <Card className="p-4">
-                    <h3 className="font-medium mb-2">Trending Topics</h3>
+                    <h3 className="font-medium mb-2">Growing Search Terms</h3>
                     <ul className="list-disc pl-4 space-y-2">
                       {trendsData.analysis.trending_topics.map((topic, i) => (
-                        <li key={i} className="text-gray-700">{topic}</li>
+                        <li key={i} className="text-gray-700 text-sm">{topic}</li>
                       ))}
                     </ul>
                   </Card>
@@ -188,10 +200,10 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
                 {/* Content Recommendations */}
                 {trendsData.analysis.keyword_recommendations.length > 0 && (
                   <Card className="p-4">
-                    <h3 className="font-medium mb-2">Content Recommendations</h3>
+                    <h3 className="font-medium mb-2">Content Opportunities</h3>
                     <ul className="list-disc pl-4 space-y-2">
                       {trendsData.analysis.keyword_recommendations.map((rec, i) => (
-                        <li key={i} className="text-gray-700">{rec}</li>
+                        <li key={i} className="text-gray-700 text-sm">{rec}</li>
                       ))}
                     </ul>
                   </Card>

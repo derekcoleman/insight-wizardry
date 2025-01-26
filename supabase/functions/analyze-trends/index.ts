@@ -23,10 +23,10 @@ serve(async (req) => {
     const trendsContext = {
       keywords,
       interestOverTime: trendsData.interest_over_time,
-      queries: Object.entries(trendsData.related_queries).map(([keyword, data]) => ({
+      relatedQueries: Object.entries(trendsData.related_queries).map(([keyword, data]) => ({
         keyword,
-        topQueries: data.top.map(q => q.query),
-        risingQueries: data.rising.map(q => q.query)
+        topSearches: data.top.map(q => `"${q.query}" (${q.value} searches)`),
+        risingSearches: data.rising.map(q => `"${q.query}" (${q.value}% increase)`)
       }))
     };
 
@@ -42,14 +42,14 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an SEO expert analyzing Google Trends data. Generate clear, specific insights about search patterns and opportunities. Focus on actual search terms and their relationships. Never use phrases like "related query" or "rising query". Instead, directly state what users are searching for and how it relates to the main keywords.`
+            content: `You are an SEO expert analyzing Google Trends data. Generate clear, actionable insights about search patterns and opportunities. Focus on actual search terms and their relationships. Never use phrases like "related query" or "rising query". Instead, directly state what users are searching for and how it relates to the main keywords. Be specific about numbers and percentages when available.`
           },
           {
             role: 'user',
             content: `Analyze this Google Trends data and provide three types of insights:
-              1. Seasonal Patterns: Identify how different search terms are used together
-              2. Trending Topics: Highlight which specific search terms are gaining popularity
-              3. Content Recommendations: Suggest specific content ideas based on the data
+              1. Seasonal Patterns: Identify clear patterns in how search terms are used together and any timing-based insights
+              2. Trending Topics: List specific search terms that are gaining popularity, with growth percentages when available
+              3. Content Recommendations: Suggest specific content topics based on the data, focusing on high-value opportunities
               
               Data: ${JSON.stringify(trendsContext, null, 2)}`
           }
@@ -69,9 +69,9 @@ serve(async (req) => {
     const sections = aiContent.split('\n\n');
     
     const analysis = {
-      seasonal_patterns: sections[0].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('seasonal patterns')),
-      trending_topics: sections[1].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('trending topics')),
-      keyword_recommendations: sections[2].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('content recommendations')),
+      seasonal_patterns: sections[0].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('seasonal patterns:')),
+      trending_topics: sections[1].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('trending topics:')),
+      keyword_recommendations: sections[2].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('content recommendations:')),
     };
 
     console.log('Generated analysis:', analysis);
