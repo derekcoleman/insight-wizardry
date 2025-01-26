@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Helper function to create a table
+// Helper function to create a table with proper indices
 const createTable = (rows: string[][], startIndex: number) => {
   const requests = [];
   
@@ -27,11 +27,18 @@ const createTable = (rows: string[][], startIndex: number) => {
     insertTable: {
       location: { index: startIndex + 1 },
       rows: numRows,
-      columns: numCols
+      columns: numCols,
+      tableCellStyle: {
+        borderColor: { color: { rgbColor: { red: 0.8, green: 0.8, blue: 0.8 } } },
+        paddingTop: { magnitude: 5, unit: "PT" },
+        paddingBottom: { magnitude: 5, unit: "PT" },
+        paddingLeft: { magnitude: 5, unit: "PT" },
+        paddingRight: { magnitude: 5, unit: "PT" }
+      }
     }
   });
-  
-  // Fill table cells
+
+  // Fill table cells with proper indices
   let currentIndex = startIndex + 1;
   rows.forEach((row, rowIndex) => {
     row.forEach((cell, colIndex) => {
@@ -94,15 +101,15 @@ const createHeading = (text: string, level: number, startIndex: number) => {
   return { requests, endIndex: startIndex + text.length + 1 };
 };
 
-// Helper function to process requests in smaller batches
+// Helper function to process requests in smaller batches with proper error handling
 const processBatchRequests = async (docs: any, documentId: string, requests: any[]) => {
-  const BATCH_SIZE = 10; // Reduced batch size
-  const DELAY_BETWEEN_BATCHES = 1000; // 1 second delay between batches
+  const BATCH_SIZE = 5; // Reduced batch size
+  const DELAY_BETWEEN_BATCHES = 2000; // 2 second delay between batches
 
   for (let i = 0; i < requests.length; i += BATCH_SIZE) {
     const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
     try {
-      console.log(`Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(requests.length / BATCH_SIZE)}`);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(requests.length / BATCH_SIZE)}`);
       await docs.documents.batchUpdate({
         documentId: documentId,
         requestBody: { requests: batch },
@@ -113,8 +120,11 @@ const processBatchRequests = async (docs: any, documentId: string, requests: any
         await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
       }
     } catch (error) {
-      console.error(`Error processing batch ${i / BATCH_SIZE + 1}:`, error);
-      throw new Error(`Failed to process batch ${i / BATCH_SIZE + 1}: ${error.message}`);
+      console.error(`Error processing batch ${Math.floor(i / BATCH_SIZE) + 1}:`, error);
+      if (error.response?.data?.error) {
+        console.error('Google API Error:', error.response.data.error);
+      }
+      throw new Error(`Failed to process batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`);
     }
   }
 };
@@ -179,15 +189,16 @@ serve(async (req) => {
     currentIndex = titleSection.endIndex;
 
     // Add date
+    const date = new Date().toLocaleDateString();
     allRequests.push({
       insertText: {
         location: { index: currentIndex },
-        text: `${new Date().toLocaleDateString()}\n\n`
+        text: `${date}\n\n`
       }
     });
-    currentIndex += new Date().toLocaleDateString().length + 2;
+    currentIndex += date.length + 2;
 
-    // Add AI Analysis section if available
+    // Add insights section if available
     if (insights) {
       const insightsHeading = createHeading('AI Analysis', 2, currentIndex);
       allRequests.push(...insightsHeading.requests);
@@ -219,23 +230,25 @@ serve(async (req) => {
       currentIndex = headingSection.endIndex;
 
       if (section.data.period) {
+        const periodText = `Period: ${section.data.period}\n\n`;
         allRequests.push({
           insertText: {
             location: { index: currentIndex },
-            text: `Period: ${section.data.period}\n\n`
+            text: periodText
           }
         });
-        currentIndex += `Period: ${section.data.period}\n\n`.length;
+        currentIndex += periodText.length;
       }
 
       if (section.data.summary) {
+        const summaryText = `${section.data.summary}\n\n`;
         allRequests.push({
           insertText: {
             location: { index: currentIndex },
-            text: `${section.data.summary}\n\n`
+            text: summaryText
           }
         });
-        currentIndex += section.data.summary.length + 2;
+        currentIndex += summaryText.length;
       }
 
       // Add metrics table
