@@ -1,4 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { jsPDF } from 'https://esm.sh/jspdf@2.5.1'
+import { autoTable } from 'https://esm.sh/jspdf-autotable@3.8.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,114 +31,116 @@ serve(async (req) => {
       throw new Error('No report data provided')
     }
 
-    // Generate HTML content with styling
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            @page {
-              @top-right {
-                content: counter(page);
-              }
-              margin: 2.5cm;
-              size: A4;
-            }
-            body {
-              font-family: Arial, sans-serif;
-              line-height: 1.6;
-              color: #333;
-            }
-            .header {
-              position: running(header);
-              width: 100%;
-              text-align: left;
-              padding: 10px 0;
-              border-bottom: 1px solid #eee;
-            }
-            .logo {
-              height: 40px;
-              margin-bottom: 10px;
-            }
-            h1 {
-              color: #2563eb;
-              font-size: 24px;
-              margin-bottom: 20px;
-            }
-            h2 {
-              color: #1e40af;
-              font-size: 20px;
-              margin-top: 30px;
-              margin-bottom: 15px;
-            }
-            .section {
-              margin-bottom: 30px;
-            }
-            .metric {
-              margin: 10px 0;
-              padding-left: 20px;
-            }
-            .positive {
-              color: #059669;
-            }
-            .negative {
-              color: #dc2626;
-            }
-            .date {
-              color: #6b7280;
-              font-size: 14px;
-            }
-            .insights {
-              background: #f8fafc;
-              padding: 15px;
-              border-radius: 5px;
-              margin: 20px 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <img src="data:image/png;base64,${await fetchLogoAsBase64()}" class="logo" alt="Standup Notez Logo" />
-          </div>
-          
-          <h1>Analytics Report</h1>
-          <div class="date">${new Date().toLocaleDateString()}</div>
-          
-          ${insights ? `
-            <div class="section insights">
-              <h2>Key Insights</h2>
-              <p>${insights}</p>
-            </div>
-          ` : ''}
-          
-          ${generateAnalysisSections(report)}
-        </body>
-      </html>
-    `
+    // Create PDF document
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
 
-    // Convert HTML to PDF using WeasyPrint
-    const process = new Deno.Command('weasyprint', {
-      args: ['-', '-'],
-      stdin: 'piped',
-      stdout: 'piped',
-    })
+    // Add logo
+    const logoBase64 = await fetchLogoAsBase64()
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', 15, 10, 40, 20)
+    }
 
-    const child = process.spawn()
-    const writer = child.stdin.getWriter()
-    await writer.write(new TextEncoder().encode(htmlContent))
-    await writer.close()
+    // Add title
+    doc.setFontSize(20)
+    doc.setTextColor(37, 99, 235) // Blue color
+    doc.text('Analytics Report', 15, 40)
 
-    const output = await child.output()
-    const pdfBytes = output.stdout
+    // Add date
+    doc.setFontSize(12)
+    doc.setTextColor(107, 114, 128) // Gray color
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 15, 48)
+
+    // Add insights if available
+    if (insights) {
+      doc.setFontSize(16)
+      doc.setTextColor(31, 41, 55)
+      doc.text('Key Insights', 15, 60)
+      
+      doc.setFontSize(12)
+      doc.setTextColor(55, 65, 81)
+      const insightLines = doc.splitTextToSize(insights, 180)
+      doc.text(insightLines, 15, 70)
+    }
+
+    let yPosition = insights ? 90 + (insights.length / 100 * 10) : 70
+
+    // Add analysis sections
+    const addAnalysisSection = (title: string, data: any) => {
+      if (!data?.current) return yPosition
+
+      // Add section title
+      doc.setFontSize(16)
+      doc.setTextColor(31, 41, 55)
+      doc.text(title, 15, yPosition)
+      yPosition += 10
+
+      // Add period if available
+      if (data.period) {
+        doc.setFontSize(12)
+        doc.setTextColor(107, 114, 128)
+        doc.text(`Period: ${data.period}`, 15, yPosition)
+        yPosition += 10
+      }
+
+      // Add metrics table
+      const metrics = [
+        ['Metric', 'Current', 'Change'],
+        ['Sessions', data.current.sessions?.toLocaleString() ?? '0', 
+         formatChange(data.changes?.sessions)],
+        ['Conversions', data.current.conversions?.toLocaleString() ?? '0',
+         formatChange(data.changes?.conversions)],
+        ['Revenue', data.current.revenue ? `$${data.current.revenue.toLocaleString()}` : '$0',
+         formatChange(data.changes?.revenue)]
+      ]
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [metrics[0]],
+        body: metrics.slice(1),
+        theme: 'striped',
+        styles: { fontSize: 12, cellPadding: 5 },
+        headStyles: { fillColor: [37, 99, 235] },
+        margin: { left: 15 }
+      })
+
+      yPosition = (doc as any).lastAutoTable.finalY + 15
+
+      // Add summary if available
+      if (data.summary) {
+        doc.setFontSize(12)
+        doc.setTextColor(55, 65, 81)
+        const summaryLines = doc.splitTextToSize(data.summary, 180)
+        doc.text(summaryLines, 15, yPosition)
+        yPosition += 10 + (summaryLines.length * 7)
+      }
+
+      // Add page break if needed
+      if (yPosition > 270) {
+        doc.addPage()
+        yPosition = 20
+      }
+
+      return yPosition
+    }
+
+    // Add each analysis section
+    if (report.weekly_analysis) yPosition = addAnalysisSection('Weekly Analysis', report.weekly_analysis)
+    if (report.monthly_analysis) yPosition = addAnalysisSection('Monthly Analysis', report.monthly_analysis)
+    if (report.quarterly_analysis) yPosition = addAnalysisSection('Quarterly Analysis', report.quarterly_analysis)
+    if (report.ytd_analysis) yPosition = addAnalysisSection('Year to Date Analysis', report.ytd_analysis)
+    if (report.last28_yoy_analysis) yPosition = addAnalysisSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis)
 
     // Convert to base64
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)))
-    const pdfUrl = `data:application/pdf;base64,${pdfBase64}`
+    const pdfOutput = doc.output('datauristring')
 
     console.log('PDF generated successfully')
     return new Response(
       JSON.stringify({ 
-        pdfUrl,
+        pdfUrl: pdfOutput,
         success: true 
       }),
       { 
@@ -165,77 +169,19 @@ serve(async (req) => {
 })
 
 async function fetchLogoAsBase64(): Promise<string> {
-  const logoUrl = 'https://raw.githubusercontent.com/your-repo/standup-notez/main/public/logo.png'
-  const response = await fetch(logoUrl)
-  const arrayBuffer = await response.arrayBuffer()
-  return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
-}
-
-function generateAnalysisSections(report: any): string {
-  const sections = []
-  
-  const addSection = (title: string, data: any) => {
-    if (!data?.current) return
-    
-    sections.push(`
-      <div class="section">
-        <h2>${title}</h2>
-        ${data.period ? `<div class="date">Period: ${data.period}</div>` : ''}
-        
-        ${generateMetricsHtml(data)}
-        
-        ${data.summary ? `
-          <div class="summary">
-            <h3>Summary</h3>
-            <p>${data.summary}</p>
-          </div>
-        ` : ''}
-      </div>
-    `)
+  try {
+    const logoUrl = 'https://raw.githubusercontent.com/your-repo/standup-notez/main/public/logo.png'
+    const response = await fetch(logoUrl)
+    const arrayBuffer = await response.arrayBuffer()
+    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+  } catch (error) {
+    console.error('Error fetching logo:', error)
+    return ''
   }
-  
-  if (report.weekly_analysis) addSection('Weekly Analysis', report.weekly_analysis)
-  if (report.monthly_analysis) addSection('Monthly Analysis', report.monthly_analysis)
-  if (report.quarterly_analysis) addSection('Quarterly Analysis', report.quarterly_analysis)
-  if (report.ytd_analysis) addSection('Year to Date Analysis', report.ytd_analysis)
-  if (report.last28_yoy_analysis) addSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis)
-  
-  return sections.join('\n')
 }
 
-function generateMetricsHtml(data: any): string {
-  const metrics = [
-    {
-      label: 'Sessions',
-      current: data.current.sessions?.toLocaleString() ?? '0',
-      change: data.changes?.sessions
-    },
-    {
-      label: 'Conversions',
-      current: data.current.conversions?.toLocaleString() ?? '0',
-      change: data.changes?.conversions
-    },
-    {
-      label: 'Revenue',
-      current: data.current.revenue ? `$${data.current.revenue.toLocaleString()}` : '$0',
-      change: data.changes?.revenue
-    }
-  ]
-  
-  return metrics.map(metric => {
-    if (metric.current === '0' || metric.current === '$0') return ''
-    
-    const changeHtml = metric.change !== undefined
-      ? `<span class="${metric.change >= 0 ? 'positive' : 'negative'}">
-           ${metric.change >= 0 ? '+' : ''}${metric.change.toFixed(1)}%
-         </span>`
-      : ''
-    
-    return `
-      <div class="metric">
-        <strong>${metric.label}:</strong> ${metric.current}
-        ${changeHtml}
-      </div>
-    `
-  }).join('\n')
+function formatChange(change: number | undefined): string {
+  if (change === undefined) return ''
+  const prefix = change >= 0 ? '+' : ''
+  return `${prefix}${change.toFixed(1)}%`
 }
