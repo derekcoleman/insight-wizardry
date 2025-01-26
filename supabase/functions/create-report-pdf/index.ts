@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import 'jspdf-autotable'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -88,9 +88,9 @@ serve(async (req) => {
           formatChange(data.changes?.revenue)]
       ]
 
-      // Initialize autoTable plugin
       try {
-        (autoTable as any)(doc, {
+        // @ts-ignore
+        doc.autoTable({
           startY: yPosition,
           head: [metrics[0]],
           body: metrics.slice(1),
@@ -98,13 +98,11 @@ serve(async (req) => {
           headStyles: { fillColor: [66, 139, 202] },
           margin: { left: 15 },
           didDrawPage: (data: any) => {
-            // Update yPosition after table is drawn
             yPosition = data.cursor.y + 15
           }
         })
       } catch (error) {
         console.error('Error generating table:', error)
-        // Fallback to basic text if table generation fails
         metrics.forEach(row => {
           checkPageBreak(7)
           doc.text(row.join(' | '), 15, yPosition)
@@ -137,7 +135,8 @@ serve(async (req) => {
             term.ctr ? `${(term.ctr * 100).toFixed(1)}%` : 'N/A'
           ])
 
-          ;(autoTable as any)(doc, {
+          // @ts-ignore
+          doc.autoTable({
             startY: yPosition,
             head: [['Term', 'Clicks', 'Impressions', 'CTR']],
             body: searchTermsData,
@@ -168,7 +167,8 @@ serve(async (req) => {
             page.ctr ? `${(page.ctr * 100).toFixed(1)}%` : 'N/A'
           ])
 
-          ;(autoTable as any)(doc, {
+          // @ts-ignore
+          doc.autoTable({
             startY: yPosition,
             head: [['Page', 'Clicks', 'Impressions', 'CTR']],
             body: pagesData,
