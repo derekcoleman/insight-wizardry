@@ -128,7 +128,6 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
       <CardContent>
         {trendsData && (
           <div className="space-y-6">
-            {/* Search Interest Over Time */}
             <Card className="p-4">
               <h3 className="font-medium mb-4">Search Interest Trends</h3>
               <div className="h-[400px]">
@@ -160,8 +159,18 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
                         dataKey={keyword}
                         stroke={`hsl(${index * 60}, 70%, 50%)`}
                         strokeWidth={2}
-                        dot={false}
-                        activeDot={{ r: 6 }}
+                        dot={{ 
+                          r: 4,
+                          strokeWidth: 2,
+                          fill: 'white',
+                          stroke: `hsl(${index * 60}, 70%, 50%)`
+                        }}
+                        activeDot={{ 
+                          r: 6,
+                          strokeWidth: 2,
+                          fill: `hsl(${index * 60}, 70%, 50%)`,
+                          stroke: 'white'
+                        }}
                         name={keyword}
                       />
                     ))}
