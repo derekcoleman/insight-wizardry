@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { PDFDocument, rgb, StandardFonts } from 'https://cdn.skypack.dev/pdf-lib'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,213 +29,108 @@ serve(async (req) => {
       throw new Error('No report data provided')
     }
 
-    console.log('Creating PDF document...')
-    const pdfDoc = await PDFDocument.create()
-    
-    // Add fonts
-    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
-    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-    const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
-    
-    let currentPage = pdfDoc.addPage([595.276, 841.890]) // A4 size
-    const { width, height } = currentPage.getSize()
-    
-    // Colors
-    const black = rgb(0, 0, 0)
-    const red = rgb(0.8, 0, 0)
-    const green = rgb(0, 0.5, 0)
-    const gray = rgb(0.5, 0.5, 0.5)
-    
-    let yOffset = height - 50 // Start from top with margin
-    const margin = 50
-    const lineHeight = 14 // Reduced line height for better spacing
-    const pageBreakThreshold = margin + 50 // Minimum space needed before starting new content
-    
-    // Helper function to sanitize text for PDF
-    const sanitizeText = (text: string) => {
-      if (!text) return '';
-      return text.replace(/[\n\r]/g, ' ').trim()
-    }
-
-    // Helper function to check if we need a new page
-    const checkNewPage = (neededSpace: number) => {
-      if (yOffset - neededSpace < pageBreakThreshold) {
-        currentPage = pdfDoc.addPage([595.276, 841.890])
-        yOffset = height - 50
-        return true
-      }
-      return false
-    }
-    
-    // Helper function to write text with word wrap
-    const writeText = (text: string, options: {
-      font?: typeof helveticaFont,
-      size?: number,
-      color?: typeof black,
-      indent?: number,
-      maxWidth?: number,
-      addSpacing?: boolean
-    } = {}) => {
-      const {
-        font = helveticaFont,
-        size = 11,
-        color = black,
-        indent = 0,
-        maxWidth = width - (margin * 2),
-        addSpacing = true
-      } = options
-
-      const sanitizedText = sanitizeText(text)
-      if (!sanitizedText) return;
-      
-      const words = sanitizedText.split(' ')
-      let line = ''
-      let estimatedLines = Math.ceil(font.widthOfTextAtSize(sanitizedText, size) / maxWidth)
-      
-      // Check if we need a new page
-      checkNewPage(estimatedLines * lineHeight)
-      
-      for (const word of words) {
-        const testLine = line + (line ? ' ' : '') + word
-        const testWidth = font.widthOfTextAtSize(testLine, size)
-        
-        if (testWidth > maxWidth) {
-          if (line) {
-            if (checkNewPage(lineHeight)) {
-              // Reset line if we're starting a new page
-              line = word
-              continue
+    // Generate HTML content with styling
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            @page {
+              @top-right {
+                content: counter(page);
+              }
+              margin: 2.5cm;
+              size: A4;
             }
-            currentPage.drawText(line, {
-              x: margin + indent,
-              y: yOffset,
-              size,
-              font,
-              color
-            })
-            yOffset -= lineHeight
-          }
-          line = word
-        } else {
-          line = testLine
-        }
-      }
-      
-      if (line) {
-        currentPage.drawText(line, {
-          x: margin + indent,
-          y: yOffset,
-          size,
-          font,
-          color
-        })
-        yOffset -= lineHeight
-      }
-      
-      if (addSpacing) {
-        yOffset -= 8 // Add some padding between paragraphs
-      }
-    }
-    
-    // Title and Date
-    writeText('Analytics Report', { font: helveticaBold, size: 24 })
-    writeText(new Date().toLocaleDateString(), { size: 12, color: gray })
-    yOffset -= 20
-    
-    // Key Insights
-    if (insights) {
-      writeText('Key Insights', { font: helveticaBold, size: 18 })
-      yOffset -= 10
-      writeText(insights, { size: 11 })
-      yOffset -= 20
-    }
-    
-    // Analysis Sections
-    const writeSectionData = (title: string, data: any) => {
-      if (!data?.current) return
-      
-      checkNewPage(100) // Estimate space needed for section header and initial content
-      
-      writeText(title, { font: helveticaBold, size: 16 })
-      yOffset -= 10
-      
-      if (data.period) {
-        writeText(`Period: ${data.period}`, { font: helveticaOblique, size: 11, color: gray })
-        yOffset -= 10
-      }
-      
-      // Metrics table
-      const metrics = [
-        {
-          label: 'Sessions',
-          current: data.current.sessions?.toLocaleString() ?? '0',
-          change: data.changes?.sessions
-        },
-        {
-          label: 'Conversions',
-          current: data.current.conversions?.toLocaleString() ?? '0',
-          change: data.changes?.conversions
-        },
-        {
-          label: 'Revenue',
-          current: data.current.revenue ? `$${data.current.revenue.toLocaleString()}` : '$0',
-          change: data.changes?.revenue
-        }
-      ]
-      
-      metrics.forEach(metric => {
-        if (metric.current !== '0' && metric.current !== '$0') {
-          checkNewPage(lineHeight * 3) // Space for metric and its change
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+            }
+            .header {
+              position: running(header);
+              width: 100%;
+              text-align: left;
+              padding: 10px 0;
+              border-bottom: 1px solid #eee;
+            }
+            .logo {
+              height: 40px;
+              margin-bottom: 10px;
+            }
+            h1 {
+              color: #2563eb;
+              font-size: 24px;
+              margin-bottom: 20px;
+            }
+            h2 {
+              color: #1e40af;
+              font-size: 20px;
+              margin-top: 30px;
+              margin-bottom: 15px;
+            }
+            .section {
+              margin-bottom: 30px;
+            }
+            .metric {
+              margin: 10px 0;
+              padding-left: 20px;
+            }
+            .positive {
+              color: #059669;
+            }
+            .negative {
+              color: #dc2626;
+            }
+            .date {
+              color: #6b7280;
+              font-size: 14px;
+            }
+            .insights {
+              background: #f8fafc;
+              padding: 15px;
+              border-radius: 5px;
+              margin: 20px 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <img src="data:image/png;base64,${await fetchLogoAsBase64()}" class="logo" alt="Standup Notez Logo" />
+          </div>
           
-          writeText(`${metric.label}: ${metric.current}`, { size: 11, addSpacing: false })
-          if (metric.change !== undefined) {
-            const changeColor = metric.change >= 0 ? green : red
-            const changeSymbol = metric.change >= 0 ? '+' : ''
-            writeText(`Change: ${changeSymbol}${metric.change.toFixed(1)}%`, {
-              size: 11,
-              color: changeColor,
-              indent: 20,
-              addSpacing: false
-            })
-          }
-          yOffset -= 8
-        }
-      })
-      
-      yOffset -= 12
-      
-      // Add summary if available
-      if (data.summary) {
-        checkNewPage(60) // Estimate space needed for summary
-        writeText('Summary:', { font: helveticaBold, size: 11 })
-        writeText(sanitizeText(data.summary), { size: 11 })
-        yOffset -= 10
-      }
-    }
-    
-    // Write each analysis section
-    if (report.weekly_analysis) {
-      writeSectionData('Weekly Analysis', report.weekly_analysis)
-    }
-    if (report.monthly_analysis) {
-      writeSectionData('Monthly Analysis', report.monthly_analysis)
-    }
-    if (report.quarterly_analysis) {
-      writeSectionData('Quarterly Analysis', report.quarterly_analysis)
-    }
-    if (report.ytd_analysis) {
-      writeSectionData('Year to Date Analysis', report.ytd_analysis)
-    }
-    if (report.last28_yoy_analysis) {
-      writeSectionData('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis)
-    }
-    
-    // Generate PDF
-    console.log('Generating PDF bytes...')
-    const pdfBytes = await pdfDoc.save()
-    
+          <h1>Analytics Report</h1>
+          <div class="date">${new Date().toLocaleDateString()}</div>
+          
+          ${insights ? `
+            <div class="section insights">
+              <h2>Key Insights</h2>
+              <p>${insights}</p>
+            </div>
+          ` : ''}
+          
+          ${generateAnalysisSections(report)}
+        </body>
+      </html>
+    `
+
+    // Convert HTML to PDF using WeasyPrint
+    const process = new Deno.Command('weasyprint', {
+      args: ['-', '-'],
+      stdin: 'piped',
+      stdout: 'piped',
+    })
+
+    const child = process.spawn()
+    const writer = child.stdin.getWriter()
+    await writer.write(new TextEncoder().encode(htmlContent))
+    await writer.close()
+
+    const output = await child.output()
+    const pdfBytes = output.stdout
+
     // Convert to base64
-    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes))
+    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)))
     const pdfUrl = `data:application/pdf;base64,${pdfBase64}`
 
     console.log('PDF generated successfully')
@@ -269,3 +163,79 @@ serve(async (req) => {
     )
   }
 })
+
+async function fetchLogoAsBase64(): Promise<string> {
+  const logoUrl = 'https://raw.githubusercontent.com/your-repo/standup-notez/main/public/logo.png'
+  const response = await fetch(logoUrl)
+  const arrayBuffer = await response.arrayBuffer()
+  return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+}
+
+function generateAnalysisSections(report: any): string {
+  const sections = []
+  
+  const addSection = (title: string, data: any) => {
+    if (!data?.current) return
+    
+    sections.push(`
+      <div class="section">
+        <h2>${title}</h2>
+        ${data.period ? `<div class="date">Period: ${data.period}</div>` : ''}
+        
+        ${generateMetricsHtml(data)}
+        
+        ${data.summary ? `
+          <div class="summary">
+            <h3>Summary</h3>
+            <p>${data.summary}</p>
+          </div>
+        ` : ''}
+      </div>
+    `)
+  }
+  
+  if (report.weekly_analysis) addSection('Weekly Analysis', report.weekly_analysis)
+  if (report.monthly_analysis) addSection('Monthly Analysis', report.monthly_analysis)
+  if (report.quarterly_analysis) addSection('Quarterly Analysis', report.quarterly_analysis)
+  if (report.ytd_analysis) addSection('Year to Date Analysis', report.ytd_analysis)
+  if (report.last28_yoy_analysis) addSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis)
+  
+  return sections.join('\n')
+}
+
+function generateMetricsHtml(data: any): string {
+  const metrics = [
+    {
+      label: 'Sessions',
+      current: data.current.sessions?.toLocaleString() ?? '0',
+      change: data.changes?.sessions
+    },
+    {
+      label: 'Conversions',
+      current: data.current.conversions?.toLocaleString() ?? '0',
+      change: data.changes?.conversions
+    },
+    {
+      label: 'Revenue',
+      current: data.current.revenue ? `$${data.current.revenue.toLocaleString()}` : '$0',
+      change: data.changes?.revenue
+    }
+  ]
+  
+  return metrics.map(metric => {
+    if (metric.current === '0' || metric.current === '$0') return ''
+    
+    const changeHtml = metric.change !== undefined
+      ? `<span class="${metric.change >= 0 ? 'positive' : 'negative'}">
+           ${metric.change >= 0 ? '+' : ''}${metric.change.toFixed(1)}%
+         </span>`
+      : ''
+    
+    return `
+      <div class="metric">
+        <strong>${metric.label}:</strong> ${metric.current}
+        ${changeHtml}
+      </div>
+    `
+  }).join('\n')
+}
