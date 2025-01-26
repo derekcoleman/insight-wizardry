@@ -29,11 +29,19 @@ serve(async (req) => {
     const monthlyRevenue = ga4Data.monthly?.current?.revenue || 0;
     const conversionGoal = ga4Data.monthly?.current?.conversionGoal || 'Total Conversions';
 
-    // Get top performing pages
-    const topPages = gscData.pages?.slice(0, 20) || [];
-    const searchTerms = gscData.searchTerms?.slice(0, 50) || [];
+    // Get top performing pages and declining pages
+    const topPages = gscData.monthlyPages?.slice(0, 20) || [];
+    const searchTerms = gscData.monthlySearchTerms?.slice(0, 50) || [];
+    
+    // Get declining pages specifically
+    const decliningPages = (gscData.monthlyPages || [])
+      .filter((page: any) => {
+        const clicksChange = parseFloat(page.changes?.clicks || '0');
+        return clicksChange < 0;
+      })
+      .slice(0, 10);
 
-    const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate 15-20 highly specific, actionable recommendations. Focus on increasing conversions and revenue through content optimization.
+    const analysisPrompt = `As an expert SEO and Content Strategy consultant, analyze this data and generate exactly 15-20 highly specific, actionable content recommendations. Focus on increasing conversions and revenue through content optimization.
 
 Key Performance Data:
 - Monthly Conversions: ${monthlyConversions}
@@ -42,6 +50,9 @@ Key Performance Data:
 
 Top performing pages and their metrics:
 ${JSON.stringify(topPages, null, 2)}
+
+Pages with declining traffic:
+${JSON.stringify(decliningPages, null, 2)}
 
 Search term performance:
 ${JSON.stringify(searchTerms, null, 2)}
@@ -74,6 +85,8 @@ For each recommendation, provide:
    - Resource requirements
    - Implementation complexity
 
+IMPORTANT: You must generate exactly 15-20 recommendations to ensure comprehensive coverage.
+
 Return a JSON object with a 'topics' array containing objects with these fields:
 - title (string): Clear, action-oriented title
 - description (string): Detailed analysis and implementation plan
@@ -93,11 +106,11 @@ Return a JSON object with a 'topics' array containing objects with these fields:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "gpt-4o",
           messages: [
             {
               role: "system",
-              content: "You are an expert SEO analyst specializing in conversion rate optimization. Always return a JSON object with a 'topics' array containing the recommendations."
+              content: "You are an expert SEO analyst specializing in conversion rate optimization. Always return a JSON object with a 'topics' array containing exactly 15-20 recommendations."
             },
             {
               role: "user",
@@ -122,8 +135,6 @@ Return a JSON object with a 'topics' array containing objects with these fields:
       }
 
       let content = openAIResponse.choices[0].message.content;
-      
-      // Clean up the content by removing any markdown formatting
       content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       
       console.log('Cleaned content:', content);
@@ -139,6 +150,11 @@ Return a JSON object with a 'topics' array containing objects with these fields:
 
       if (!parsedContent.topics || !Array.isArray(parsedContent.topics)) {
         throw new Error('Response does not contain a topics array');
+      }
+
+      // Ensure we have at least 15 recommendations
+      if (parsedContent.topics.length < 15) {
+        throw new Error('Not enough recommendations generated');
       }
 
       const topics = parsedContent.topics.map(topic => ({
