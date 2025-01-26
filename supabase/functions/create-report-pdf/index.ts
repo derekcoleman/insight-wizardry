@@ -25,8 +25,7 @@ serve(async (req) => {
     })
 
     // Initialize autoTable plugin
-    const autoTablePlugin = autoTable.default || autoTable
-    doc.autoTable = autoTablePlugin
+    doc.autoTable = autoTable
 
     // Add title
     doc.setFontSize(20)
