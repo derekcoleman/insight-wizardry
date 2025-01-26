@@ -42,14 +42,19 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an SEO expert analyzing Google Trends data. Generate clear, actionable insights about search patterns and opportunities. Focus on actual search terms and their relationships. Never use phrases like "related query" or "rising query". Instead, directly state what users are searching for and how it relates to the main keywords. Be specific about numbers and percentages when available.`
+            content: `You are an SEO expert analyzing Google Trends data. Generate clear, actionable insights about search patterns and opportunities. Focus on actual search terms and their relationships. Never use phrases like "related query" or "rising query". Instead, directly state what users are searching for and how it relates to the main keywords. Be specific about numbers and percentages when available.
+
+When analyzing search terms:
+1. For seasonal patterns: Identify specific time periods when certain terms peak or decline
+2. For trending topics: List exact search phrases with their growth percentages
+3. For content recommendations: Suggest specific topics based on user interest and search volume`
           },
           {
             role: 'user',
             content: `Analyze this Google Trends data and provide three types of insights:
-              1. Seasonal Patterns: Identify clear patterns in how search terms are used together and any timing-based insights
-              2. Trending Topics: List specific search terms that are gaining popularity, with growth percentages when available
-              3. Content Recommendations: Suggest specific content topics based on the data, focusing on high-value opportunities
+              1. Seasonal Patterns: Identify clear patterns in search behavior and timing
+              2. Trending Topics: List specific search terms that are gaining popularity
+              3. Content Recommendations: Suggest specific content topics based on the data
               
               Data: ${JSON.stringify(trendsContext, null, 2)}`
           }
@@ -73,8 +78,6 @@ serve(async (req) => {
       trending_topics: sections[1].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('trending topics:')),
       keyword_recommendations: sections[2].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('content recommendations:')),
     };
-
-    console.log('Generated analysis:', analysis);
 
     return new Response(
       JSON.stringify({ analysis }),

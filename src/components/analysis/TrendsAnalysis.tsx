@@ -101,7 +101,7 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
           {payload.map((entry: any, index: number) => (
             <div key={index} className="flex justify-between items-center gap-4">
               <span style={{ color: entry.color }}>{entry.name}:</span>
-              <span className="font-medium">{entry.value} interest</span>
+              <span className="font-medium">{entry.value}% interest</span>
             </div>
           ))}
         </div>
@@ -114,7 +114,7 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
     <Card className="mt-6">
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle>Search Trends Analysis</CardTitle>
+          <CardTitle>Search Interest Analysis</CardTitle>
           <Button
             onClick={analyzeTrends}
             disabled={isLoading}
@@ -143,7 +143,7 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
                     />
                     <YAxis 
                       label={{ 
-                        value: 'Search Interest', 
+                        value: 'Relative Search Interest (%)', 
                         angle: -90, 
                         position: 'insideLeft',
                         style: { fill: '#6b7280' }
