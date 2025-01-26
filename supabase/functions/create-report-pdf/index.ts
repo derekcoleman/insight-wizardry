@@ -16,15 +16,8 @@ serve(async (req) => {
     const { report, insights } = await req.json()
     console.log('Generating PDF with report data:', { hasReport: !!report, hasInsights: !!insights })
 
-    // Create PDF document with auto page break enabled
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    })
-
-    // Enable auto page break
-    doc.setAutoPageBreak(true, 15)
+    // Create PDF document
+    const doc = new jsPDF()
 
     // Add title
     doc.setFontSize(20)
@@ -51,8 +44,7 @@ serve(async (req) => {
 
     // Helper function to check if we need a new page
     const checkPageBreak = (requiredSpace: number) => {
-      const pageHeight = doc.internal.pageSize.height
-      if (yPosition + requiredSpace > pageHeight - 15) {
+      if (yPosition + requiredSpace > 280) {
         doc.addPage()
         yPosition = 20
       }
@@ -130,9 +122,9 @@ serve(async (req) => {
         try {
           const searchTermsData = data.searchTerms.slice(0, 10).map((term: any) => [
             term.term,
-            term.clicks?.toString() || 'N/A',
-            term.impressions?.toString() || 'N/A',
-            term.ctr ? `${(term.ctr * 100).toFixed(1)}%` : 'N/A'
+            term.current.clicks?.toString() || 'N/A',
+            term.current.impressions?.toString() || 'N/A',
+            term.current.ctr ? `${term.current.ctr}%` : 'N/A'
           ])
 
           // @ts-ignore
@@ -162,9 +154,9 @@ serve(async (req) => {
         try {
           const pagesData = data.pages.slice(0, 10).map((page: any) => [
             page.page,
-            page.clicks?.toString() || 'N/A',
-            page.impressions?.toString() || 'N/A',
-            page.ctr ? `${(page.ctr * 100).toFixed(1)}%` : 'N/A'
+            page.current.clicks?.toString() || 'N/A',
+            page.current.impressions?.toString() || 'N/A',
+            page.current.ctr ? `${page.current.ctr}%` : 'N/A'
           ])
 
           // @ts-ignore
