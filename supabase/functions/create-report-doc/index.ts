@@ -63,36 +63,6 @@ const createTable = (rows: string[][], startIndex: number) => {
     });
   });
   
-  // Apply table styling
-  requests.push({
-    updateTableCellStyle: {
-      tableRange: {
-        tableCells: {
-          rowSpan: numRows,
-          columnSpan: numCols
-        }
-      },
-      tableCellStyle: {
-        backgroundColor: { color: { rgbColor: { red: 1, green: 1, blue: 1 } } },
-        borderBottom: {
-          color: { color: { rgbColor: { red: 0.8, green: 0.8, blue: 0.8 } } },
-          width: { magnitude: 1, unit: "PT" },
-          dashStyle: "SOLID"
-        },
-        borderRight: {
-          color: { color: { rgbColor: { red: 0.8, green: 0.8, blue: 0.8 } } },
-          width: { magnitude: 1, unit: "PT" },
-          dashStyle: "SOLID"
-        },
-        paddingBottom: { magnitude: 5, unit: "PT" },
-        paddingTop: { magnitude: 5, unit: "PT" },
-        paddingLeft: { magnitude: 5, unit: "PT" },
-        paddingRight: { magnitude: 5, unit: "PT" }
-      },
-      fields: "*"
-    }
-  });
-  
   return { requests, endIndex: currentIndex };
 };
 
@@ -124,6 +94,31 @@ const createHeading = (text: string, level: number, startIndex: number) => {
   return { requests, endIndex: startIndex + text.length + 1 };
 };
 
+// Helper function to process requests in smaller batches
+const processBatchRequests = async (docs: any, documentId: string, requests: any[]) => {
+  const BATCH_SIZE = 10; // Reduced batch size
+  const DELAY_BETWEEN_BATCHES = 1000; // 1 second delay between batches
+
+  for (let i = 0; i < requests.length; i += BATCH_SIZE) {
+    const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
+    try {
+      console.log(`Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(requests.length / BATCH_SIZE)}`);
+      await docs.documents.batchUpdate({
+        documentId: documentId,
+        requestBody: { requests: batch },
+      });
+      
+      // Add delay between batches
+      if (i + BATCH_SIZE < requests.length) {
+        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+      }
+    } catch (error) {
+      console.error(`Error processing batch ${i / BATCH_SIZE + 1}:`, error);
+      throw new Error(`Failed to process batch ${i / BATCH_SIZE + 1}: ${error.message}`);
+    }
+  }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -153,6 +148,7 @@ serve(async (req) => {
     const drive = google.drive({ version: 'v3', auth });
 
     // Create new document
+    console.log('Creating new document...');
     const document = await docs.documents.create({
       requestBody: {
         title: `Analytics Report - ${new Date().toLocaleDateString()}`,
@@ -164,7 +160,7 @@ serve(async (req) => {
       throw new Error('Failed to create document');
     }
 
-    // Set document permissions
+    console.log('Setting document permissions...');
     await drive.permissions.create({
       fileId: docId,
       requestBody: {
@@ -173,16 +169,17 @@ serve(async (req) => {
       },
     });
 
+    // Prepare all requests
+    const allRequests = [];
     let currentIndex = 1;
-    const requests = [];
 
     // Add title
     const titleSection = createHeading('Analytics Report', 1, currentIndex);
-    requests.push(...titleSection.requests);
+    allRequests.push(...titleSection.requests);
     currentIndex = titleSection.endIndex;
 
     // Add date
-    requests.push({
+    allRequests.push({
       insertText: {
         location: { index: currentIndex },
         text: `${new Date().toLocaleDateString()}\n\n`
@@ -193,10 +190,10 @@ serve(async (req) => {
     // Add AI Analysis section if available
     if (insights) {
       const insightsHeading = createHeading('AI Analysis', 2, currentIndex);
-      requests.push(...insightsHeading.requests);
+      allRequests.push(...insightsHeading.requests);
       currentIndex = insightsHeading.endIndex;
 
-      requests.push({
+      allRequests.push({
         insertText: {
           location: { index: currentIndex },
           text: `${insights}\n\n`
@@ -205,75 +202,7 @@ serve(async (req) => {
       currentIndex += insights.length + 2;
     }
 
-    // Helper function to format metrics data for table
-    const formatMetricsData = (data: any) => {
-      if (!data?.current) return null;
-      
-      const rows = [['Metric', 'Current Value', 'Previous Value', 'Change']];
-      
-      // Add traffic metrics
-      if (data.current.sessions !== undefined) {
-        rows.push([
-          'Sessions',
-          data.current.sessions.toString(),
-          data.previous.sessions.toString(),
-          `${data.changes.sessions.toFixed(1)}%`
-        ]);
-      }
-      
-      // Add conversion metrics
-      if (data.current.conversions !== undefined) {
-        const conversionType = data.current.conversionGoal || 'Total Conversions';
-        rows.push([
-          `Conversions (${conversionType})`,
-          data.current.conversions.toString(),
-          data.previous.conversions.toString(),
-          `${data.changes.conversions.toFixed(1)}%`
-        ]);
-      }
-      
-      // Add revenue metrics
-      if (data.current.revenue !== undefined && data.current.revenue > 0) {
-        rows.push([
-          'Revenue',
-          `$${data.current.revenue}`,
-          `$${data.previous.revenue}`,
-          `${data.changes.revenue.toFixed(1)}%`
-        ]);
-      }
-      
-      // Add Search Console metrics
-      if (data.current.clicks !== undefined) {
-        rows.push([
-          'Clicks',
-          Math.round(data.current.clicks).toString(),
-          Math.round(data.previous.clicks).toString(),
-          `${data.changes.clicks.toFixed(1)}%`
-        ]);
-        rows.push([
-          'Impressions',
-          Math.round(data.current.impressions).toString(),
-          Math.round(data.previous.impressions).toString(),
-          `${data.changes.impressions.toFixed(1)}%`
-        ]);
-        rows.push([
-          'CTR',
-          `${data.current.ctr.toFixed(1)}%`,
-          `${data.previous.ctr.toFixed(1)}%`,
-          `${data.changes.ctr.toFixed(1)}%`
-        ]);
-        rows.push([
-          'Average Position',
-          data.current.position.toFixed(1),
-          data.previous.position.toFixed(1),
-          `${data.changes.position.toFixed(1)}%`
-        ]);
-      }
-      
-      return rows;
-    };
-
-    // Add analysis sections
+    // Process sections
     const sections = [
       { title: 'Weekly Analysis', data: report.weekly_analysis },
       { title: 'Monthly Analysis', data: report.monthly_analysis },
@@ -285,14 +214,12 @@ serve(async (req) => {
     for (const section of sections) {
       if (!section.data) continue;
 
-      // Add section heading
       const headingSection = createHeading(section.title, 2, currentIndex);
-      requests.push(...headingSection.requests);
+      allRequests.push(...headingSection.requests);
       currentIndex = headingSection.endIndex;
 
-      // Add period if available
       if (section.data.period) {
-        requests.push({
+        allRequests.push({
           insertText: {
             location: { index: currentIndex },
             text: `Period: ${section.data.period}\n\n`
@@ -301,9 +228,8 @@ serve(async (req) => {
         currentIndex += `Period: ${section.data.period}\n\n`.length;
       }
 
-      // Add summary if available
       if (section.data.summary) {
-        requests.push({
+        allRequests.push({
           insertText: {
             location: { index: currentIndex },
             text: `${section.data.summary}\n\n`
@@ -313,103 +239,51 @@ serve(async (req) => {
       }
 
       // Add metrics table
-      const metricsData = formatMetricsData(section.data);
-      if (metricsData) {
+      if (section.data.current) {
+        const metricsData = [
+          ['Metric', 'Current Value', 'Previous Value', 'Change']
+        ];
+
+        // Add traffic metrics
+        if (section.data.current.sessions !== undefined) {
+          metricsData.push([
+            'Sessions',
+            section.data.current.sessions.toString(),
+            section.data.previous.sessions.toString(),
+            `${section.data.changes.sessions.toFixed(1)}%`
+          ]);
+        }
+
+        // Add conversion metrics
+        if (section.data.current.conversions !== undefined) {
+          const conversionType = section.data.current.conversionGoal || 'Total Conversions';
+          metricsData.push([
+            `Conversions (${conversionType})`,
+            section.data.current.conversions.toString(),
+            section.data.previous.conversions.toString(),
+            `${section.data.changes.conversions.toFixed(1)}%`
+          ]);
+        }
+
+        // Add revenue metrics
+        if (section.data.current.revenue !== undefined) {
+          metricsData.push([
+            'Revenue',
+            `$${section.data.current.revenue}`,
+            `$${section.data.previous.revenue}`,
+            `${section.data.changes.revenue.toFixed(1)}%`
+          ]);
+        }
+
         const tableSection = createTable(metricsData, currentIndex);
-        requests.push(...tableSection.requests);
+        allRequests.push(...tableSection.requests);
         currentIndex = tableSection.endIndex;
       }
-
-      // Add branded vs non-branded analysis if available
-      if (section.data.searchTerms) {
-        const brandedTerms = section.data.searchTerms.filter((term: any) => term.isBranded);
-        const nonBrandedTerms = section.data.searchTerms.filter((term: any) => !term.isBranded);
-        
-        if (brandedTerms.length > 0 || nonBrandedTerms.length > 0) {
-          const searchTermsHeading = createHeading('Branded vs Non-Branded Search Terms', 3, currentIndex);
-          requests.push(...searchTermsHeading.requests);
-          currentIndex = searchTermsHeading.endIndex;
-
-          if (brandedTerms.length > 0) {
-            const brandedTableData = [
-              ['Term', 'Clicks', 'Impressions', 'CTR', 'Position'],
-              ...brandedTerms.map((term: any) => [
-                term.term,
-                term.current.clicks.toString(),
-                term.current.impressions.toString(),
-                `${term.current.ctr}%`,
-                term.current.position
-              ])
-            ];
-            
-            const brandedHeading = createHeading('Branded Terms', 4, currentIndex);
-            requests.push(...brandedHeading.requests);
-            currentIndex = brandedHeading.endIndex;
-            
-            const brandedTable = createTable(brandedTableData, currentIndex);
-            requests.push(...brandedTable.requests);
-            currentIndex = brandedTable.endIndex;
-          }
-
-          if (nonBrandedTerms.length > 0) {
-            const nonBrandedTableData = [
-              ['Term', 'Clicks', 'Impressions', 'CTR', 'Position'],
-              ...nonBrandedTerms.map((term: any) => [
-                term.term,
-                term.current.clicks.toString(),
-                term.current.impressions.toString(),
-                `${term.current.ctr}%`,
-                term.current.position
-              ])
-            ];
-            
-            const nonBrandedHeading = createHeading('Non-Branded Terms', 4, currentIndex);
-            requests.push(...nonBrandedHeading.requests);
-            currentIndex = nonBrandedHeading.endIndex;
-            
-            const nonBrandedTable = createTable(nonBrandedTableData, currentIndex);
-            requests.push(...nonBrandedTable.requests);
-            currentIndex = nonBrandedTable.endIndex;
-          }
-        }
-      }
-
-      // Add top pages analysis if available
-      if (section.data.pages) {
-        const pagesHeading = createHeading('Top Pages Performance', 3, currentIndex);
-        requests.push(...pagesHeading.requests);
-        currentIndex = pagesHeading.endIndex;
-
-        const pagesTableData = [
-          ['Page', 'Clicks', 'Impressions', 'CTR', 'Position'],
-          ...section.data.pages.map((page: any) => [
-            page.page,
-            page.current.clicks.toString(),
-            page.current.impressions.toString(),
-            `${page.current.ctr}%`,
-            page.current.position
-          ])
-        ];
-        
-        const pagesTable = createTable(pagesTableData, currentIndex);
-        requests.push(...pagesTable.requests);
-        currentIndex = pagesTable.endIndex;
-      }
     }
 
-    // Process requests in batches
-    const BATCH_SIZE = 20;
-    for (let i = 0; i < requests.length; i += BATCH_SIZE) {
-      const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
-      await docs.documents.batchUpdate({
-        documentId: docId,
-        requestBody: { requests: batch },
-      });
-      // Add delay between batches
-      if (i + BATCH_SIZE < requests.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
+    // Process all requests in smaller batches
+    console.log(`Processing ${allRequests.length} total requests in batches...`);
+    await processBatchRequests(docs, docId, allRequests);
 
     console.log('Document created successfully');
     return new Response(
