@@ -38,12 +38,6 @@ serve(async (req) => {
       format: 'a4'
     });
 
-    // Add logo
-    const logoBase64 = await fetchLogoAsBase64()
-    if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', 15, 10, 40, 20)
-    }
-
     // Add title
     doc.setFontSize(20)
     doc.setTextColor(37, 99, 235) // Blue color
@@ -169,18 +163,6 @@ serve(async (req) => {
     )
   }
 })
-
-async function fetchLogoAsBase64(): Promise<string> {
-  try {
-    const logoUrl = 'https://raw.githubusercontent.com/your-repo/standup-notez/main/public/logo.png'
-    const response = await fetch(logoUrl)
-    const arrayBuffer = await response.arrayBuffer()
-    return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
-  } catch (error) {
-    console.error('Error fetching logo:', error)
-    return ''
-  }
-}
 
 function formatChange(change: number | undefined): string {
   if (change === undefined) return ''
