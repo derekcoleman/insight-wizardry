@@ -38,8 +38,18 @@ const createTable = (rows: string[][], startIndex: number) => {
     }
   });
 
-  // Fill table cells with proper indices
-  let currentIndex = startIndex + 1;
+  // Calculate cell content length for index tracking
+  let currentIndex = startIndex + 2; // Start after table creation
+  let totalCellLength = 0;
+
+  // First pass: calculate total length
+  rows.forEach(row => {
+    row.forEach(cell => {
+      totalCellLength += cell.length + 1; // +1 for cell padding
+    });
+  });
+
+  // Second pass: fill cells with proper index tracking
   rows.forEach((row, rowIndex) => {
     row.forEach((cell, colIndex) => {
       requests.push({
@@ -66,11 +76,11 @@ const createTable = (rows: string[][], startIndex: number) => {
         });
       }
       
-      currentIndex += cell.length + 1;
+      currentIndex += cell.length + 1; // +1 for cell padding
     });
   });
   
-  return { requests, endIndex: currentIndex };
+  return { requests, endIndex: currentIndex + totalCellLength };
 };
 
 // Helper function to create a section heading
@@ -103,13 +113,15 @@ const createHeading = (text: string, level: number, startIndex: number) => {
 
 // Helper function to process requests in smaller batches with proper error handling
 const processBatchRequests = async (docs: any, documentId: string, requests: any[]) => {
-  const BATCH_SIZE = 5; // Reduced batch size
+  const BATCH_SIZE = 3; // Even smaller batch size
   const DELAY_BETWEEN_BATCHES = 2000; // 2 second delay between batches
 
   for (let i = 0; i < requests.length; i += BATCH_SIZE) {
     const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
     try {
       console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(requests.length / BATCH_SIZE)}`);
+      console.log('Batch requests:', JSON.stringify(batch, null, 2));
+      
       await docs.documents.batchUpdate({
         documentId: documentId,
         requestBody: { requests: batch },
@@ -123,6 +135,7 @@ const processBatchRequests = async (docs: any, documentId: string, requests: any
       console.error(`Error processing batch ${Math.floor(i / BATCH_SIZE) + 1}:`, error);
       if (error.response?.data?.error) {
         console.error('Google API Error:', error.response.data.error);
+        console.error('Failed requests:', JSON.stringify(batch, null, 2));
       }
       throw new Error(`Failed to process batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`);
     }
@@ -190,13 +203,14 @@ serve(async (req) => {
 
     // Add date
     const date = new Date().toLocaleDateString();
+    const dateText = `${date}\n\n`;
     allRequests.push({
       insertText: {
         location: { index: currentIndex },
-        text: `${date}\n\n`
+        text: dateText
       }
     });
-    currentIndex += date.length + 2;
+    currentIndex += dateText.length;
 
     // Add insights section if available
     if (insights) {
@@ -204,13 +218,14 @@ serve(async (req) => {
       allRequests.push(...insightsHeading.requests);
       currentIndex = insightsHeading.endIndex;
 
+      const insightsText = `${insights}\n\n`;
       allRequests.push({
         insertText: {
           location: { index: currentIndex },
-          text: `${insights}\n\n`
+          text: insightsText
         }
       });
-      currentIndex += insights.length + 2;
+      currentIndex += insightsText.length;
     }
 
     // Process sections
@@ -225,10 +240,12 @@ serve(async (req) => {
     for (const section of sections) {
       if (!section.data) continue;
 
+      // Add section heading
       const headingSection = createHeading(section.title, 2, currentIndex);
       allRequests.push(...headingSection.requests);
       currentIndex = headingSection.endIndex;
 
+      // Add period
       if (section.data.period) {
         const periodText = `Period: ${section.data.period}\n\n`;
         allRequests.push({
@@ -240,6 +257,7 @@ serve(async (req) => {
         currentIndex += periodText.length;
       }
 
+      // Add summary
       if (section.data.summary) {
         const summaryText = `${section.data.summary}\n\n`;
         allRequests.push({
@@ -292,6 +310,15 @@ serve(async (req) => {
         allRequests.push(...tableSection.requests);
         currentIndex = tableSection.endIndex;
       }
+
+      // Add extra newline after each section
+      allRequests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: "\n\n"
+        }
+      });
+      currentIndex += 2;
     }
 
     // Process all requests in smaller batches
