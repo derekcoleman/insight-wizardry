@@ -19,30 +19,7 @@ serve(async (req) => {
     // Create PDF document
     const doc = new jsPDF()
 
-    // Add title
-    doc.setFontSize(20)
-    doc.text('Analytics Report', 15, 20)
-
-    let yPosition = 30
-
-    // Add date
-    doc.setFontSize(12)
-    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 15, yPosition)
-    yPosition += 10
-
-    // Add insights if available - moved to top of document
-    if (insights) {
-      console.log('Adding insights to PDF')
-      checkPageBreak(40)
-      doc.setFontSize(16)
-      doc.text('AI Analysis', 15, yPosition)
-      yPosition += 10
-
-      doc.setFontSize(12)
-      const insightLines = doc.splitTextToSize(insights, 180)
-      doc.text(insightLines, 15, yPosition)
-      yPosition += (insightLines.length * 7) + 10
-    }
+    let yPosition = 20
 
     // Helper function to format changes
     const formatChange = (change: number | undefined): string => {
@@ -62,6 +39,30 @@ serve(async (req) => {
         doc.addPage()
         yPosition = 20
       }
+    }
+
+    // Add title
+    doc.setFontSize(20)
+    doc.text('Analytics Report', 15, yPosition)
+    yPosition += 10
+
+    // Add date
+    doc.setFontSize(12)
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 15, yPosition)
+    yPosition += 10
+
+    // Add insights if available - moved to top of document
+    if (insights) {
+      console.log('Adding insights to PDF')
+      checkPageBreak(40)
+      doc.setFontSize(16)
+      doc.text('AI Analysis', 15, yPosition)
+      yPosition += 10
+
+      doc.setFontSize(12)
+      const insightLines = doc.splitTextToSize(insights, 180)
+      doc.text(insightLines, 15, yPosition)
+      yPosition += (insightLines.length * 7) + 10
     }
 
     // Add analysis sections
