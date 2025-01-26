@@ -19,17 +19,11 @@ interface TrendsAnalysisProps {
   keywords: string[];
 }
 
-interface RelatedQuery {
-  query: string;
-  value: number;
-  trend: "rising" | "steady" | "declining";
-}
-
 interface TrendsData {
   interest_over_time: any[];
   related_queries: Record<string, {
-    top: RelatedQuery[];
-    rising: RelatedQuery[];
+    top: { query: string; value: number }[];
+    rising: { query: string; value: number }[];
   }>;
   analysis?: {
     seasonal_patterns: string[];
@@ -91,60 +85,20 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
     }
   };
 
-  const renderKeywordInsights = (keyword: string) => {
-    const queries = trendsData?.related_queries[keyword];
-    if (!queries) return null;
-
-    return (
-      <Card key={keyword} className="p-4">
-        <h3 className="font-medium mb-4">{keyword}</h3>
-        
-        {/* Related Queries Section */}
-        <div className="space-y-4">
-          {/* Top Related Queries */}
-          <div>
-            <h4 className="text-sm font-medium mb-2">Related Queries:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {queries.top.slice(0, 3).map((query, index) => (
-                <div 
-                  key={index} 
-                  className="flex justify-between items-center bg-muted p-2 rounded"
-                >
-                  <span className="text-sm">{query.query}</span>
-                  <span className={`text-xs ${
-                    query.trend === "rising" ? "text-green-500" : 
-                    query.trend === "declining" ? "text-red-500" : 
-                    "text-gray-500"
-                  }`}>
-                    {query.trend === "rising" ? "↑" : 
-                     query.trend === "declining" ? "↓" : 
-                     "→"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Breakout Queries */}
-          {queries.rising.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium mb-2">Trending Queries:</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {queries.rising.slice(0, 2).map((query, index) => (
-                  <div 
-                    key={index} 
-                    className="flex justify-between items-center bg-green-50 p-2 rounded border border-green-100"
-                  >
-                    <span className="text-sm">{query.query}</span>
-                    <span className="text-xs text-green-600">Breakout</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-4 border rounded shadow">
+          <p className="font-medium">{new Date(label).toLocaleDateString()}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} style={{ color: entry.color }}>
+              {entry.name}: {entry.value}
+            </p>
+          ))}
         </div>
-      </Card>
-    );
+      );
+    }
+    return null;
   };
 
   return (
@@ -165,16 +119,55 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
       <CardContent>
         {trendsData && (
           <div className="space-y-6">
-            {/* Key Insights */}
+            {/* Search Interest Over Time */}
+            <Card className="p-4">
+              <h3 className="font-medium mb-4">Search Interest Over Time</h3>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trendsData.interest_over_time}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                      stroke="#6b7280"
+                    />
+                    <YAxis 
+                      label={{ 
+                        value: 'Search Interest', 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        style: { fill: '#6b7280' }
+                      }}
+                      stroke="#6b7280"
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    {keywords.slice(0, 5).map((keyword, index) => (
+                      <Line
+                        key={keyword}
+                        type="monotone"
+                        dataKey={keyword}
+                        stroke={`hsl(${index * 60}, 70%, 50%)`}
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 6 }}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            {/* AI-Generated Insights */}
             {trendsData.analysis && (
               <div className="space-y-4">
                 {/* Seasonal Patterns */}
                 {trendsData.analysis.seasonal_patterns.length > 0 && (
                   <Card className="p-4">
                     <h3 className="font-medium mb-2">Seasonal Patterns</h3>
-                    <ul className="list-disc pl-4 space-y-1">
+                    <ul className="list-disc pl-4 space-y-2">
                       {trendsData.analysis.seasonal_patterns.map((pattern, i) => (
-                        <li key={i} className="text-sm">{pattern}</li>
+                        <li key={i} className="text-gray-700">{pattern}</li>
                       ))}
                     </ul>
                   </Card>
@@ -184,59 +177,33 @@ export function TrendsAnalysis({ keywords }: TrendsAnalysisProps) {
                 {trendsData.analysis.trending_topics.length > 0 && (
                   <Card className="p-4">
                     <h3 className="font-medium mb-2">Trending Topics</h3>
-                    <ul className="list-disc pl-4 space-y-1">
+                    <ul className="list-disc pl-4 space-y-2">
                       {trendsData.analysis.trending_topics.map((topic, i) => (
-                        <li key={i} className="text-sm">{topic}</li>
+                        <li key={i} className="text-gray-700">{topic}</li>
                       ))}
                     </ul>
                   </Card>
                 )}
 
-                {/* Recommendations */}
+                {/* Content Recommendations */}
                 {trendsData.analysis.keyword_recommendations.length > 0 && (
                   <Card className="p-4">
                     <h3 className="font-medium mb-2">Content Recommendations</h3>
-                    <ul className="list-disc pl-4 space-y-1">
+                    <ul className="list-disc pl-4 space-y-2">
                       {trendsData.analysis.keyword_recommendations.map((rec, i) => (
-                        <li key={i} className="text-sm">{rec}</li>
+                        <li key={i} className="text-gray-700">{rec}</li>
                       ))}
                     </ul>
                   </Card>
                 )}
               </div>
             )}
-            
-            {/* Search Interest Over Time */}
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendsData.interest_over_time}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  {keywords.slice(0, 5).map((keyword, index) => (
-                    <Line
-                      key={keyword}
-                      type="monotone"
-                      dataKey={keyword}
-                      stroke={`hsl(${index * 60}, 70%, 50%)`}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Keyword-specific insights */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {keywords.slice(0, 5).map(keyword => renderKeywordInsights(keyword))}
-            </div>
           </div>
         )}
 
         {!trendsData && !isLoading && (
           <p className="text-muted-foreground">
-            Click "Analyze Trends" to see search trends and related queries for your keywords.
+            Click "Analyze Trends" to see search trends and insights for your keywords.
           </p>
         )}
       </CardContent>

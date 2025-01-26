@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -12,60 +13,68 @@ serve(async (req) => {
 
   try {
     const { keywords, trendsData } = await req.json();
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
-    // Analyze the provided keywords and trends data to generate insights
-    const generateSeasonalPatterns = (keywords: string[]) => {
-      return keywords.map(keyword => {
-        const keywordData = trendsData?.interest_over_time?.filter(point => point[keyword]);
-        if (!keywordData?.length) return null;
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
 
-        const relatedQueries = trendsData?.related_queries?.[keyword];
-        if (!relatedQueries) return null;
-
-        const topQueries = relatedQueries.top || [];
-        if (topQueries.length > 0) {
-          return `'${keyword}' searches frequently appear alongside '${topQueries[0].query}', suggesting valuable content opportunities`;
-        }
-        return `'${keyword}' maintains consistent search patterns worth monitoring`;
-      }).filter(Boolean);
+    // Prepare the data for OpenAI analysis
+    const trendsContext = {
+      keywords,
+      interestOverTime: trendsData.interest_over_time,
+      queries: Object.entries(trendsData.related_queries).map(([keyword, data]) => ({
+        keyword,
+        topQueries: data.top.map(q => q.query),
+        risingQueries: data.rising.map(q => q.query)
+      }))
     };
 
-    const generateTrendingTopics = (keywords: string[]) => {
-      return keywords.map(keyword => {
-        const relatedQueries = trendsData?.related_queries?.[keyword];
-        if (!relatedQueries) return null;
-
-        const risingQueries = relatedQueries.rising || [];
-        if (risingQueries.length > 0) {
-          return `'${risingQueries[0].query}' is gaining significant search volume in the ${keyword} space`;
-        }
-        return null;
-      }).filter(Boolean);
-    };
-
-    const generateRecommendations = (keywords: string[]) => {
-      return keywords.map(keyword => {
-        const relatedQueries = trendsData?.related_queries?.[keyword];
-        if (!relatedQueries) return null;
-
-        const topQueries = relatedQueries.top || [];
-        const risingQueries = relatedQueries.rising || [];
-        
-        if (topQueries.length > 0 || risingQueries.length > 0) {
-          const targetQuery = risingQueries[0]?.query || topQueries[0]?.query;
-          if (targetQuery) {
-            return `Create content that explores '${targetQuery}' to capture growing interest in the ${keyword} market`;
+    // Get AI-generated insights
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an SEO expert analyzing Google Trends data. Generate clear, specific insights about search patterns and opportunities. Focus on actual search terms and their relationships. Never use phrases like "related query" or "rising query". Instead, directly state what users are searching for and how it relates to the main keywords.`
+          },
+          {
+            role: 'user',
+            content: `Analyze this Google Trends data and provide three types of insights:
+              1. Seasonal Patterns: Identify how different search terms are used together
+              2. Trending Topics: Highlight which specific search terms are gaining popularity
+              3. Content Recommendations: Suggest specific content ideas based on the data
+              
+              Data: ${JSON.stringify(trendsContext, null, 2)}`
           }
-        }
-        return null;
-      }).filter(Boolean);
+        ],
+        temperature: 0.7
+      }),
+    });
+
+    const aiResponse = await response.json();
+    
+    if (!aiResponse.choices?.[0]?.message?.content) {
+      throw new Error('Invalid AI response');
+    }
+
+    // Parse AI response into structured insights
+    const aiContent = aiResponse.choices[0].message.content;
+    const sections = aiContent.split('\n\n');
+    
+    const analysis = {
+      seasonal_patterns: sections[0].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('seasonal patterns')),
+      trending_topics: sections[1].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('trending topics')),
+      keyword_recommendations: sections[2].split('\n').filter(line => line.trim() && !line.toLowerCase().includes('content recommendations')),
     };
 
-    const analysis = {
-      seasonal_patterns: generateSeasonalPatterns(keywords),
-      trending_topics: generateTrendingTopics(keywords),
-      keyword_recommendations: generateRecommendations(keywords),
-    };
+    console.log('Generated analysis:', analysis);
 
     return new Response(
       JSON.stringify({ analysis }),
