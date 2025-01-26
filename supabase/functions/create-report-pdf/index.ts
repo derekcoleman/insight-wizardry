@@ -23,7 +23,7 @@ serve(async (req) => {
       format: 'a4'
     });
 
-    // Add jsPDF-AutoTable plugin
+    // Add autoTable plugin to doc
     // @ts-ignore
     doc.autoTable = autoTable;
 
