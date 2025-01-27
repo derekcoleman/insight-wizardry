@@ -1,5 +1,4 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
 import { AnalysisResults } from "./AnalysisResults";
 import { LineChart, BarChart3, Share2, MessageSquareShare, TrendingUp, Mail } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -29,6 +28,9 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
 
   const filterAnalysisForChannel = (analysis: any, channelName: string) => {
     if (!analysis) return null;
+
+    // For the growth tab, return the complete analysis
+    if (channelName === 'growth') return analysis;
 
     const normalizedChannel = channelName.toLowerCase().replace(/\s+/g, '_');
     
@@ -63,7 +65,7 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
     return filteredAnalysis;
   };
 
-  const renderAnalysisForChannel = (channelName: string) => {
+  const renderAnalysisForChannel = (channelName: string, includeSearchConsole: boolean = false) => {
     if (!analysisData?.report) return null;
 
     // Create a filtered version of the report focused on the specific channel
@@ -74,6 +76,26 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       ytd_analysis: filterAnalysisForChannel(analysisData.report.ytd_analysis, channelName),
       last28_yoy_analysis: filterAnalysisForChannel(analysisData.report.last28_yoy_analysis, channelName)
     };
+
+    // Only include search terms and pages data for SEO tab
+    if (!includeSearchConsole) {
+      if (filteredReport.weekly_analysis) {
+        delete filteredReport.weekly_analysis.searchTerms;
+        delete filteredReport.weekly_analysis.pages;
+      }
+      if (filteredReport.monthly_analysis) {
+        delete filteredReport.monthly_analysis.searchTerms;
+        delete filteredReport.monthly_analysis.pages;
+      }
+      if (filteredReport.quarterly_analysis) {
+        delete filteredReport.quarterly_analysis.searchTerms;
+        delete filteredReport.quarterly_analysis.pages;
+      }
+      if (filteredReport.ytd_analysis) {
+        delete filteredReport.ytd_analysis.searchTerms;
+        delete filteredReport.ytd_analysis.pages;
+      }
+    }
 
     return (
       <AnalysisResults 
@@ -91,9 +113,9 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
           <TrendingUp className="h-4 w-4" />
           Growth
         </TabsTrigger>
-        <TabsTrigger value="seo" className="flex items-center gap-2">
+        <TabsTrigger value="organic-search" className="flex items-center gap-2">
           <LineChart className="h-4 w-4" />
-          SEO
+          Organic Search
         </TabsTrigger>
         <TabsTrigger value="paid-social" className="flex items-center gap-2">
           <Share2 className="h-4 w-4" />
@@ -107,18 +129,18 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
           <Mail className="h-4 w-4" />
           Email
         </TabsTrigger>
-        <TabsTrigger value="ppc" className="flex items-center gap-2">
+        <TabsTrigger value="paid-search" className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4" />
-          PPC
+          Paid Search
         </TabsTrigger>
       </TabsList>
 
       <TabsContent value="growth">
-        <AnalysisResults report={analysisData?.report} isLoading={false} insights={insights} />
+        {renderAnalysisForChannel('growth')}
       </TabsContent>
 
-      <TabsContent value="seo">
-        {renderAnalysisForChannel('Organic Search')}
+      <TabsContent value="organic-search">
+        {renderAnalysisForChannel('Organic Search', true)}
       </TabsContent>
 
       <TabsContent value="paid-social">
@@ -133,7 +155,7 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
         {renderAnalysisForChannel('Email')}
       </TabsContent>
 
-      <TabsContent value="ppc">
+      <TabsContent value="paid-search">
         {renderAnalysisForChannel('Paid Search')}
       </TabsContent>
     </Tabs>
