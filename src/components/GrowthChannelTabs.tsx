@@ -2,7 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { AnalysisResults } from "./AnalysisResults";
 import { LineChart, BarChart3, Share2, MessageSquareShare, TrendingUp } from "lucide-react";
-import { MetricCard } from "./MetricCard";
+import { MetricCard } from "./MetricOverviewCard";
 import { useState, useEffect } from "react";
 
 interface GrowthChannelTabsProps {
@@ -14,6 +14,7 @@ interface GrowthChannelTabsProps {
       quarterly_analysis: any;
       ytd_analysis: any;
       last28_yoy_analysis: any;
+      insights?: string;
     } | null;
   } | null;
 }
@@ -24,8 +25,7 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
 
   useEffect(() => {
     if (analysisData?.report) {
-      // Store insights when analysis data is available
-      setInsights(analysisData.report.insights);
+      setInsights(analysisData.report.insights || null);
     }
   }, [analysisData]);
 
