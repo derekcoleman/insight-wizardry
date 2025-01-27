@@ -38,13 +38,13 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       current: {
         ...analysis.current,
         channelGroupings: {
-          total: analysis.current?.channelGroupings?.[normalizedChannel] || {},
+          [normalizedChannel]: analysis.current?.channelGroupings?.[normalizedChannel] || {},
         }
       },
       previous: {
         ...analysis.previous,
         channelGroupings: {
-          total: analysis.previous?.channelGroupings?.[normalizedChannel] || {},
+          [normalizedChannel]: analysis.previous?.channelGroupings?.[normalizedChannel] || {},
         }
       }
     };
