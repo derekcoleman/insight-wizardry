@@ -21,49 +21,103 @@ interface GrowthChannelTabsProps {
 
 export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: GrowthChannelTabsProps) {
   const [insights, setInsights] = useState<string | null>(null);
-  const monthlyData = analysisData?.report?.monthly_analysis;
-
+  
   useEffect(() => {
     if (analysisData?.report) {
       setInsights(analysisData.report.insights || null);
     }
   }, [analysisData]);
 
-  const filterDataByChannel = (data: any, channel: string) => {
+  const getChannelData = (data: any, channelName: string) => {
     if (!data?.current?.channelData) return null;
     
-    const channelData = data.current.channelData.find(
-      (c: any) => c.channel.toLowerCase() === channel.toLowerCase()
+    return data.current.channelData.find(
+      (c: any) => c.channel.toLowerCase() === channelName.toLowerCase()
     );
-
-    return channelData ? {
-      current: channelData,
-      changes: data.changes?.channelData?.find(
-        (c: any) => c.channel.toLowerCase() === channel.toLowerCase()
-      ) || {}
-    } : null;
   };
 
-  const getOverallData = (data: any) => {
-    if (!data?.current) return null;
+  const getChannelChanges = (data: any, channelName: string) => {
+    if (!data?.changes?.channelData) return null;
+    
+    return data.changes.channelData.find(
+      (c: any) => c.channel.toLowerCase() === channelName.toLowerCase()
+    );
+  };
+
+  const getMetricsForChannel = (analysis: any, channelName: string) => {
+    const currentData = getChannelData(analysis, channelName);
+    const changes = getChannelChanges(analysis, channelName);
+
     return {
-      current: {
-        sessions: data.current.totalSessions || 0,
-        conversions: data.current.totalConversions || 0,
-        revenue: data.current.totalRevenue || 0,
+      sessions: {
+        current: currentData?.sessions || 0,
+        change: changes?.sessions || 0
       },
-      changes: {
-        sessions: data.changes?.totalSessions || 0,
-        conversions: data.changes?.totalConversions || 0,
-        revenue: data.changes?.totalRevenue || 0,
+      conversions: {
+        current: currentData?.conversions || 0,
+        change: changes?.conversions || 0
+      },
+      revenue: {
+        current: currentData?.revenue || 0,
+        change: changes?.revenue || 0
       }
     };
   };
 
-  const paidSearchData = filterDataByChannel(monthlyData, 'Paid Search');
-  const organicSocialData = filterDataByChannel(monthlyData, 'Social');
-  const emailData = filterDataByChannel(monthlyData, 'Email');
-  const overallData = getOverallData(monthlyData);
+  const getTotalMetrics = (analysis: any) => {
+    if (!analysis?.current) return null;
+    
+    return {
+      sessions: {
+        current: analysis.current.totalSessions || 0,
+        change: analysis.changes?.totalSessions || 0
+      },
+      conversions: {
+        current: analysis.current.totalConversions || 0,
+        change: analysis.changes?.totalConversions || 0
+      },
+      revenue: {
+        current: analysis.current.totalRevenue || 0,
+        change: analysis.changes?.totalRevenue || 0
+      }
+    };
+  };
+
+  const monthlyData = analysisData?.report?.monthly_analysis;
+  const quarterlyData = analysisData?.report?.quarterly_analysis;
+  const ytdData = analysisData?.report?.ytd_analysis;
+  const weeklyData = analysisData?.report?.weekly_analysis;
+
+  const renderMetricCards = (channelName: string | null = null) => {
+    const metrics = channelName 
+      ? getMetricsForChannel(monthlyData, channelName)
+      : getTotalMetrics(monthlyData);
+
+    if (!metrics) return null;
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricOverviewCard
+          title="Total Traffic"
+          value={metrics.sessions.current}
+          change={metrics.sessions.change}
+          icon={<TrendingUp className="h-4 w-4" />}
+        />
+        <MetricOverviewCard
+          title="Total Conversions"
+          value={metrics.conversions.current}
+          change={metrics.conversions.change}
+          icon={<LineChart className="h-4 w-4" />}
+        />
+        <MetricOverviewCard
+          title="Revenue"
+          value={metrics.revenue.current}
+          change={metrics.revenue.change}
+          icon={<Share2 className="h-4 w-4" />}
+        />
+      </div>
+    );
+  };
 
   return (
     <Tabs defaultValue={defaultTab} className="w-full space-y-6">
@@ -97,26 +151,7 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       <TabsContent value="growth" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Growth Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricOverviewCard
-              title="Total Traffic"
-              value={overallData?.current?.sessions || 0}
-              change={overallData?.changes?.sessions || 0}
-              icon={<TrendingUp className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Total Conversions"
-              value={overallData?.current?.conversions || 0}
-              change={overallData?.changes?.conversions || 0}
-              icon={<LineChart className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Revenue"
-              value={overallData?.current?.revenue || 0}
-              change={overallData?.changes?.revenue || 0}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-          </div>
+          {renderMetricCards()}
         </Card>
       </TabsContent>
 
@@ -127,104 +162,28 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       <TabsContent value="paid-social" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Paid Social Analytics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricOverviewCard
-              title="Sessions"
-              value={paidSearchData?.current?.sessions || 0}
-              change={paidSearchData?.changes?.sessions || 0}
-              icon={<BarChart3 className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Conversions"
-              value={paidSearchData?.current?.conversions || 0}
-              change={paidSearchData?.changes?.conversions || 0}
-              icon={<LineChart className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Revenue"
-              value={paidSearchData?.current?.revenue || 0}
-              change={paidSearchData?.changes?.revenue || 0}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-          </div>
+          {renderMetricCards('Paid Search')}
         </Card>
       </TabsContent>
 
       <TabsContent value="organic-social" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Organic Social Analytics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricOverviewCard
-              title="Sessions"
-              value={organicSocialData?.current?.sessions || 0}
-              change={organicSocialData?.changes?.sessions || 0}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Conversions"
-              value={organicSocialData?.current?.conversions || 0}
-              change={organicSocialData?.changes?.conversions || 0}
-              icon={<LineChart className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Revenue"
-              value={organicSocialData?.current?.revenue || 0}
-              change={organicSocialData?.changes?.revenue || 0}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-          </div>
+          {renderMetricCards('Social')}
         </Card>
       </TabsContent>
 
       <TabsContent value="email" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Email Analytics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricOverviewCard
-              title="Sessions"
-              value={emailData?.current?.sessions || 0}
-              change={emailData?.changes?.sessions || 0}
-              icon={<Mail className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Conversions"
-              value={emailData?.current?.conversions || 0}
-              change={emailData?.changes?.conversions || 0}
-              icon={<LineChart className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Revenue"
-              value={emailData?.current?.revenue || 0}
-              change={emailData?.changes?.revenue || 0}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-          </div>
+          {renderMetricCards('Email')}
         </Card>
       </TabsContent>
 
       <TabsContent value="ppc" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">PPC Analytics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricOverviewCard
-              title="Sessions"
-              value={paidSearchData?.current?.sessions || 0}
-              change={paidSearchData?.changes?.sessions || 0}
-              icon={<BarChart3 className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Conversions"
-              value={paidSearchData?.current?.conversions || 0}
-              change={paidSearchData?.changes?.conversions || 0}
-              icon={<LineChart className="h-4 w-4" />}
-            />
-            <MetricOverviewCard
-              title="Revenue"
-              value={paidSearchData?.current?.revenue || 0}
-              change={paidSearchData?.changes?.revenue || 0}
-              icon={<BarChart3 className="h-4 w-4" />}
-            />
-          </div>
+          {renderMetricCards('Paid Search')}
         </Card>
       </TabsContent>
     </Tabs>
