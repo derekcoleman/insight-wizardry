@@ -55,59 +55,98 @@ serve(async (req) => {
       },
     });
 
-    // Helper function to add text with proper newlines and return the new index
-    const addText = async (text: string, style?: any) => {
-      const requests = [];
-      
-      // Always start with a newline to ensure we're in a valid paragraph
-      requests.push({
-        insertText: {
-          location: { index: 1 },
-          text: '\n' + text + '\n'
-        }
-      });
-
-      if (style) {
-        requests.push({
-          updateParagraphStyle: {
-            range: {
-              startIndex: 1,
-              endIndex: text.length + 1
-            },
-            paragraphStyle: style,
-            fields: Object.keys(style).join(',')
-          }
-        });
-      }
-
-      await docs.documents.batchUpdate({
-        documentId: docId,
-        requestBody: { requests },
-      });
-
-      // Add delay between requests
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    };
-
     // Add title
-    await addText('Analytics Report', {
-      namedStyleType: 'HEADING_1',
-      alignment: 'CENTER'
+    await docs.documents.batchUpdate({
+      documentId: docId,
+      requestBody: {
+        requests: [
+          {
+            insertText: {
+              location: { index: 1 },
+              text: 'Analytics Report\n'
+            }
+          },
+          {
+            updateParagraphStyle: {
+              range: { startIndex: 1, endIndex: 17 },
+              paragraphStyle: {
+                namedStyleType: 'HEADING_1',
+                alignment: 'CENTER'
+              },
+              fields: 'namedStyleType,alignment'
+            }
+          },
+          {
+            insertText: {
+              location: { index: 17 },
+              text: `Generated on ${new Date().toLocaleDateString()}\n\n`
+            }
+          }
+        ]
+      }
     });
-
-    await addText(new Date().toLocaleDateString());
 
     // Add insights if available
     if (insights) {
+      await docs.documents.batchUpdate({
+        documentId: docId,
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                location: { index: 50 },
+                text: 'AI Analysis\n'
+              }
+            },
+            {
+              updateParagraphStyle: {
+                range: { startIndex: 50, endIndex: 61 },
+                paragraphStyle: {
+                  namedStyleType: 'HEADING_2'
+                },
+                fields: 'namedStyleType'
+              }
+            }
+          ]
+        }
+      });
+
       const sections = insights.split(/(?=Key Findings:|Recommended Next Steps:)/g);
+      let currentIndex = 61;
       
       for (const section of sections) {
         const [title, ...content] = section.trim().split('\n');
         
-        await addText(title, {
-          namedStyleType: 'HEADING_2'
+        // Add section title
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: {
+            requests: [
+              {
+                insertText: {
+                  location: { index: currentIndex },
+                  text: `${title.trim()}\n`
+                }
+              },
+              {
+                updateParagraphStyle: {
+                  range: { 
+                    startIndex: currentIndex, 
+                    endIndex: currentIndex + title.length + 1 
+                  },
+                  paragraphStyle: {
+                    namedStyleType: 'HEADING_3'
+                  },
+                  fields: 'namedStyleType'
+                }
+              }
+            ]
+          }
         });
+        
+        currentIndex += title.length + 1;
 
+        // Add bullet points
         for (const line of content) {
           if (line.trim()) {
             const cleanLine = line.trim()
@@ -119,72 +158,53 @@ serve(async (req) => {
               .replace(/\(([^)]+)\)/g, '$1')
               .replace(/`([^`]+)`/g, '$1');
 
-            await addText('• ' + cleanLine);
+            await docs.documents.batchUpdate({
+              documentId: docId,
+              requestBody: {
+                requests: [
+                  {
+                    insertText: {
+                      location: { index: currentIndex },
+                      text: `• ${cleanLine}\n`
+                    }
+                  },
+                  {
+                    updateParagraphStyle: {
+                      range: {
+                        startIndex: currentIndex,
+                        endIndex: currentIndex + cleanLine.length + 3
+                      },
+                      paragraphStyle: {
+                        bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
+                      },
+                      fields: 'bulletPreset'
+                    }
+                  }
+                ]
+              }
+            });
+            
+            currentIndex += cleanLine.length + 3;
           }
         }
+        
+        // Add spacing between sections
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: {
+            requests: [
+              {
+                insertText: {
+                  location: { index: currentIndex },
+                  text: '\n'
+                }
+              }
+            ]
+          }
+        });
+        currentIndex += 1;
       }
     }
-
-    // Helper function to create a metrics table
-    const createMetricsTable = async (title: string, data: any) => {
-      if (!data?.current) return;
-      
-      await addText(title, {
-        namedStyleType: 'HEADING_2'
-      });
-
-      if (data.period) {
-        await addText(`Period: ${data.period}`);
-      }
-
-      const metrics = [];
-      
-      if (data.current.sessions !== undefined) {
-        metrics.push({
-          name: 'Sessions',
-          current: data.current.sessions,
-          previous: data.previous.sessions,
-          change: data.changes.sessions
-        });
-      }
-      
-      if (data.current.conversions !== undefined) {
-        metrics.push({
-          name: `Conversions${data.current.conversionGoal ? ` (${data.current.conversionGoal})` : ''}`,
-          current: data.current.conversions,
-          previous: data.previous.conversions,
-          change: data.changes.conversions
-        });
-      }
-      
-      if (data.current.revenue !== undefined && data.current.revenue > 0) {
-        metrics.push({
-          name: 'Revenue',
-          current: `$${data.current.revenue.toLocaleString()}`,
-          previous: `$${data.previous.revenue.toLocaleString()}`,
-          change: data.changes.revenue
-        });
-      }
-
-      if (metrics.length > 0) {
-        const tableContent = [
-          ['Metric', 'Current Value', 'Previous Value', 'Change'],
-          ...metrics.map(metric => [
-            metric.name,
-            metric.current.toString(),
-            metric.previous.toString(),
-            `${metric.change >= 0 ? '+' : ''}${metric.change.toFixed(1)}%`
-          ])
-        ];
-
-        // Create table as a single string with tab separators
-        const tableText = tableContent
-          .map(row => row.join('\t'))
-          .join('\n');
-
-        await addText(tableText);
-      }
-    };
 
     // Process each analysis section
     const sections = [
@@ -195,9 +215,178 @@ serve(async (req) => {
       { title: 'Last 28 Days Year over Year Analysis', data: report.last28_yoy_analysis }
     ];
 
+    let currentIndex = insights ? 500 : 100; // Start after insights if they exist
+
     for (const section of sections) {
-      if (section.data) {
-        await createMetricsTable(section.title, section.data);
+      if (!section.data?.current) continue;
+
+      // Add section title
+      await docs.documents.batchUpdate({
+        documentId: docId,
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                location: { index: currentIndex },
+                text: `${section.title}\n`
+              }
+            },
+            {
+              updateParagraphStyle: {
+                range: {
+                  startIndex: currentIndex,
+                  endIndex: currentIndex + section.title.length + 1
+                },
+                paragraphStyle: {
+                  namedStyleType: 'HEADING_2'
+                },
+                fields: 'namedStyleType'
+              }
+            }
+          ]
+        }
+      });
+
+      currentIndex += section.title.length + 1;
+
+      if (section.data.period) {
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: {
+            requests: [
+              {
+                insertText: {
+                  location: { index: currentIndex },
+                  text: `Period: ${section.data.period}\n\n`
+                }
+              }
+            ]
+          }
+        });
+        currentIndex += section.data.period.length + 9;
+      }
+
+      // Create metrics table
+      const metrics = [];
+      if (section.data.current.sessions !== undefined) {
+        metrics.push({
+          name: 'Sessions',
+          current: section.data.current.sessions,
+          previous: section.data.previous.sessions,
+          change: section.data.changes.sessions
+        });
+      }
+      
+      if (section.data.current.conversions !== undefined) {
+        metrics.push({
+          name: `Conversions${section.data.current.conversionGoal ? ` (${section.data.current.conversionGoal})` : ''}`,
+          current: section.data.current.conversions,
+          previous: section.data.previous.conversions,
+          change: section.data.changes.conversions
+        });
+      }
+      
+      if (section.data.current.revenue !== undefined && section.data.current.revenue > 0) {
+        metrics.push({
+          name: 'Revenue',
+          current: `$${section.data.current.revenue.toLocaleString()}`,
+          previous: `$${section.data.previous.revenue.toLocaleString()}`,
+          change: section.data.changes.revenue
+        });
+      }
+
+      if (metrics.length > 0) {
+        // Create table
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: {
+            requests: [
+              {
+                insertTable: {
+                  location: { index: currentIndex },
+                  rows: metrics.length + 1,
+                  columns: 4
+                }
+              }
+            ]
+          }
+        });
+
+        // Add headers
+        const headers = ['Metric', 'Current', 'Previous', 'Change'];
+        for (let i = 0; i < headers.length; i++) {
+          await docs.documents.batchUpdate({
+            documentId: docId,
+            requestBody: {
+              requests: [
+                {
+                  insertText: {
+                    location: { 
+                      index: currentIndex + (i * 2) + 1
+                    },
+                    text: headers[i]
+                  }
+                },
+                {
+                  updateTextStyle: {
+                    range: {
+                      startIndex: currentIndex + (i * 2) + 1,
+                      endIndex: currentIndex + (i * 2) + 1 + headers[i].length
+                    },
+                    textStyle: { bold: true },
+                    fields: 'bold'
+                  }
+                }
+              ]
+            }
+          });
+        }
+
+        // Add metrics data
+        currentIndex += 10; // Move past header row
+        for (const metric of metrics) {
+          const values = [
+            metric.name,
+            metric.current.toString(),
+            metric.previous.toString(),
+            `${metric.change >= 0 ? '+' : ''}${metric.change.toFixed(1)}%`
+          ];
+
+          for (let i = 0; i < values.length; i++) {
+            await docs.documents.batchUpdate({
+              documentId: docId,
+              requestBody: {
+                requests: [
+                  {
+                    insertText: {
+                      location: { 
+                        index: currentIndex + (i * 2)
+                      },
+                      text: values[i]
+                    }
+                  }
+                ]
+              }
+            });
+          }
+          currentIndex += 8; // Move to next row
+        }
+
+        // Add spacing after table
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: {
+            requests: [
+              {
+                insertText: {
+                  location: { index: currentIndex + 10 },
+                  text: '\n\n'
+                }
+              }
+            ]
+          }
+        });
+        currentIndex += 12;
       }
     }
 
