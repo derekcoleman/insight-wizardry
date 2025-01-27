@@ -10,6 +10,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -165,7 +166,7 @@ serve(async (req) => {
           fetchGSCPages(gscProperty, accessToken, last90DaysStart, last90DaysEnd, prev90DaysStart, prev90DaysEnd),
           fetchGSCPages(gscProperty, accessToken, ytdStart, ytdEnd, prevYtdStart, prevYtdEnd),
           fetchGSCPages(gscProperty, accessToken, last28YoYStart, last28YoYEnd, prev28YoYStart, prev28YoYEnd)
-        ] : Array(15).fill(null))
+        ] : Array(20).fill(null))
       ]);
 
       const analysis = {

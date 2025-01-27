@@ -74,7 +74,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
 
   } catch (error) {
     console.error('Error fetching GA4 data:', error);
-    console.error('Error stack:', error.stack);
+    console.error('Error stack:', error instanceof Error ? error.stack : '');
     throw error;
   }
 }
