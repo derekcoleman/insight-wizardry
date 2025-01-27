@@ -1,6 +1,11 @@
+import { useState } from "react";
 import { GrowthChannelTabs } from "@/components/GrowthChannelTabs";
+import { GoogleConnect } from "@/components/GoogleConnect";
+import { Card } from "@/components/ui/card";
 
 const Index = () => {
+  const [isConnected, setIsConnected] = useState(false);
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="relative overflow-hidden">
@@ -11,13 +16,19 @@ const Index = () => {
               <span className="block text-blue-600">& Strategy Platform</span>
             </h1>
             <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-              Analyze and optimize your digital marketing performance across all channels - from SEO to paid advertising.
+              Connect your Google account to analyze and optimize your digital marketing performance across all channels.
             </p>
           </div>
           
-          <div className="mt-10">
-            <GrowthChannelTabs />
-          </div>
+          {!isConnected ? (
+            <Card className="max-w-xl mx-auto p-6">
+              <GoogleConnect onConnectionChange={setIsConnected} />
+            </Card>
+          ) : (
+            <div className="mt-10">
+              <GrowthChannelTabs />
+            </div>
+          )}
         </div>
       </div>
     </div>

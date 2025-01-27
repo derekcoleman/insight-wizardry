@@ -73,27 +73,96 @@ export function GrowthChannelTabs({ defaultTab = "overview" }: GrowthChannelTabs
       <TabsContent value="paid-social" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Paid Social Analytics</h2>
-          <p className="text-muted-foreground">
-            Connect your social media advertising accounts to view performance metrics and generate reports.
-          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
+              title="Ad Spend"
+              value="--"
+              change={0}
+              icon={<BarChart3 className="h-4 w-4" />}
+            />
+            <MetricCard
+              title="Impressions"
+              value="--"
+              change={0}
+              icon={<Share2 className="h-4 w-4" />}
+            />
+            <MetricCard
+              title="Clicks"
+              value="--"
+              change={0}
+              icon={<Share2 className="h-4 w-4" />}
+            />
+            <MetricCard
+              title="Conversions"
+              value="--"
+              change={0}
+              icon={<LineChart className="h-4 w-4" />}
+            />
+          </div>
         </Card>
       </TabsContent>
 
       <TabsContent value="organic-social" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Organic Social Analytics</h2>
-          <p className="text-muted-foreground">
-            Connect your social media accounts to track engagement, reach, and content performance.
-          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
+              title="Engagement Rate"
+              value="--"
+              change={0}
+              icon={<Share2 className="h-4 w-4" />}
+            />
+            <MetricCard
+              title="Reach"
+              value="--"
+              change={0}
+              icon={<Share2 className="h-4 w-4" />}
+            />
+            <MetricCard
+              title="Followers"
+              value="--"
+              change={0}
+              icon={<Share2 className="h-4 w-4" />}
+            />
+            <MetricCard
+              title="Posts"
+              value="--"
+              change={0}
+              icon={<MessageSquareShare className="h-4 w-4" />}
+            />
+          </div>
         </Card>
       </TabsContent>
 
       <TabsContent value="ppc" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">PPC Analytics</h2>
-          <p className="text-muted-foreground">
-            Connect your advertising accounts to analyze campaign performance and ROI.
-          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
+              title="Ad Spend"
+              value="--"
+              change={0}
+              icon={<BarChart3 className="h-4 w-4" />}
+            />
+            <MetricCard
+              title="Clicks"
+              value="--"
+              change={0}
+              icon={<Share2 className="h-4 w-4" />}
+            />
+            <MetricCard
+              title="Conversions"
+              value="--"
+              change={0}
+              icon={<LineChart className="h-4 w-4" />}
+            />
+            <MetricCard
+              title="Cost per Click"
+              value="--"
+              change={0}
+              icon={<BarChart3 className="h-4 w-4" />}
+            />
+          </div>
         </Card>
       </TabsContent>
     </Tabs>
