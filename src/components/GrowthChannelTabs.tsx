@@ -2,7 +2,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { AnalysisResults } from "./AnalysisResults";
 import { LineChart, BarChart3, Share2, MessageSquareShare, TrendingUp } from "lucide-react";
-import { MetricCard } from "./MetricOverviewCard";
+import { MetricCard } from "./MetricCard";
+import { useState, useEffect } from "react";
 
 interface GrowthChannelTabsProps {
   defaultTab?: string;
@@ -17,15 +18,23 @@ interface GrowthChannelTabsProps {
   } | null;
 }
 
-export function GrowthChannelTabs({ defaultTab = "overview", analysisData }: GrowthChannelTabsProps) {
+export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: GrowthChannelTabsProps) {
+  const [insights, setInsights] = useState<string | null>(null);
   const monthlyData = analysisData?.report?.monthly_analysis;
+
+  useEffect(() => {
+    if (analysisData?.report) {
+      // Store insights when analysis data is available
+      setInsights(analysisData.report.insights);
+    }
+  }, [analysisData]);
 
   return (
     <Tabs defaultValue={defaultTab} className="w-full space-y-6">
       <TabsList className="grid grid-cols-5 w-full">
-        <TabsTrigger value="overview" className="flex items-center gap-2">
+        <TabsTrigger value="growth" className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4" />
-          Overview
+          Growth
         </TabsTrigger>
         <TabsTrigger value="seo" className="flex items-center gap-2">
           <LineChart className="h-4 w-4" />
@@ -45,7 +54,7 @@ export function GrowthChannelTabs({ defaultTab = "overview", analysisData }: Gro
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="overview" className="space-y-6">
+      <TabsContent value="growth" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Growth Overview</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -78,7 +87,7 @@ export function GrowthChannelTabs({ defaultTab = "overview", analysisData }: Gro
       </TabsContent>
 
       <TabsContent value="seo">
-        <AnalysisResults report={analysisData?.report} isLoading={false} />
+        <AnalysisResults report={analysisData?.report} isLoading={false} insights={insights} />
       </TabsContent>
 
       <TabsContent value="paid-social" className="space-y-6">
@@ -110,6 +119,7 @@ export function GrowthChannelTabs({ defaultTab = "overview", analysisData }: Gro
               icon={<LineChart className="h-4 w-4" />}
             />
           </div>
+          <AnalysisResults report={analysisData?.report} isLoading={false} insights={insights} />
         </Card>
       </TabsContent>
 
@@ -142,6 +152,7 @@ export function GrowthChannelTabs({ defaultTab = "overview", analysisData }: Gro
               icon={<MessageSquareShare className="h-4 w-4" />}
             />
           </div>
+          <AnalysisResults report={analysisData?.report} isLoading={false} insights={insights} />
         </Card>
       </TabsContent>
 
@@ -174,6 +185,7 @@ export function GrowthChannelTabs({ defaultTab = "overview", analysisData }: Gro
               icon={<BarChart3 className="h-4 w-4" />}
             />
           </div>
+          <AnalysisResults report={analysisData?.report} isLoading={false} insights={insights} />
         </Card>
       </TabsContent>
     </Tabs>

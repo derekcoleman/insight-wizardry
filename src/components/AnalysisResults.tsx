@@ -20,10 +20,11 @@ interface AnalysisResultsProps {
     last28_yoy_analysis: any;
   } | null;
   isLoading: boolean;
+  insights?: string | null;
 }
 
-export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
-  const [insights, setInsights] = useState<string>("");
+export function AnalysisResults({ report, isLoading, insights: providedInsights }: AnalysisResultsProps) {
+  const [insights, setInsights] = useState<string>(providedInsights || "");
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isCreatingDoc, setIsCreatingDoc] = useState(false);
   const [isCreatingPdf, setIsCreatingPdf] = useState(false);
@@ -33,7 +34,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
   useEffect(() => {
     const generateInsights = async () => {
-      if (!report || isLoading) return;
+      if (!report || isLoading || providedInsights) return;
       
       setIsGeneratingInsights(true);
       try {
@@ -51,7 +52,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     };
 
     generateInsights();
-  }, [report, isLoading]);
+  }, [report, isLoading, providedInsights]);
 
   const handleCreateDoc = async () => {
     if (!report) return;
