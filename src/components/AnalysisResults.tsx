@@ -24,6 +24,9 @@ interface AnalysisResultsProps {
   channelName?: string;
 }
 
+// Cache for storing generated insights per channel
+const insightsCache = new Map<string, string>();
+
 export function AnalysisResults({ report, isLoading, insights: providedInsights, channelName = 'Overall' }: AnalysisResultsProps) {
   const [insights, setInsights] = useState<string>(providedInsights || "");
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
@@ -37,13 +40,26 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
     const generateInsights = async () => {
       if (!report || isLoading || providedInsights) return;
       
+      // Check if we have cached insights for this channel
+      const cacheKey = `${channelName}-${JSON.stringify(report)}`;
+      if (insightsCache.has(cacheKey)) {
+        setInsights(insightsCache.get(cacheKey)!);
+        return;
+      }
+      
       setIsGeneratingInsights(true);
       try {
         const { data, error } = await supabase.functions.invoke('generate-insights', {
-          body: { data: report }
+          body: { 
+            data: report,
+            channel: channelName 
+          }
         });
 
         if (error) throw error;
+        
+        // Cache the insights for this channel
+        insightsCache.set(cacheKey, data.insights);
         setInsights(data.insights);
       } catch (error) {
         console.error('Error generating insights:', error);
@@ -53,7 +69,7 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
     };
 
     generateInsights();
-  }, [report, isLoading, providedInsights]);
+  }, [report, isLoading, providedInsights, channelName]);
 
   const handleCreateDoc = async () => {
     if (!report) return;
@@ -248,14 +264,16 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
       <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-bold">Analysis Results</h2>
         <div className="flex gap-2">
-          <Button
-            onClick={handleGenerateStrategy}
-            disabled={isGeneratingStrategy}
-            variant="secondary"
-          >
-            {isGeneratingStrategy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Generate SEO Strategy
-          </Button>
+          {channelName === 'Overall' && (
+            <Button
+              onClick={handleGenerateStrategy}
+              disabled={isGeneratingStrategy}
+              variant="secondary"
+            >
+              {isGeneratingStrategy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Generate SEO Strategy
+            </Button>
+          )}
           <ExportButtons
             onExportDoc={handleCreateDoc}
             onExportPdf={handleCreatePdf}
@@ -266,7 +284,11 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
         </div>
       </div>
       <div className="px-4 sm:px-6 lg:px-8">
-        <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
+        <AnalysisInsights 
+          insights={insights} 
+          isLoading={isGeneratingInsights}
+          channel={channelName} 
+        />
       </div>
       <div className="space-y-6 px-4 sm:px-6 lg:px-8">
         {analyses.map((analysis) => {

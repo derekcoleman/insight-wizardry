@@ -100,8 +100,8 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
 
     return (
       <AnalysisResults 
-        report={filteredReport} 
-        isLoading={false} 
+        report={filteredReport}
+        isLoading={false}
         insights={insights}
         channelName={getDisplayChannelName(channelName)}
       />

@@ -4,14 +4,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface AnalysisInsightsProps {
   insights: string;
   isLoading: boolean;
+  channel?: string;
 }
 
-export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps) {
+export function AnalysisInsights({ insights, isLoading, channel = 'Overall' }: AnalysisInsightsProps) {
   if (isLoading) {
     return (
       <Card className="max-w-[75%] mx-auto">
         <CardHeader>
-          <CardTitle>AI Analysis</CardTitle>
+          <CardTitle>{channel} AI Analysis</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Skeleton className="h-4 w-full" />
@@ -30,7 +31,7 @@ export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps)
   return (
     <Card className="max-w-[75%] mx-auto">
       <CardHeader>
-        <CardTitle>AI Analysis</CardTitle>
+        <CardTitle>{channel} AI Analysis</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="prose max-w-none">
