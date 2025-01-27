@@ -55,34 +55,43 @@ serve(async (req) => {
       },
     });
 
-    // Create document content
+    // Initialize requests array and current index
     const requests = [];
     let currentIndex = 1;
 
-    // Add title with formatting
-    requests.push({
-      insertText: {
-        location: { index: currentIndex },
-        text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`
+    // Helper function to add text with proper newlines
+    const addText = (text: string, style?: any) => {
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: text + '\n'
+        }
+      });
+
+      if (style) {
+        requests.push({
+          updateParagraphStyle: {
+            range: {
+              startIndex: currentIndex,
+              endIndex: currentIndex + text.length
+            },
+            paragraphStyle: style,
+            fields: Object.keys(style).join(',')
+          }
+        });
       }
+
+      currentIndex += text.length + 1;
+    };
+
+    // Add title
+    addText('Analytics Report', {
+      namedStyleType: 'HEADING_1',
+      alignment: 'CENTER'
     });
 
-    // Format title
-    requests.push({
-      updateParagraphStyle: {
-        range: {
-          startIndex: currentIndex,
-          endIndex: currentIndex + "Analytics Report".length
-        },
-        paragraphStyle: {
-          namedStyleType: "HEADING_1",
-          alignment: "CENTER"
-        },
-        fields: "namedStyleType,alignment"
-      }
-    });
-
-    currentIndex += `Analytics Report\n${new Date().toLocaleDateString()}\n\n`.length;
+    addText(new Date().toLocaleDateString());
+    addText(''); // Empty line for spacing
 
     // Add insights if available
     if (insights) {
@@ -92,28 +101,10 @@ serve(async (req) => {
         const [title, ...content] = section.trim().split('\n');
         
         // Add section title
-        requests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: `${title}\n\n`
-          }
+        addText(title, {
+          namedStyleType: 'HEADING_2'
         });
-
-        // Format section title
-        requests.push({
-          updateParagraphStyle: {
-            range: {
-              startIndex: currentIndex,
-              endIndex: currentIndex + title.length
-            },
-            paragraphStyle: {
-              namedStyleType: "HEADING_2"
-            },
-            fields: "namedStyleType"
-          }
-        });
-
-        currentIndex += title.length + 2;
+        addText(''); // Empty line for spacing
 
         // Add content with bullet points
         for (const line of content) {
@@ -130,18 +121,17 @@ serve(async (req) => {
             requests.push({
               insertText: {
                 location: { index: currentIndex },
-                text: `${cleanLine}\n`
+                text: cleanLine + '\n'
               }
             });
 
-            // Add bullet point formatting
             requests.push({
               createParagraphBullets: {
                 range: {
                   startIndex: currentIndex,
                   endIndex: currentIndex + cleanLine.length + 1
                 },
-                bulletPreset: "BULLET_DISC_CIRCLE_SQUARE"
+                bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
               }
             });
 
@@ -149,72 +139,37 @@ serve(async (req) => {
           }
         }
 
-        requests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: "\n"
-          }
-        });
-        currentIndex += 1;
+        addText(''); // Empty line for spacing
       }
     }
 
     // Helper function to create a metrics table
     const createMetricsTable = (title: string, data: any) => {
-      if (!data?.current) return [];
-      
-      const tableRequests = [];
+      if (!data?.current) return;
       
       // Add section title
-      tableRequests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: `${title}\n`
-        }
+      addText(title, {
+        namedStyleType: 'HEADING_2'
       });
-
-      // Format section title
-      tableRequests.push({
-        updateParagraphStyle: {
-          range: {
-            startIndex: currentIndex,
-            endIndex: currentIndex + title.length
-          },
-          paragraphStyle: {
-            namedStyleType: "HEADING_2"
-          },
-          fields: "namedStyleType"
-        }
-      });
-
-      currentIndex += title.length + 1;
 
       // Add period if available
       if (data.period) {
-        const periodText = `Period: ${data.period}\n\n`;
-        tableRequests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: periodText
-          }
-        });
-        currentIndex += periodText.length;
+        addText(`Period: ${data.period}`);
+        addText(''); // Empty line for spacing
       }
 
-      // Create metrics table
+      // Create metrics array
       const metrics = [];
       
-      // Add traffic metrics
       if (data.current.sessions !== undefined) {
         metrics.push({
-          name: "Sessions",
+          name: 'Sessions',
           current: data.current.sessions,
           previous: data.previous.sessions,
           change: data.changes.sessions
         });
       }
       
-      // Add conversion metrics
       if (data.current.conversions !== undefined) {
         metrics.push({
           name: `Conversions${data.current.conversionGoal ? ` (${data.current.conversionGoal})` : ''}`,
@@ -224,19 +179,21 @@ serve(async (req) => {
         });
       }
       
-      // Add revenue metrics
       if (data.current.revenue !== undefined && data.current.revenue > 0) {
         metrics.push({
-          name: "Revenue",
+          name: 'Revenue',
           current: `$${data.current.revenue.toLocaleString()}`,
           previous: `$${data.previous.revenue.toLocaleString()}`,
           change: data.changes.revenue
         });
       }
 
-      // Create table
       if (metrics.length > 0) {
-        tableRequests.push({
+        // Insert newline before table
+        addText('');
+
+        // Create table
+        requests.push({
           insertTable: {
             location: { index: currentIndex },
             rows: metrics.length + 1,
@@ -244,10 +201,13 @@ serve(async (req) => {
           }
         });
 
+        // Move index to first cell
+        currentIndex++;
+
         // Add header row
-        const headers = ["Metric", "Current Value", "Previous Value", "Change"];
+        const headers = ['Metric', 'Current Value', 'Previous Value', 'Change'];
         headers.forEach((header, i) => {
-          tableRequests.push({
+          requests.push({
             insertText: {
               location: { index: currentIndex },
               text: header
@@ -255,7 +215,7 @@ serve(async (req) => {
           });
 
           // Style header cell
-          tableRequests.push({
+          requests.push({
             updateTextStyle: {
               range: {
                 startIndex: currentIndex,
@@ -265,7 +225,7 @@ serve(async (req) => {
                 bold: true,
                 backgroundColor: { color: { rgbColor: { red: 0.9, green: 0.9, blue: 0.9 } } }
               },
-              fields: "bold,backgroundColor"
+              fields: 'bold,backgroundColor'
             }
           });
 
@@ -274,15 +234,13 @@ serve(async (req) => {
 
         // Add data rows
         metrics.forEach(metric => {
-          const cells = [
+          [
             metric.name,
             metric.current.toString(),
             metric.previous.toString(),
             `${metric.change >= 0 ? '+' : ''}${metric.change.toFixed(1)}%`
-          ];
-
-          cells.forEach(cell => {
-            tableRequests.push({
+          ].forEach(cell => {
+            requests.push({
               insertText: {
                 location: { index: currentIndex },
                 text: cell
@@ -293,7 +251,7 @@ serve(async (req) => {
         });
 
         // Add table styling
-        tableRequests.push({
+        requests.push({
           updateTableCellStyle: {
             tableRange: {
               tableCellLocation: {
@@ -304,19 +262,18 @@ serve(async (req) => {
             },
             tableCellStyle: {
               backgroundColor: { color: { rgbColor: { red: 1, green: 1, blue: 1 } } },
-              paddingLeft: { magnitude: 5, unit: "PT" },
-              paddingRight: { magnitude: 5, unit: "PT" },
-              paddingTop: { magnitude: 5, unit: "PT" },
-              paddingBottom: { magnitude: 5, unit: "PT" }
+              paddingLeft: { magnitude: 5, unit: 'PT' },
+              paddingRight: { magnitude: 5, unit: 'PT' },
+              paddingTop: { magnitude: 5, unit: 'PT' },
+              paddingBottom: { magnitude: 5, unit: 'PT' }
             },
-            fields: "backgroundColor,paddingLeft,paddingRight,paddingTop,paddingBottom"
+            fields: 'backgroundColor,paddingLeft,paddingRight,paddingTop,paddingBottom'
           }
         });
 
-        currentIndex += 2; // Add extra spacing after table
+        // Add newline after table
+        addText('');
       }
-
-      return tableRequests;
     };
 
     // Add analysis sections
@@ -330,12 +287,12 @@ serve(async (req) => {
 
     for (const section of sections) {
       if (section.data) {
-        requests.push(...createMetricsTable(section.title, section.data));
+        createMetricsTable(section.title, section.data);
       }
     }
 
     // Process requests in small batches to avoid API limits
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = 2;
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
       const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
       try {
