@@ -1,8 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { AnalysisResults } from "./AnalysisResults";
-import { LineChart, BarChart3, Share2, MessageSquareShare, TrendingUp } from "lucide-react";
-import { MetricCard } from "./MetricOverviewCard";
+import { LineChart, BarChart3, Share2, MessageSquareShare, TrendingUp, Mail } from "lucide-react";
+import { MetricOverviewCard } from "./MetricOverviewCard";
 import { useState, useEffect } from "react";
 
 interface GrowthChannelTabsProps {
@@ -29,9 +29,45 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
     }
   }, [analysisData]);
 
+  const filterDataByChannel = (data: any, channel: string) => {
+    if (!data?.current?.channelData) return null;
+    
+    const channelData = data.current.channelData.find(
+      (c: any) => c.channel.toLowerCase() === channel.toLowerCase()
+    );
+
+    return channelData ? {
+      current: channelData,
+      changes: data.changes?.channelData?.find(
+        (c: any) => c.channel.toLowerCase() === channel.toLowerCase()
+      ) || {}
+    } : null;
+  };
+
+  const getOverallData = (data: any) => {
+    if (!data?.current) return null;
+    return {
+      current: {
+        sessions: data.current.totalSessions || 0,
+        conversions: data.current.totalConversions || 0,
+        revenue: data.current.totalRevenue || 0,
+      },
+      changes: {
+        sessions: data.changes?.totalSessions || 0,
+        conversions: data.changes?.totalConversions || 0,
+        revenue: data.changes?.totalRevenue || 0,
+      }
+    };
+  };
+
+  const paidSearchData = filterDataByChannel(monthlyData, 'Paid Search');
+  const organicSocialData = filterDataByChannel(monthlyData, 'Social');
+  const emailData = filterDataByChannel(monthlyData, 'Email');
+  const overallData = getOverallData(monthlyData);
+
   return (
     <Tabs defaultValue={defaultTab} className="w-full space-y-6">
-      <TabsList className="grid grid-cols-5 w-full">
+      <TabsList className="grid grid-cols-6 w-full">
         <TabsTrigger value="growth" className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4" />
           Growth
@@ -48,6 +84,10 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
           <MessageSquareShare className="h-4 w-4" />
           Organic Social
         </TabsTrigger>
+        <TabsTrigger value="email" className="flex items-center gap-2">
+          <Mail className="h-4 w-4" />
+          Email
+        </TabsTrigger>
         <TabsTrigger value="ppc" className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4" />
           PPC
@@ -58,29 +98,23 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Growth Overview</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
+            <MetricOverviewCard
               title="Total Traffic"
-              value={monthlyData?.current?.sessions || 0}
-              change={monthlyData?.changes?.sessions || 0}
+              value={overallData?.current?.sessions || 0}
+              change={overallData?.changes?.sessions || 0}
               icon={<TrendingUp className="h-4 w-4" />}
             />
-            <MetricCard
+            <MetricOverviewCard
               title="Total Conversions"
-              value={monthlyData?.current?.conversions || 0}
-              change={monthlyData?.changes?.conversions || 0}
+              value={overallData?.current?.conversions || 0}
+              change={overallData?.changes?.conversions || 0}
               icon={<LineChart className="h-4 w-4" />}
             />
-            <MetricCard
-              title="Social Engagement"
-              value={monthlyData?.current?.socialEngagement || 0}
-              change={monthlyData?.changes?.socialEngagement || 0}
+            <MetricOverviewCard
+              title="Revenue"
+              value={overallData?.current?.revenue || 0}
+              change={overallData?.changes?.revenue || 0}
               icon={<Share2 className="h-4 w-4" />}
-            />
-            <MetricCard
-              title="Ad Spend"
-              value={monthlyData?.current?.adSpend || 0}
-              change={monthlyData?.changes?.adSpend || 0}
-              icon={<BarChart3 className="h-4 w-4" />}
             />
           </div>
         </Card>
@@ -94,32 +128,25 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Paid Social Analytics</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Ad Spend"
-              value={monthlyData?.current?.paidSocialSpend || 0}
-              change={monthlyData?.changes?.paidSocialSpend || 0}
+            <MetricOverviewCard
+              title="Sessions"
+              value={paidSearchData?.current?.sessions || 0}
+              change={paidSearchData?.changes?.sessions || 0}
               icon={<BarChart3 className="h-4 w-4" />}
             />
-            <MetricCard
-              title="Impressions"
-              value={monthlyData?.current?.paidSocialImpressions || 0}
-              change={monthlyData?.changes?.paidSocialImpressions || 0}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-            <MetricCard
-              title="Clicks"
-              value={monthlyData?.current?.paidSocialClicks || 0}
-              change={monthlyData?.changes?.paidSocialClicks || 0}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-            <MetricCard
+            <MetricOverviewCard
               title="Conversions"
-              value={monthlyData?.current?.paidSocialConversions || 0}
-              change={monthlyData?.changes?.paidSocialConversions || 0}
+              value={paidSearchData?.current?.conversions || 0}
+              change={paidSearchData?.changes?.conversions || 0}
               icon={<LineChart className="h-4 w-4" />}
             />
+            <MetricOverviewCard
+              title="Revenue"
+              value={paidSearchData?.current?.revenue || 0}
+              change={paidSearchData?.changes?.revenue || 0}
+              icon={<Share2 className="h-4 w-4" />}
+            />
           </div>
-          <AnalysisResults report={analysisData?.report} isLoading={false} insights={insights} />
         </Card>
       </TabsContent>
 
@@ -127,32 +154,51 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Organic Social Analytics</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Engagement Rate"
-              value={monthlyData?.current?.organicSocialEngagement || 0}
-              change={monthlyData?.changes?.organicSocialEngagement || 0}
+            <MetricOverviewCard
+              title="Sessions"
+              value={organicSocialData?.current?.sessions || 0}
+              change={organicSocialData?.changes?.sessions || 0}
               icon={<Share2 className="h-4 w-4" />}
             />
-            <MetricCard
-              title="Reach"
-              value={monthlyData?.current?.organicSocialReach || 0}
-              change={monthlyData?.changes?.organicSocialReach || 0}
-              icon={<Share2 className="h-4 w-4" />}
+            <MetricOverviewCard
+              title="Conversions"
+              value={organicSocialData?.current?.conversions || 0}
+              change={organicSocialData?.changes?.conversions || 0}
+              icon={<LineChart className="h-4 w-4" />}
             />
-            <MetricCard
-              title="Followers"
-              value={monthlyData?.current?.organicSocialFollowers || 0}
-              change={monthlyData?.changes?.organicSocialFollowers || 0}
+            <MetricOverviewCard
+              title="Revenue"
+              value={organicSocialData?.current?.revenue || 0}
+              change={organicSocialData?.changes?.revenue || 0}
               icon={<Share2 className="h-4 w-4" />}
-            />
-            <MetricCard
-              title="Posts"
-              value={monthlyData?.current?.organicSocialPosts || 0}
-              change={monthlyData?.changes?.organicSocialPosts || 0}
-              icon={<MessageSquareShare className="h-4 w-4" />}
             />
           </div>
-          <AnalysisResults report={analysisData?.report} isLoading={false} insights={insights} />
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="email" className="space-y-6">
+        <Card className="p-6">
+          <h2 className="text-2xl font-bold mb-4">Email Analytics</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricOverviewCard
+              title="Sessions"
+              value={emailData?.current?.sessions || 0}
+              change={emailData?.changes?.sessions || 0}
+              icon={<Mail className="h-4 w-4" />}
+            />
+            <MetricOverviewCard
+              title="Conversions"
+              value={emailData?.current?.conversions || 0}
+              change={emailData?.changes?.conversions || 0}
+              icon={<LineChart className="h-4 w-4" />}
+            />
+            <MetricOverviewCard
+              title="Revenue"
+              value={emailData?.current?.revenue || 0}
+              change={emailData?.changes?.revenue || 0}
+              icon={<Share2 className="h-4 w-4" />}
+            />
+          </div>
         </Card>
       </TabsContent>
 
@@ -160,32 +206,25 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">PPC Analytics</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Ad Spend"
-              value={monthlyData?.current?.ppcSpend || 0}
-              change={monthlyData?.changes?.ppcSpend || 0}
+            <MetricOverviewCard
+              title="Sessions"
+              value={paidSearchData?.current?.sessions || 0}
+              change={paidSearchData?.changes?.sessions || 0}
               icon={<BarChart3 className="h-4 w-4" />}
             />
-            <MetricCard
-              title="Clicks"
-              value={monthlyData?.current?.ppcClicks || 0}
-              change={monthlyData?.changes?.ppcClicks || 0}
-              icon={<Share2 className="h-4 w-4" />}
-            />
-            <MetricCard
+            <MetricOverviewCard
               title="Conversions"
-              value={monthlyData?.current?.ppcConversions || 0}
-              change={monthlyData?.changes?.ppcConversions || 0}
+              value={paidSearchData?.current?.conversions || 0}
+              change={paidSearchData?.changes?.conversions || 0}
               icon={<LineChart className="h-4 w-4" />}
             />
-            <MetricCard
-              title="Cost per Click"
-              value={monthlyData?.current?.ppcCpc || 0}
-              change={monthlyData?.changes?.ppcCpc || 0}
+            <MetricOverviewCard
+              title="Revenue"
+              value={paidSearchData?.current?.revenue || 0}
+              change={paidSearchData?.changes?.revenue || 0}
               icon={<BarChart3 className="h-4 w-4" />}
             />
           </div>
-          <AnalysisResults report={analysisData?.report} isLoading={false} insights={insights} />
         </Card>
       </TabsContent>
     </Tabs>
