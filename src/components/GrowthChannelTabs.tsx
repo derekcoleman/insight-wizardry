@@ -70,10 +70,23 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       filteredAnalysis.period = analysis.period;
     }
 
+    // For organic search, include search terms and pages data
+    if (channelName === 'organic-search') {
+      if (analysis.searchTerms) {
+        filteredAnalysis.searchTerms = analysis.searchTerms;
+      }
+      if (analysis.pages) {
+        filteredAnalysis.pages = analysis.pages;
+      }
+      if (analysis.domain) {
+        filteredAnalysis.domain = analysis.domain;
+      }
+    }
+
     return filteredAnalysis;
   };
 
-  const renderAnalysisForChannel = (channelName: string, includeSearchConsole: boolean = false) => {
+  const renderAnalysisForChannel = (channelName: string) => {
     if (!analysisData?.report) return null;
 
     // Create a filtered version of the report focused on the specific channel
@@ -84,26 +97,6 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       ytd_analysis: filterAnalysisForChannel(analysisData.report.ytd_analysis, channelName),
       last28_yoy_analysis: filterAnalysisForChannel(analysisData.report.last28_yoy_analysis, channelName)
     };
-
-    // Only include search terms and pages data for Organic Search tab
-    if (!includeSearchConsole) {
-      if (filteredReport.weekly_analysis) {
-        delete filteredReport.weekly_analysis.searchTerms;
-        delete filteredReport.weekly_analysis.pages;
-      }
-      if (filteredReport.monthly_analysis) {
-        delete filteredReport.monthly_analysis.searchTerms;
-        delete filteredReport.monthly_analysis.pages;
-      }
-      if (filteredReport.quarterly_analysis) {
-        delete filteredReport.quarterly_analysis.searchTerms;
-        delete filteredReport.quarterly_analysis.pages;
-      }
-      if (filteredReport.ytd_analysis) {
-        delete filteredReport.ytd_analysis.searchTerms;
-        delete filteredReport.ytd_analysis.pages;
-      }
-    }
 
     return (
       <AnalysisResults 
@@ -168,7 +161,7 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       </TabsContent>
 
       <TabsContent value="organic-search">
-        {renderAnalysisForChannel('organic-search', true)}
+        {renderAnalysisForChannel('organic-search')}
       </TabsContent>
 
       <TabsContent value="paid-social">
