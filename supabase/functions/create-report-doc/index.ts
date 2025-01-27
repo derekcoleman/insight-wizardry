@@ -70,7 +70,7 @@ serve(async (req) => {
       updateParagraphStyle: {
         range: {
           startIndex: currentIndex,
-          endIndex: currentIndex + 'Analytics Report'.length
+          endIndex: currentIndex + 'Analytics Report\n'.length
         },
         paragraphStyle: {
           namedStyleType: 'HEADING_1',
@@ -167,16 +167,14 @@ serve(async (req) => {
               }
             });
 
+            // Apply bullet list style
             requests.push({
-              updateParagraphStyle: {
+              createParagraphBullets: {
                 range: {
                   startIndex: currentIndex,
                   endIndex: currentIndex + bulletPoint.length - 1
                 },
-                paragraphStyle: {
-                  bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
-                },
-                fields: 'bulletPreset'
+                bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
               }
             });
 
@@ -193,15 +191,6 @@ serve(async (req) => {
         });
         currentIndex += 1;
       }
-
-      // Add extra spacing after AI Analysis section
-      requests.push({
-        insertText: {
-          location: { index: currentIndex },
-          text: '\n'
-        }
-      });
-      currentIndex += 1;
     }
 
     // Process each analysis section
@@ -253,38 +242,10 @@ serve(async (req) => {
       }
 
       // Create metrics table
-      const metrics = [];
-      if (section.data.current.sessions !== undefined) {
-        metrics.push({
-          name: 'Sessions',
-          current: section.data.current.sessions,
-          previous: section.data.previous.sessions,
-          change: section.data.changes.sessions
-        });
-      }
-      
-      if (section.data.current.conversions !== undefined) {
-        metrics.push({
-          name: `Conversions${section.data.current.conversionGoal ? ` (${section.data.current.conversionGoal})` : ''}`,
-          current: section.data.current.conversions,
-          previous: section.data.previous.conversions,
-          change: section.data.changes.conversions
-        });
-      }
-      
-      if (section.data.current.revenue !== undefined && section.data.current.revenue > 0) {
-        metrics.push({
-          name: 'Revenue',
-          current: `$${section.data.current.revenue.toLocaleString()}`,
-          previous: `$${section.data.previous.revenue.toLocaleString()}`,
-          change: section.data.changes.revenue
-        });
-      }
-
-      if (metrics.length > 0) {
-        // Create table header
-        const tableHeaders = ['Metric', 'Current', 'Previous', 'Change'];
-        const headerRow = tableHeaders.join('\t') + '\n';
+      if (section.data.current) {
+        // Table headers
+        const headers = ['Metric', 'Current', 'Previous', 'Change'];
+        const headerRow = headers.join('\t') + '\n';
         requests.push({
           insertText: {
             location: { index: currentIndex },
@@ -307,6 +268,34 @@ serve(async (req) => {
         currentIndex += headerRow.length;
 
         // Add table rows
+        const metrics = [];
+        if (section.data.current.sessions !== undefined) {
+          metrics.push({
+            name: 'Sessions',
+            current: section.data.current.sessions,
+            previous: section.data.previous.sessions,
+            change: section.data.changes.sessions
+          });
+        }
+        
+        if (section.data.current.conversions !== undefined) {
+          metrics.push({
+            name: `Conversions${section.data.current.conversionGoal ? ` (${section.data.current.conversionGoal})` : ''}`,
+            current: section.data.current.conversions,
+            previous: section.data.previous.conversions,
+            change: section.data.changes.conversions
+          });
+        }
+        
+        if (section.data.current.revenue !== undefined && section.data.current.revenue > 0) {
+          metrics.push({
+            name: 'Revenue',
+            current: `$${section.data.current.revenue.toLocaleString()}`,
+            previous: `$${section.data.previous.revenue.toLocaleString()}`,
+            change: section.data.changes.revenue
+          });
+        }
+
         for (const metric of metrics) {
           const row = [
             metric.name,
@@ -329,10 +318,10 @@ serve(async (req) => {
         requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: '\n\n'
+            text: '\n'
           }
         });
-        currentIndex += 2;
+        currentIndex += 1;
       }
     }
 
