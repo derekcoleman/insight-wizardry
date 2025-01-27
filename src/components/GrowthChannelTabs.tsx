@@ -45,40 +45,110 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
   };
 
   const getMetricsForChannel = (analysis: any, channelName: string) => {
-    const currentData = getChannelData(analysis, channelName);
-    const changes = getChannelChanges(analysis, channelName);
+    if (!analysis?.current) {
+      console.warn(`No current data available for ${channelName}`);
+      return {
+        sessions: { current: 0, change: 0 },
+        conversions: { current: 0, change: 0 },
+        revenue: { current: 0, change: 0 }
+      };
+    }
+
+    // Extract channel-specific data
+    const currentData = analysis.current[channelName.toLowerCase()];
+    const previousData = analysis.previous?.[channelName.toLowerCase()];
+
+    console.log(`Channel data for ${channelName}:`, { currentData, previousData });
+
+    if (!currentData) {
+      console.warn(`No current data found for channel: ${channelName}`);
+      return {
+        sessions: { current: 0, change: 0 },
+        conversions: { current: 0, change: 0 },
+        revenue: { current: 0, change: 0 }
+      };
+    }
+
+    // Calculate changes
+    const calculateChange = (current: number, previous: number) => {
+      if (!previous) return 0;
+      return ((current - previous) / previous) * 100;
+    };
 
     return {
       sessions: {
-        current: currentData?.sessions || 0,
-        change: changes?.sessions || 0
+        current: currentData.sessions || 0,
+        change: calculateChange(currentData.sessions || 0, previousData?.sessions || 0)
       },
       conversions: {
-        current: currentData?.conversions || 0,
-        change: changes?.conversions || 0
+        current: currentData.conversions || 0,
+        change: calculateChange(currentData.conversions || 0, previousData?.conversions || 0)
       },
       revenue: {
-        current: currentData?.revenue || 0,
-        change: changes?.revenue || 0
+        current: currentData.revenue || 0,
+        change: calculateChange(currentData.revenue || 0, previousData?.revenue || 0)
       }
     };
   };
 
   const getTotalMetrics = (analysis: any) => {
-    if (!analysis?.current) return null;
+    if (!analysis?.current) {
+      console.warn('No current data available for totals');
+      return null;
+    }
     
+    console.log('Analysis data for totals:', analysis);
+
+    const currentTotal = {
+      sessions: 0,
+      conversions: 0,
+      revenue: 0
+    };
+
+    const previousTotal = {
+      sessions: 0,
+      conversions: 0,
+      revenue: 0
+    };
+
+    // Sum up all channel metrics for current period
+    Object.values(analysis.current).forEach((channelData: any) => {
+      if (typeof channelData === 'object' && channelData !== null) {
+        currentTotal.sessions += Number(channelData.sessions || 0);
+        currentTotal.conversions += Number(channelData.conversions || 0);
+        currentTotal.revenue += Number(channelData.revenue || 0);
+      }
+    });
+
+    // Sum up all channel metrics for previous period
+    if (analysis.previous) {
+      Object.values(analysis.previous).forEach((channelData: any) => {
+        if (typeof channelData === 'object' && channelData !== null) {
+          previousTotal.sessions += Number(channelData.sessions || 0);
+          previousTotal.conversions += Number(channelData.conversions || 0);
+          previousTotal.revenue += Number(channelData.revenue || 0);
+        }
+      });
+    }
+
+    // Calculate changes
+    const calculateChange = (current: number, previous: number) => {
+      if (!previous) return 0;
+      return ((current - previous) / previous) * 100;
+    };
+
     return {
       sessions: {
-        current: analysis.current.totalSessions || 0,
-        change: analysis.changes?.totalSessions || 0
+        current: currentTotal.sessions,
+        change: calculateChange(currentTotal.sessions, previousTotal.sessions)
       },
       conversions: {
-        current: analysis.current.totalConversions || 0,
-        change: analysis.changes?.totalConversions || 0
+        current: currentTotal.conversions,
+        change: calculateChange(currentTotal.conversions, previousTotal.conversions)
       },
       revenue: {
-        current: analysis.current.totalRevenue || 0,
-        change: analysis.changes?.totalRevenue || 0
+        current: currentTotal.revenue,
+        change: calculateChange(currentTotal.revenue, previousTotal.revenue)
       }
     };
   };
@@ -162,14 +232,14 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       <TabsContent value="paid-social" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Paid Social Analytics</h2>
-          {renderMetricCards('Paid Search')}
+          {renderMetricCards('Paid Social')}
         </Card>
       </TabsContent>
 
       <TabsContent value="organic-social" className="space-y-6">
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-4">Organic Social Analytics</h2>
-          {renderMetricCards('Social')}
+          {renderMetricCards('Organic Social')}
         </Card>
       </TabsContent>
 
