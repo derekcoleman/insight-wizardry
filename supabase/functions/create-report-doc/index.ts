@@ -55,16 +55,17 @@ serve(async (req) => {
       },
     });
 
-    // Initialize requests array and current index
+    // Initialize requests array
     const requests = [];
     let currentIndex = 1;
 
     // Helper function to add text with proper newlines
     const addText = (text: string, style?: any) => {
+      const textWithNewline = text + '\n';
       requests.push({
         insertText: {
           location: { index: currentIndex },
-          text: text + '\n'
+          text: textWithNewline
         }
       });
 
@@ -81,7 +82,7 @@ serve(async (req) => {
         });
       }
 
-      currentIndex += text.length + 1;
+      currentIndex += textWithNewline.length;
     };
 
     // Add title
@@ -118,6 +119,7 @@ serve(async (req) => {
               .replace(/\(([^)]+)\)/g, '$1')
               .replace(/`([^`]+)`/g, '$1');
 
+            // Add bullet point
             requests.push({
               insertText: {
                 location: { index: currentIndex },
@@ -125,6 +127,7 @@ serve(async (req) => {
               }
             });
 
+            // Add bullet style
             requests.push({
               createParagraphBullets: {
                 range: {
@@ -144,7 +147,7 @@ serve(async (req) => {
     }
 
     // Helper function to create a metrics table
-    const createMetricsTable = (title: string, data: any) => {
+    const createMetricsTable = async (title: string, data: any) => {
       if (!data?.current) return;
       
       // Add section title
@@ -189,25 +192,27 @@ serve(async (req) => {
       }
 
       if (metrics.length > 0) {
-        // Insert newline before table
+        // Add newline before table
         addText('');
 
-        // Create table
-        requests.push({
-          insertTable: {
-            location: { index: currentIndex },
-            rows: metrics.length + 1,
-            columns: 4
+        // Create table structure
+        const tableRequests = [
+          {
+            insertTable: {
+              location: { index: currentIndex },
+              rows: metrics.length + 1,
+              columns: 4
+            }
           }
-        });
+        ];
 
-        // Move index to first cell
+        // Update current index to account for table creation
         currentIndex++;
 
-        // Add header row
+        // Add headers
         const headers = ['Metric', 'Current Value', 'Previous Value', 'Change'];
         headers.forEach((header, i) => {
-          requests.push({
+          tableRequests.push({
             insertText: {
               location: { index: currentIndex },
               text: header
@@ -215,7 +220,7 @@ serve(async (req) => {
           });
 
           // Style header cell
-          requests.push({
+          tableRequests.push({
             updateTextStyle: {
               range: {
                 startIndex: currentIndex,
@@ -240,7 +245,7 @@ serve(async (req) => {
             metric.previous.toString(),
             `${metric.change >= 0 ? '+' : ''}${metric.change.toFixed(1)}%`
           ].forEach(cell => {
-            requests.push({
+            tableRequests.push({
               insertText: {
                 location: { index: currentIndex },
                 text: cell
@@ -251,7 +256,7 @@ serve(async (req) => {
         });
 
         // Add table styling
-        requests.push({
+        tableRequests.push({
           updateTableCellStyle: {
             tableRange: {
               tableCellLocation: {
@@ -271,6 +276,24 @@ serve(async (req) => {
           }
         });
 
+        // Process table requests in small batches
+        for (let i = 0; i < tableRequests.length; i += 2) {
+          const batch = tableRequests.slice(i, Math.min(i + 2, tableRequests.length));
+          try {
+            await docs.documents.batchUpdate({
+              documentId: docId,
+              requestBody: { requests: batch },
+            });
+            // Add delay between batches
+            if (i + 2 < tableRequests.length) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          } catch (error) {
+            console.error(`Error processing table batch ${i / 2 + 1}:`, error);
+            throw error;
+          }
+        }
+
         // Add newline after table
         addText('');
       }
@@ -285,13 +308,14 @@ serve(async (req) => {
       { title: 'Last 28 Days Year over Year Analysis', data: report.last28_yoy_analysis }
     ];
 
+    // Process each section
     for (const section of sections) {
       if (section.data) {
-        createMetricsTable(section.title, section.data);
+        await createMetricsTable(section.title, section.data);
       }
     }
 
-    // Process requests in small batches to avoid API limits
+    // Process remaining requests in small batches
     const BATCH_SIZE = 2;
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
       const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
@@ -302,7 +326,7 @@ serve(async (req) => {
         });
         // Add delay between batches
         if (i + BATCH_SIZE < requests.length) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       } catch (error) {
         console.error(`Error processing batch ${i / BATCH_SIZE + 1}:`, error);
