@@ -2,7 +2,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { AnalysisResults } from "./AnalysisResults";
 import { LineChart, BarChart3, Share2, MessageSquareShare, TrendingUp, Mail } from "lucide-react";
-import { MetricOverviewCard } from "./MetricOverviewCard";
 import { useState, useEffect } from "react";
 
 interface GrowthChannelTabsProps {
@@ -28,117 +27,50 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
     }
   }, [analysisData]);
 
-  const getMetricsForChannel = (analysis: any, channelName: string) => {
-    if (!analysis?.current) {
-      console.warn(`No current data available for ${channelName}`);
-      return {
-        sessions: { current: 0, change: 0 },
-        conversions: { current: 0, change: 0 },
-        revenue: { current: 0, change: 0 }
-      };
-    }
+  const renderAnalysisForChannel = (channelName: string) => {
+    if (!analysisData?.report) return null;
 
-    const normalizedChannel = channelName.toLowerCase().replace(/\s+/g, '_');
-    const currentData = analysis.current.channelGroupings?.[normalizedChannel];
-    const previousData = analysis.previous?.channelGroupings?.[normalizedChannel];
-
-    console.log(`Channel data for ${channelName}:`, { currentData, previousData });
-
-    if (!currentData) {
-      console.warn(`No current data found for channel: ${channelName}`);
-      return {
-        sessions: { current: 0, change: 0 },
-        conversions: { current: 0, change: 0 },
-        revenue: { current: 0, change: 0 }
-      };
-    }
-
-    const calculateChange = (current: number, previous: number) => {
-      if (!previous) return 0;
-      return ((current - previous) / previous) * 100;
+    // Create a filtered version of the report focused on the specific channel
+    const filteredReport = {
+      weekly_analysis: filterAnalysisForChannel(analysisData.report.weekly_analysis, channelName),
+      monthly_analysis: filterAnalysisForChannel(analysisData.report.monthly_analysis, channelName),
+      quarterly_analysis: filterAnalysisForChannel(analysisData.report.quarterly_analysis, channelName),
+      ytd_analysis: filterAnalysisForChannel(analysisData.report.ytd_analysis, channelName),
+      last28_yoy_analysis: filterAnalysisForChannel(analysisData.report.last28_yoy_analysis, channelName)
     };
-
-    return {
-      sessions: {
-        current: currentData.sessions || 0,
-        change: calculateChange(currentData.sessions || 0, previousData?.sessions || 0)
-      },
-      conversions: {
-        current: currentData.conversions || 0,
-        change: calculateChange(currentData.conversions || 0, previousData?.conversions || 0)
-      },
-      revenue: {
-        current: currentData.revenue || 0,
-        change: calculateChange(currentData.revenue || 0, previousData?.revenue || 0)
-      }
-    };
-  };
-
-  const getTotalMetrics = (analysis: any) => {
-    if (!analysis?.current?.channelGroupings?.total) {
-      console.warn('No total metrics available');
-      return {
-        sessions: { current: 0, change: 0 },
-        conversions: { current: 0, change: 0 },
-        revenue: { current: 0, change: 0 }
-      };
-    }
-
-    const currentTotal = analysis.current.channelGroupings.total;
-    const previousTotal = analysis.previous?.channelGroupings?.total;
-
-    const calculateChange = (current: number, previous: number) => {
-      if (!previous) return 0;
-      return ((current - previous) / previous) * 100;
-    };
-
-    return {
-      sessions: {
-        current: currentTotal.sessions || 0,
-        change: calculateChange(currentTotal.sessions || 0, previousTotal?.sessions || 0)
-      },
-      conversions: {
-        current: currentTotal.conversions || 0,
-        change: calculateChange(currentTotal.conversions || 0, previousTotal?.conversions || 0)
-      },
-      revenue: {
-        current: currentTotal.revenue || 0,
-        change: calculateChange(currentTotal.revenue || 0, previousTotal?.revenue || 0)
-      }
-    };
-  };
-
-  const monthlyData = analysisData?.report?.monthly_analysis;
-
-  const renderMetricCards = (channelName: string | null = null) => {
-    const metrics = channelName 
-      ? getMetricsForChannel(monthlyData, channelName)
-      : getTotalMetrics(monthlyData);
-
-    if (!metrics) return null;
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricOverviewCard
-          title="Total Traffic"
-          value={metrics.sessions.current}
-          change={metrics.sessions.change}
-          icon={<TrendingUp className="h-4 w-4" />}
-        />
-        <MetricOverviewCard
-          title="Total Conversions"
-          value={metrics.conversions.current}
-          change={metrics.conversions.change}
-          icon={<LineChart className="h-4 w-4" />}
-        />
-        <MetricOverviewCard
-          title="Revenue"
-          value={metrics.revenue.current}
-          change={metrics.revenue.change}
-          icon={<Share2 className="h-4 w-4" />}
-        />
-      </div>
+      <AnalysisResults 
+        report={filteredReport} 
+        isLoading={false} 
+        insights={insights} 
+      />
     );
+  };
+
+  const filterAnalysisForChannel = (analysis: any, channelName: string) => {
+    if (!analysis) return null;
+
+    const normalizedChannel = channelName.toLowerCase().replace(/\s+/g, '_');
+    
+    // Create a new analysis object focused on the specific channel
+    return {
+      ...analysis,
+      current: {
+        ...analysis.current,
+        channelGroupings: {
+          total: analysis.current?.channelGroupings?.[normalizedChannel] || {},
+          [normalizedChannel]: analysis.current?.channelGroupings?.[normalizedChannel] || {}
+        }
+      },
+      previous: {
+        ...analysis.previous,
+        channelGroupings: {
+          total: analysis.previous?.channelGroupings?.[normalizedChannel] || {},
+          [normalizedChannel]: analysis.previous?.channelGroupings?.[normalizedChannel] || {}
+        }
+      }
+    };
   };
 
   return (
@@ -170,43 +102,28 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="growth" className="space-y-6">
-        <Card className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Growth Overview</h2>
-          {renderMetricCards()}
-        </Card>
-      </TabsContent>
-
-      <TabsContent value="seo">
+      <TabsContent value="growth">
         <AnalysisResults report={analysisData?.report} isLoading={false} insights={insights} />
       </TabsContent>
 
-      <TabsContent value="paid-social" className="space-y-6">
-        <Card className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Paid Social Analytics</h2>
-          {renderMetricCards('Paid Social')}
-        </Card>
+      <TabsContent value="seo">
+        {renderAnalysisForChannel('Organic Search')}
       </TabsContent>
 
-      <TabsContent value="organic-social" className="space-y-6">
-        <Card className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Organic Social Analytics</h2>
-          {renderMetricCards('Organic Social')}
-        </Card>
+      <TabsContent value="paid-social">
+        {renderAnalysisForChannel('Paid Social')}
       </TabsContent>
 
-      <TabsContent value="email" className="space-y-6">
-        <Card className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Email Analytics</h2>
-          {renderMetricCards('Email')}
-        </Card>
+      <TabsContent value="organic-social">
+        {renderAnalysisForChannel('Organic Social')}
       </TabsContent>
 
-      <TabsContent value="ppc" className="space-y-6">
-        <Card className="p-6">
-          <h2 className="text-2xl font-bold mb-4">PPC Analytics</h2>
-          {renderMetricCards('Paid Search')}
-        </Card>
+      <TabsContent value="email">
+        {renderAnalysisForChannel('Email')}
+      </TabsContent>
+
+      <TabsContent value="ppc">
+        {renderAnalysisForChannel('Paid Search')}
       </TabsContent>
     </Tabs>
   );
