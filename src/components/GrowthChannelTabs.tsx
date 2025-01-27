@@ -28,22 +28,6 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
     }
   }, [analysisData]);
 
-  const getChannelData = (data: any, channelName: string) => {
-    if (!data?.current?.channelData) return null;
-    
-    return data.current.channelData.find(
-      (c: any) => c.channel.toLowerCase() === channelName.toLowerCase()
-    );
-  };
-
-  const getChannelChanges = (data: any, channelName: string) => {
-    if (!data?.changes?.channelData) return null;
-    
-    return data.changes.channelData.find(
-      (c: any) => c.channel.toLowerCase() === channelName.toLowerCase()
-    );
-  };
-
   const getMetricsForChannel = (analysis: any, channelName: string) => {
     if (!analysis?.current) {
       console.warn(`No current data available for ${channelName}`);
@@ -54,9 +38,9 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       };
     }
 
-    // Extract channel-specific data
-    const currentData = analysis.current[channelName.toLowerCase()];
-    const previousData = analysis.previous?.[channelName.toLowerCase()];
+    const normalizedChannel = channelName.toLowerCase().replace(/\s+/g, '_');
+    const currentData = analysis.current.channelGroupings?.[normalizedChannel];
+    const previousData = analysis.previous?.channelGroupings?.[normalizedChannel];
 
     console.log(`Channel data for ${channelName}:`, { currentData, previousData });
 
@@ -69,7 +53,6 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       };
     }
 
-    // Calculate changes
     const calculateChange = (current: number, previous: number) => {
       if (!previous) return 0;
       return ((current - previous) / previous) * 100;
@@ -92,46 +75,18 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
   };
 
   const getTotalMetrics = (analysis: any) => {
-    if (!analysis?.current) {
-      console.warn('No current data available for totals');
-      return null;
-    }
-    
-    console.log('Analysis data for totals:', analysis);
-
-    const currentTotal = {
-      sessions: 0,
-      conversions: 0,
-      revenue: 0
-    };
-
-    const previousTotal = {
-      sessions: 0,
-      conversions: 0,
-      revenue: 0
-    };
-
-    // Sum up all channel metrics for current period
-    Object.values(analysis.current).forEach((channelData: any) => {
-      if (typeof channelData === 'object' && channelData !== null) {
-        currentTotal.sessions += Number(channelData.sessions || 0);
-        currentTotal.conversions += Number(channelData.conversions || 0);
-        currentTotal.revenue += Number(channelData.revenue || 0);
-      }
-    });
-
-    // Sum up all channel metrics for previous period
-    if (analysis.previous) {
-      Object.values(analysis.previous).forEach((channelData: any) => {
-        if (typeof channelData === 'object' && channelData !== null) {
-          previousTotal.sessions += Number(channelData.sessions || 0);
-          previousTotal.conversions += Number(channelData.conversions || 0);
-          previousTotal.revenue += Number(channelData.revenue || 0);
-        }
-      });
+    if (!analysis?.current?.channelGroupings?.total) {
+      console.warn('No total metrics available');
+      return {
+        sessions: { current: 0, change: 0 },
+        conversions: { current: 0, change: 0 },
+        revenue: { current: 0, change: 0 }
+      };
     }
 
-    // Calculate changes
+    const currentTotal = analysis.current.channelGroupings.total;
+    const previousTotal = analysis.previous?.channelGroupings?.total;
+
     const calculateChange = (current: number, previous: number) => {
       if (!previous) return 0;
       return ((current - previous) / previous) * 100;
@@ -139,24 +94,21 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
 
     return {
       sessions: {
-        current: currentTotal.sessions,
-        change: calculateChange(currentTotal.sessions, previousTotal.sessions)
+        current: currentTotal.sessions || 0,
+        change: calculateChange(currentTotal.sessions || 0, previousTotal?.sessions || 0)
       },
       conversions: {
-        current: currentTotal.conversions,
-        change: calculateChange(currentTotal.conversions, previousTotal.conversions)
+        current: currentTotal.conversions || 0,
+        change: calculateChange(currentTotal.conversions || 0, previousTotal?.conversions || 0)
       },
       revenue: {
-        current: currentTotal.revenue,
-        change: calculateChange(currentTotal.revenue, previousTotal.revenue)
+        current: currentTotal.revenue || 0,
+        change: calculateChange(currentTotal.revenue || 0, previousTotal?.revenue || 0)
       }
     };
   };
 
   const monthlyData = analysisData?.report?.monthly_analysis;
-  const quarterlyData = analysisData?.report?.quarterly_analysis;
-  const ytdData = analysisData?.report?.ytd_analysis;
-  const weeklyData = analysisData?.report?.weekly_analysis;
 
   const renderMetricCards = (channelName: string | null = null) => {
     const metrics = channelName 
