@@ -1,18 +1,64 @@
-import { Link } from "react-router-dom";
-import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
-import { Home, LineChart, PanelLeft } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar, SidebarGroupLabel, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from "@/components/ui/sidebar";
+import { BarChart3, ChevronRight, FileText, Grid, LineChart, Mail, MessageSquareShare, PanelLeft, Share2, Target, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const items = [
   {
-    title: "Home",
-    url: "/",
-    icon: Home,
+    title: "Growth",
+    icon: TrendingUp,
+    items: [
+      { title: "Analysis", path: "/?tab=growth", icon: FileText },
+    ],
   },
   {
-    title: "SEO Strategy",
-    url: "/seo-strategy",
-    icon: LineChart,
+    title: "SEM",
+    icon: Grid,
+    items: [
+      {
+        title: "Organic Search",
+        icon: LineChart,
+        items: [
+          { title: "Analysis", path: "/?tab=organic-search", icon: FileText },
+          { title: "SEO Strategy", path: "/seo-strategy", icon: Target },
+        ],
+      },
+      {
+        title: "Paid Search",
+        icon: BarChart3,
+        items: [
+          { title: "Analysis", path: "/?tab=paid-search", icon: FileText },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Social",
+    icon: MessageSquareShare,
+    items: [
+      {
+        title: "Organic Social",
+        icon: MessageSquareShare,
+        items: [
+          { title: "Analysis", path: "/?tab=organic-social", icon: FileText },
+        ],
+      },
+      {
+        title: "Paid Social",
+        icon: Share2,
+        items: [
+          { title: "Analysis", path: "/?tab=paid-social", icon: FileText },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Email",
+    icon: Mail,
+    items: [
+      { title: "Analysis", path: "/?tab=email", icon: FileText },
+    ],
   },
 ];
 
@@ -47,31 +93,62 @@ function NavHeader() {
   );
 }
 
+function SidebarNavigation() {
+  const location = useLocation();
+  const currentPath = location.pathname + location.search;
+
+  const renderMenuItems = (items: any[], level = 0) => {
+    return items.map((item) => (
+      <SidebarMenuItem key={item.title}>
+        {item.items ? (
+          <>
+            <SidebarMenuButton className={cn("gap-2", level > 0 && "pl-4")}>
+              <item.icon className="h-4 w-4" />
+              <span>{item.title}</span>
+              <ChevronRight className="ml-auto h-4 w-4" />
+            </SidebarMenuButton>
+            <SidebarMenuSub>
+              {renderMenuItems(item.items, level + 1)}
+            </SidebarMenuSub>
+          </>
+        ) : (
+          <SidebarMenuSubButton
+            asChild
+            isActive={currentPath === item.path}
+            className={cn(level > 0 && "pl-4")}
+          >
+            <Link to={item.path}>
+              <item.icon className="h-4 w-4" />
+              <span>{item.title}</span>
+            </Link>
+          </SidebarMenuSubButton>
+        )}
+      </SidebarMenuItem>
+    ));
+  };
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {renderMenuItems(items)}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full">
         <Sidebar>
           <SidebarContent>
             <SidebarHeader className="border-b border-sidebar-border">
               <div className="flex justify-end p-2" />
             </SidebarHeader>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {items.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild>
-                        <Link to={item.url} className="flex items-center gap-2">
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            <SidebarNavigation />
           </SidebarContent>
         </Sidebar>
 
