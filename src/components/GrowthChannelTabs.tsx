@@ -27,6 +27,36 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
     }
   }, [analysisData]);
 
+  const filterAnalysisForChannel = (analysis: any, channelName: string) => {
+    if (!analysis) return null;
+
+    const normalizedChannel = channelName.toLowerCase().replace(/\s+/g, '_');
+    
+    // Create a new analysis object focused on the specific channel
+    const filteredAnalysis = {
+      ...analysis,
+      current: {
+        ...analysis.current,
+        channelGroupings: {
+          total: analysis.current?.channelGroupings?.[normalizedChannel] || {},
+        }
+      },
+      previous: {
+        ...analysis.previous,
+        channelGroupings: {
+          total: analysis.previous?.channelGroupings?.[normalizedChannel] || {},
+        }
+      }
+    };
+
+    // Keep the period and summary information
+    if (analysis.period) {
+      filteredAnalysis.period = analysis.period;
+    }
+
+    return filteredAnalysis;
+  };
+
   const renderAnalysisForChannel = (channelName: string) => {
     if (!analysisData?.report) return null;
 
@@ -46,31 +76,6 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
         insights={insights} 
       />
     );
-  };
-
-  const filterAnalysisForChannel = (analysis: any, channelName: string) => {
-    if (!analysis) return null;
-
-    const normalizedChannel = channelName.toLowerCase().replace(/\s+/g, '_');
-    
-    // Create a new analysis object focused on the specific channel
-    return {
-      ...analysis,
-      current: {
-        ...analysis.current,
-        channelGroupings: {
-          total: analysis.current?.channelGroupings?.[normalizedChannel] || {},
-          [normalizedChannel]: analysis.current?.channelGroupings?.[normalizedChannel] || {}
-        }
-      },
-      previous: {
-        ...analysis.previous,
-        channelGroupings: {
-          total: analysis.previous?.channelGroupings?.[normalizedChannel] || {},
-          [normalizedChannel]: analysis.previous?.channelGroupings?.[normalizedChannel] || {}
-        }
-      }
-    };
   };
 
   return (
