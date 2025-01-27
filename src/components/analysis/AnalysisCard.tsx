@@ -28,6 +28,17 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
   // Extract keywords from search terms
   const keywords = data.searchTerms?.map(term => term.term) || [];
 
+  // Determine the channel name from the title
+  const getChannelName = () => {
+    if (title.includes('Week over Week') || title.includes('Month over Month') || 
+        title.includes('Quarter over Quarter') || title.includes('Year to Date')) {
+      return 'Overall';
+    }
+    return title.split(' ')[0]; // Get the first word of the title (e.g., "Organic" from "Organic Search")
+  };
+
+  const channelName = getChannelName();
+
   return (
     <Card className="max-w-[75%] mx-auto">
       <CardHeader>
@@ -54,20 +65,23 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <MetricCard
-              title="Organic Sessions"
+              title="Sessions"
               value={data.current.sessions}
               change={data.changes.sessions}
+              channel={channelName}
             />
             <MetricCard
-              title={`Organic ${formatEventName(data.current.conversionGoal || 'Conversions')}`}
+              title={formatEventName(data.current.conversionGoal || 'Conversions')}
               value={data.current.conversions}
               change={data.changes.conversions}
+              channel={channelName}
             />
             <MetricCard
-              title="Organic Revenue"
+              title="Revenue"
               value={data.current.revenue}
               change={data.changes.revenue}
               suffix="$"
+              channel={channelName}
             />
           </div>
           {data.summary && (

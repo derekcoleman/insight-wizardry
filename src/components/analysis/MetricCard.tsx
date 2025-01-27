@@ -3,12 +3,27 @@ interface MetricCardProps {
   value: string | number;
   change: number;
   suffix?: string;
+  channel?: string;
 }
 
-export function MetricCard({ title, value, change, suffix = '' }: MetricCardProps) {
+export function MetricCard({ title, value, change, suffix = '', channel = 'Organic' }: MetricCardProps) {
+  // Format the metric title based on the channel
+  const getMetricTitle = () => {
+    if (title === 'Sessions') {
+      return `${channel} Sessions`;
+    }
+    if (title === 'Revenue') {
+      return `${channel} Revenue`;
+    }
+    if (title.includes('Conversions')) {
+      return `${channel} ${title}`;
+    }
+    return title;
+  };
+
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">{title}</p>
+      <p className="text-sm font-medium">{getMetricTitle()}</p>
       <p className="text-2xl font-bold">
         {suffix && suffix}{value?.toLocaleString() ?? '0'}
       </p>
