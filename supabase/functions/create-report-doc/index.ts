@@ -107,7 +107,7 @@ serve(async (req) => {
         updateParagraphStyle: {
           range: {
             startIndex: currentIndex,
-            endIndex: currentIndex + aiAnalysisTitle.length - 1
+            endIndex: currentIndex + aiAnalysisTitle.length
           },
           paragraphStyle: {
             namedStyleType: 'HEADING_2'
@@ -136,7 +136,7 @@ serve(async (req) => {
           updateParagraphStyle: {
             range: {
               startIndex: currentIndex,
-              endIndex: currentIndex + sectionTitleText.length - 1
+              endIndex: currentIndex + sectionTitleText.length
             },
             paragraphStyle: {
               namedStyleType: 'HEADING_3'
@@ -159,7 +159,7 @@ serve(async (req) => {
               .replace(/\(([^)]+)\)/g, '$1')
               .replace(/`([^`]+)`/g, '$1');
 
-            const bulletPoint = `• ${cleanLine}\n`;
+            const bulletPoint = `${cleanLine}\n`;
             requests.push({
               insertText: {
                 location: { index: currentIndex },
@@ -167,7 +167,6 @@ serve(async (req) => {
               }
             });
 
-            // Apply bullet list style
             requests.push({
               createParagraphBullets: {
                 range: {
@@ -218,7 +217,7 @@ serve(async (req) => {
         updateParagraphStyle: {
           range: {
             startIndex: currentIndex,
-            endIndex: currentIndex + sectionTitle.length - 1
+            endIndex: currentIndex + sectionTitle.length
           },
           paragraphStyle: {
             namedStyleType: 'HEADING_2'
@@ -239,6 +238,18 @@ serve(async (req) => {
           }
         });
         currentIndex += periodText.length;
+      }
+
+      // Add overview text if available
+      if (section.data.overview) {
+        const overviewText = `${section.data.overview}\n\n`;
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: overviewText
+          }
+        });
+        currentIndex += overviewText.length;
       }
 
       // Create metrics table
@@ -318,10 +329,10 @@ serve(async (req) => {
         requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: '\n'
+            text: '\n\n'
           }
         });
-        currentIndex += 1;
+        currentIndex += 2;
       }
     }
 
@@ -345,9 +356,11 @@ serve(async (req) => {
     }
 
     console.log('Document created successfully');
+    const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
+    
     return new Response(
       JSON.stringify({
-        docUrl: `https://docs.google.com/document/d/${docId}/edit`,
+        docUrl,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

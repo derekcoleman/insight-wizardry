@@ -68,14 +68,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
       if (error) throw error;
 
       if (data.docUrl) {
-        // Create a temporary link
-        const link = document.createElement('a');
-        link.href = data.docUrl;
-        link.download = `Analytics_Report_${new Date().toISOString().split('T')[0]}.docx`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
+        window.open(data.docUrl, '_blank');
         toast({
           title: "Success",
           description: "Report document created successfully",
