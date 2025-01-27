@@ -37,14 +37,20 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       ...analysis,
       current: {
         ...analysis.current,
+        sessions: analysis.current?.channelGroupings?.[normalizedChannel]?.sessions || 0,
+        conversions: analysis.current?.channelGroupings?.[normalizedChannel]?.conversions || 0,
+        revenue: analysis.current?.channelGroupings?.[normalizedChannel]?.revenue || 0,
         channelGroupings: {
-          [normalizedChannel]: analysis.current?.channelGroupings?.[normalizedChannel] || {},
+          [normalizedChannel]: analysis.current?.channelGroupings?.[normalizedChannel] || {}
         }
       },
       previous: {
         ...analysis.previous,
+        sessions: analysis.previous?.channelGroupings?.[normalizedChannel]?.sessions || 0,
+        conversions: analysis.previous?.channelGroupings?.[normalizedChannel]?.conversions || 0,
+        revenue: analysis.previous?.channelGroupings?.[normalizedChannel]?.revenue || 0,
         channelGroupings: {
-          [normalizedChannel]: analysis.previous?.channelGroupings?.[normalizedChannel] || {},
+          [normalizedChannel]: analysis.previous?.channelGroupings?.[normalizedChannel] || {}
         }
       }
     };
