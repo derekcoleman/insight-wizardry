@@ -240,16 +240,22 @@ serve(async (req) => {
         currentIndex += periodText.length;
       }
 
-      // Add overview text if available
-      if (section.data.overview) {
-        const overviewText = `${section.data.overview}\n\n`;
-        requests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: overviewText
+      // Add summary text if available
+      if (section.data.summary) {
+        const summaryLines = section.data.summary.split('\n').filter(line => line.trim());
+        
+        for (const line of summaryLines) {
+          const cleanLine = line.trim();
+          if (cleanLine) {
+            requests.push({
+              insertText: {
+                location: { index: currentIndex },
+                text: cleanLine + '\n\n'
+              }
+            });
+            currentIndex += cleanLine.length + 2;
           }
-        });
-        currentIndex += overviewText.length;
+        }
       }
 
       // Create metrics table
