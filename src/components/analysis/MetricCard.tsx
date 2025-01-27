@@ -6,7 +6,7 @@ interface MetricCardProps {
   channel?: string;
 }
 
-export function MetricCard({ title, value, change, suffix = '', channel = 'Organic' }: MetricCardProps) {
+export function MetricCard({ title, value, change, suffix = '', channel = 'Overall' }: MetricCardProps) {
   // Format the metric title based on the channel
   const getMetricTitle = () => {
     if (title === 'Sessions') {

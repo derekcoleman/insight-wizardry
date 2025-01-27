@@ -32,7 +32,15 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
     // For the growth tab, return the complete analysis
     if (channelName === 'growth') return analysis;
 
-    const normalizedChannel = channelName.toLowerCase().replace(/\s+/g, '_');
+    const channelMapping: { [key: string]: string } = {
+      'organic-search': 'organic_search',
+      'paid-social': 'paid_social',
+      'organic-social': 'organic_social',
+      'email': 'email',
+      'paid-search': 'paid_search'
+    };
+
+    const normalizedChannel = channelMapping[channelName] || channelName.toLowerCase().replace(/\s+/g, '_');
     
     // Create a new analysis object focused on the specific channel
     const filteredAnalysis = {
@@ -77,7 +85,7 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       last28_yoy_analysis: filterAnalysisForChannel(analysisData.report.last28_yoy_analysis, channelName)
     };
 
-    // Only include search terms and pages data for SEO tab
+    // Only include search terms and pages data for Organic Search tab
     if (!includeSearchConsole) {
       if (filteredReport.weekly_analysis) {
         delete filteredReport.weekly_analysis.searchTerms;
@@ -101,9 +109,29 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       <AnalysisResults 
         report={filteredReport} 
         isLoading={false} 
-        insights={insights} 
+        insights={insights}
+        channelName={getDisplayChannelName(channelName)}
       />
     );
+  };
+
+  const getDisplayChannelName = (channelName: string): string => {
+    switch (channelName) {
+      case 'growth':
+        return 'Overall';
+      case 'organic-search':
+        return 'Organic Search';
+      case 'paid-social':
+        return 'Paid Social';
+      case 'organic-social':
+        return 'Organic Social';
+      case 'email':
+        return 'Email';
+      case 'paid-search':
+        return 'Paid Search';
+      default:
+        return channelName;
+    }
   };
 
   return (
@@ -140,23 +168,23 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       </TabsContent>
 
       <TabsContent value="organic-search">
-        {renderAnalysisForChannel('Organic Search', true)}
+        {renderAnalysisForChannel('organic-search', true)}
       </TabsContent>
 
       <TabsContent value="paid-social">
-        {renderAnalysisForChannel('Paid Social')}
+        {renderAnalysisForChannel('paid-social')}
       </TabsContent>
 
       <TabsContent value="organic-social">
-        {renderAnalysisForChannel('Organic Social')}
+        {renderAnalysisForChannel('organic-social')}
       </TabsContent>
 
       <TabsContent value="email">
-        {renderAnalysisForChannel('Email')}
+        {renderAnalysisForChannel('email')}
       </TabsContent>
 
       <TabsContent value="paid-search">
-        {renderAnalysisForChannel('Paid Search')}
+        {renderAnalysisForChannel('paid-search')}
       </TabsContent>
     </Tabs>
   );

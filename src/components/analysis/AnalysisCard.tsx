@@ -22,22 +22,12 @@ interface AnalysisCardProps {
     pages?: any[];
     domain?: string;
   };
+  channelName?: string;
 }
 
-export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
+export function AnalysisCard({ title, dateRange, data, channelName = 'Overall' }: AnalysisCardProps) {
   // Extract keywords from search terms
   const keywords = data.searchTerms?.map(term => term.term) || [];
-
-  // Determine the channel name from the title
-  const getChannelName = () => {
-    if (title.includes('Week over Week') || title.includes('Month over Month') || 
-        title.includes('Quarter over Quarter') || title.includes('Year to Date')) {
-      return 'Overall';
-    }
-    return title.split(' ')[0]; // Get the first word of the title (e.g., "Organic" from "Organic Search")
-  };
-
-  const channelName = getChannelName();
 
   return (
     <Card className="max-w-[75%] mx-auto">
@@ -95,14 +85,18 @@ export function AnalysisCard({ title, dateRange, data }: AnalysisCardProps) {
               <ProductPerformanceTable products={data.current.products} />
             </>
           )}
-          {data.searchTerms && <SearchTermsTable searchTerms={data.searchTerms} domain={data.domain} />}
-          {data.pages && (
+          {data.searchTerms && channelName === 'Organic Search' && (
+            <SearchTermsTable searchTerms={data.searchTerms} domain={data.domain} />
+          )}
+          {data.pages && channelName === 'Organic Search' && (
             <>
               <h3 className="text-lg font-semibold mt-6 mb-2">Top Pages</h3>
               <TopPagesTable pages={data.pages} />
             </>
           )}
-          {keywords.length > 0 && <TrendsAnalysis keywords={keywords} />}
+          {keywords.length > 0 && channelName === 'Organic Search' && (
+            <TrendsAnalysis keywords={keywords} />
+          )}
         </div>
       </CardContent>
     </Card>

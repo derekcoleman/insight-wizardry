@@ -21,9 +21,10 @@ interface AnalysisResultsProps {
   } | null;
   isLoading: boolean;
   insights?: string | null;
+  channelName?: string;
 }
 
-export function AnalysisResults({ report, isLoading, insights: providedInsights }: AnalysisResultsProps) {
+export function AnalysisResults({ report, isLoading, insights: providedInsights, channelName = 'Overall' }: AnalysisResultsProps) {
   const [insights, setInsights] = useState<string>(providedInsights || "");
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isCreatingDoc, setIsCreatingDoc] = useState(false);
@@ -279,6 +280,7 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights 
               title={title}
               dateRange={dateRange}
               data={analysis.data}
+              channelName={channelName}
             />
           );
         })}
