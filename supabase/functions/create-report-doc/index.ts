@@ -55,24 +55,24 @@ serve(async (req) => {
       },
     });
 
-    let currentIndex = 1;
-
     // Helper function to add text with proper newlines and return the new index
     const addText = async (text: string, style?: any) => {
-      const textWithNewline = text + '\n';
-      const requests = [{
+      const requests = [];
+      
+      // Always start with a newline to ensure we're in a valid paragraph
+      requests.push({
         insertText: {
-          location: { index: currentIndex },
-          text: textWithNewline
+          location: { index: 1 },
+          text: '\n' + text + '\n'
         }
-      }];
+      });
 
       if (style) {
         requests.push({
           updateParagraphStyle: {
             range: {
-              startIndex: currentIndex,
-              endIndex: currentIndex + text.length
+              startIndex: 1,
+              endIndex: text.length + 1
             },
             paragraphStyle: style,
             fields: Object.keys(style).join(',')
@@ -85,7 +85,6 @@ serve(async (req) => {
         requestBody: { requests },
       });
 
-      currentIndex += textWithNewline.length;
       // Add delay between requests
       await new Promise(resolve => setTimeout(resolve, 1000));
     };
@@ -97,7 +96,6 @@ serve(async (req) => {
     });
 
     await addText(new Date().toLocaleDateString());
-    await addText(''); // Empty line for spacing
 
     // Add insights if available
     if (insights) {
@@ -109,7 +107,6 @@ serve(async (req) => {
         await addText(title, {
           namedStyleType: 'HEADING_2'
         });
-        await addText(''); // Empty line for spacing
 
         for (const line of content) {
           if (line.trim()) {
@@ -122,34 +119,9 @@ serve(async (req) => {
               .replace(/\(([^)]+)\)/g, '$1')
               .replace(/`([^`]+)`/g, '$1');
 
-            const bulletRequest = {
-              insertText: {
-                location: { index: currentIndex },
-                text: cleanLine + '\n'
-              }
-            };
-
-            const bulletStyleRequest = {
-              createParagraphBullets: {
-                range: {
-                  startIndex: currentIndex,
-                  endIndex: currentIndex + cleanLine.length + 1
-                },
-                bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
-              }
-            };
-
-            await docs.documents.batchUpdate({
-              documentId: docId,
-              requestBody: { requests: [bulletRequest, bulletStyleRequest] },
-            });
-
-            currentIndex += cleanLine.length + 1;
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await addText('• ' + cleanLine);
           }
         }
-
-        await addText(''); // Empty line for spacing
       }
     }
 
@@ -163,7 +135,6 @@ serve(async (req) => {
 
       if (data.period) {
         await addText(`Period: ${data.period}`);
-        await addText(''); // Empty line for spacing
       }
 
       const metrics = [];
@@ -196,83 +167,22 @@ serve(async (req) => {
       }
 
       if (metrics.length > 0) {
-        // Create table
-        const createTableRequest = {
-          insertTable: {
-            location: { index: currentIndex },
-            rows: metrics.length + 1, // +1 for header
-            columns: 4
-          }
-        };
-
-        await docs.documents.batchUpdate({
-          documentId: docId,
-          requestBody: { requests: [createTableRequest] },
-        });
-
-        currentIndex++; // Move past table insertion point
-
-        // Add headers
-        const headers = ['Metric', 'Current Value', 'Previous Value', 'Change'];
-        for (const header of headers) {
-          const headerRequest = {
-            insertText: {
-              location: { index: currentIndex },
-              text: header
-            }
-          };
-
-          const headerStyleRequest = {
-            updateTextStyle: {
-              range: {
-                startIndex: currentIndex,
-                endIndex: currentIndex + header.length
-              },
-              textStyle: {
-                bold: true,
-                backgroundColor: { color: { rgbColor: { red: 0.9, green: 0.9, blue: 0.9 } } }
-              },
-              fields: 'bold,backgroundColor'
-            }
-          };
-
-          await docs.documents.batchUpdate({
-            documentId: docId,
-            requestBody: { requests: [headerRequest, headerStyleRequest] },
-          });
-
-          currentIndex += header.length + 1;
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        // Add data rows
-        for (const metric of metrics) {
-          const cells = [
+        const tableContent = [
+          ['Metric', 'Current Value', 'Previous Value', 'Change'],
+          ...metrics.map(metric => [
             metric.name,
             metric.current.toString(),
             metric.previous.toString(),
             `${metric.change >= 0 ? '+' : ''}${metric.change.toFixed(1)}%`
-          ];
+          ])
+        ];
 
-          for (const cell of cells) {
-            const cellRequest = {
-              insertText: {
-                location: { index: currentIndex },
-                text: cell
-              }
-            };
+        // Create table as a single string with tab separators
+        const tableText = tableContent
+          .map(row => row.join('\t'))
+          .join('\n');
 
-            await docs.documents.batchUpdate({
-              documentId: docId,
-              requestBody: { requests: [cellRequest] },
-            });
-
-            currentIndex += cell.length + 1;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-
-        await addText(''); // Empty line after table
+        await addText(tableText);
       }
     };
 
