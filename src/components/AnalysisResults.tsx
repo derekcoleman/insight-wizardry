@@ -264,7 +264,7 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
       <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-bold">Analysis Results</h2>
         <div className="flex gap-2">
-          {channelName === 'Overall' && (
+          {channelName === 'Organic Search' && (
             <Button
               onClick={handleGenerateStrategy}
               disabled={isGeneratingStrategy}
