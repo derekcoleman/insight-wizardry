@@ -55,95 +55,183 @@ serve(async (req) => {
       },
     });
 
-    // Create document content
-    const requests = [];
     let currentIndex = 1;
+    const requests = [];
 
     // Add title
     requests.push({
       insertText: {
         location: { index: currentIndex },
-        text: `Analytics Report\n${new Date().toLocaleDateString()}\n\n`
+        text: 'Analytics Report\n'
       }
     });
 
-    // Format title
     requests.push({
       updateParagraphStyle: {
         range: {
           startIndex: currentIndex,
-          endIndex: currentIndex + "Analytics Report".length
+          endIndex: currentIndex + 'Analytics Report\n'.length
         },
         paragraphStyle: {
-          namedStyleType: "HEADING_1",
-          alignment: "CENTER"
+          namedStyleType: 'HEADING_1',
+          alignment: 'CENTER'
         },
-        fields: "namedStyleType,alignment"
+        fields: 'namedStyleType,alignment'
       }
     });
 
-    currentIndex += `Analytics Report\n${new Date().toLocaleDateString()}\n\n`.length;
+    currentIndex += 'Analytics Report\n'.length;
 
-    // Add insights if available
+    // Add date
+    const dateText = `Generated on ${new Date().toLocaleDateString()}\n\n`;
+    requests.push({
+      insertText: {
+        location: { index: currentIndex },
+        text: dateText
+      }
+    });
+
+    currentIndex += dateText.length;
+
+    // Add AI Analysis section if insights are available
     if (insights) {
+      const aiAnalysisTitle = 'AI Analysis\n';
       requests.push({
         insertText: {
           location: { index: currentIndex },
-          text: `AI Analysis\n\n${insights}\n\n`
+          text: aiAnalysisTitle
         }
       });
 
-      // Format insights heading
       requests.push({
         updateParagraphStyle: {
           range: {
             startIndex: currentIndex,
-            endIndex: currentIndex + "AI Analysis".length
+            endIndex: currentIndex + aiAnalysisTitle.length
           },
           paragraphStyle: {
-            namedStyleType: "HEADING_2"
+            namedStyleType: 'HEADING_2'
           },
-          fields: "namedStyleType"
+          fields: 'namedStyleType'
         }
       });
 
-      currentIndex += `AI Analysis\n\n${insights}\n\n`.length;
+      currentIndex += aiAnalysisTitle.length;
+
+      const sections = insights.split(/(?=Key Findings:|Recommended Next Steps:)/g);
+      
+      for (const section of sections) {
+        const [title, ...content] = section.trim().split('\n');
+        
+        // Add section title
+        const sectionTitleText = `${title.trim()}\n`;
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: sectionTitleText
+          }
+        });
+
+        requests.push({
+          updateParagraphStyle: {
+            range: {
+              startIndex: currentIndex,
+              endIndex: currentIndex + sectionTitleText.length
+            },
+            paragraphStyle: {
+              namedStyleType: 'HEADING_3'
+            },
+            fields: 'namedStyleType'
+          }
+        });
+
+        currentIndex += sectionTitleText.length;
+
+        // Add bullet points
+        for (const line of content) {
+          if (line.trim()) {
+            const cleanLine = line.trim()
+              .replace(/^[•-]\s*/, '')
+              .replace(/^[0-9]+\.\s*/, '')
+              .replace(/\*\*(.*?)\*\*/g, '$1')
+              .replace(/###\s*/, '')
+              .replace(/\[([^\]]+)\]/g, '$1')
+              .replace(/\(([^)]+)\)/g, '$1')
+              .replace(/`([^`]+)`/g, '$1');
+
+            const bulletPoint = `${cleanLine}\n`;
+            requests.push({
+              insertText: {
+                location: { index: currentIndex },
+                text: bulletPoint
+              }
+            });
+
+            requests.push({
+              createParagraphBullets: {
+                range: {
+                  startIndex: currentIndex,
+                  endIndex: currentIndex + bulletPoint.length - 1
+                },
+                bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
+              }
+            });
+
+            currentIndex += bulletPoint.length;
+          }
+        }
+
+        // Add spacing between sections
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: '\n'
+          }
+        });
+        currentIndex += 1;
+      }
     }
 
-    // Helper function to create a metrics section
-    const createMetricsSection = (title: string, data: any) => {
-      if (!data?.current) return [];
-      
-      const sectionRequests = [];
-      
+    // Process each analysis section
+    const sections = [
+      { title: 'Weekly Analysis', data: report.weekly_analysis },
+      { title: 'Monthly Analysis', data: report.monthly_analysis },
+      { title: 'Quarterly Analysis', data: report.quarterly_analysis },
+      { title: 'Year to Date Analysis', data: report.ytd_analysis },
+      { title: 'Last 28 Days Year over Year Analysis', data: report.last28_yoy_analysis }
+    ];
+
+    for (const section of sections) {
+      if (!section.data?.current) continue;
+
       // Add section title
-      sectionRequests.push({
+      const sectionTitle = `${section.title}\n`;
+      requests.push({
         insertText: {
           location: { index: currentIndex },
-          text: `${title}\n`
+          text: sectionTitle
         }
       });
 
-      // Format section title
-      sectionRequests.push({
+      requests.push({
         updateParagraphStyle: {
           range: {
             startIndex: currentIndex,
-            endIndex: currentIndex + title.length
+            endIndex: currentIndex + sectionTitle.length
           },
           paragraphStyle: {
-            namedStyleType: "HEADING_2"
+            namedStyleType: 'HEADING_2'
           },
-          fields: "namedStyleType"
+          fields: 'namedStyleType'
         }
       });
 
-      currentIndex += title.length + 1;
+      currentIndex += sectionTitle.length;
 
       // Add period if available
-      if (data.period) {
-        const periodText = `Period: ${data.period}\n\n`;
-        sectionRequests.push({
+      if (section.data.period) {
+        const periodText = `Period: ${section.data.period}\n\n`;
+        requests.push({
           insertText: {
             location: { index: currentIndex },
             text: periodText
@@ -153,207 +241,132 @@ serve(async (req) => {
       }
 
       // Add summary text if available
-      if (data.summary) {
-        const summaryText = `${data.summary}\n\n`;
-        sectionRequests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: summaryText
-          }
-        });
-        currentIndex += summaryText.length;
-      }
-
-      // Create metrics table
-      const metrics = [];
-      
-      // Add traffic metrics if available
-      if (data.current.sessions !== undefined) {
-        metrics.push(`Sessions\t${data.current.sessions}\t${data.previous.sessions}\t${data.changes.sessions.toFixed(1)}%`);
-      }
-      
-      // Add conversion metrics if available
-      if (data.current.conversions !== undefined) {
-        const conversionType = data.current.conversionGoal || 'Total Conversions';
-        metrics.push(`Conversions (${conversionType})\t${data.current.conversions}\t${data.previous.conversions}\t${data.changes.conversions.toFixed(1)}%`);
-      }
-      
-      // Add revenue metrics if available
-      if (data.current.revenue !== undefined && data.current.revenue > 0) {
-        metrics.push(`Revenue\t$${data.current.revenue}\t$${data.previous.revenue}\t${data.changes.revenue.toFixed(1)}%`);
-      }
-      
-      // Add Search Console metrics if available
-      if (data.current.clicks !== undefined) {
-        metrics.push(`Clicks\t${Math.round(data.current.clicks)}\t${Math.round(data.previous.clicks)}\t${data.changes.clicks.toFixed(1)}%`);
-        metrics.push(`Impressions\t${Math.round(data.current.impressions)}\t${Math.round(data.previous.impressions)}\t${data.changes.impressions.toFixed(1)}%`);
-        metrics.push(`CTR\t${data.current.ctr.toFixed(1)}%\t${data.previous.ctr.toFixed(1)}%\t${data.changes.ctr.toFixed(1)}%`);
-        metrics.push(`Average Position\t${data.current.position.toFixed(1)}\t${data.previous.position.toFixed(1)}\t${data.changes.position.toFixed(1)}%`);
-      }
-
-      if (metrics.length > 0) {
-        const tableText = [
-          "Metric\tCurrent Value\tPrevious Value\tChange",
-          ...metrics
-        ].join('\n') + '\n\n';
-
-        sectionRequests.push({
-          insertText: {
-            location: { index: currentIndex },
-            text: tableText
-          }
-        });
-
-        currentIndex += tableText.length;
-      }
-
-      // Add branded vs non-branded analysis if available
-      if (data.searchTerms) {
-        const brandedTerms = data.searchTerms.filter((term: any) => term.isBranded);
-        const nonBrandedTerms = data.searchTerms.filter((term: any) => !term.isBranded);
+      if (section.data.summary) {
+        const summaryLines = section.data.summary.split('\n').filter(line => line.trim());
         
-        if (brandedTerms.length > 0 || nonBrandedTerms.length > 0) {
-          sectionRequests.push({
-            insertText: {
-              location: { index: currentIndex },
-              text: "\nBranded vs Non-Branded Search Terms\n"
-            }
-          });
-
-          // Format subsection title
-          sectionRequests.push({
-            updateParagraphStyle: {
-              range: {
-                startIndex: currentIndex + 1,
-                endIndex: currentIndex + 1 + "Branded vs Non-Branded Search Terms".length
-              },
-              paragraphStyle: {
-                namedStyleType: "HEADING_3"
-              },
-              fields: "namedStyleType"
-            }
-          });
-
-          currentIndex += "\nBranded vs Non-Branded Search Terms\n".length;
-
-          const brandedMetrics = [
-            "Term\tClicks\tImpressions\tCTR\tPosition",
-            ...brandedTerms.map((term: any) => 
-              `${term.term}\t${term.current.clicks}\t${term.current.impressions}\t${term.current.ctr}%\t${term.current.position}`
-            )
-          ].join('\n');
-
-          const nonBrandedMetrics = [
-            "Term\tClicks\tImpressions\tCTR\tPosition",
-            ...nonBrandedTerms.map((term: any) => 
-              `${term.term}\t${term.current.clicks}\t${term.current.impressions}\t${term.current.ctr}%\t${term.current.position}`
-            )
-          ].join('\n');
-
-          if (brandedTerms.length > 0) {
-            const brandedText = `\nBranded Terms:\n${brandedMetrics}\n\n`;
-            sectionRequests.push({
+        for (const line of summaryLines) {
+          const cleanLine = line.trim();
+          if (cleanLine) {
+            requests.push({
               insertText: {
                 location: { index: currentIndex },
-                text: brandedText
+                text: cleanLine + '\n\n'
               }
             });
-            currentIndex += brandedText.length;
-          }
-
-          if (nonBrandedTerms.length > 0) {
-            const nonBrandedText = `\nNon-Branded Terms:\n${nonBrandedMetrics}\n\n`;
-            sectionRequests.push({
-              insertText: {
-                location: { index: currentIndex },
-                text: nonBrandedText
-              }
-            });
-            currentIndex += nonBrandedText.length;
+            currentIndex += cleanLine.length + 2;
           }
         }
       }
 
-      // Add top pages analysis if available
-      if (data.pages) {
-        sectionRequests.push({
+      // Create metrics table
+      if (section.data.current) {
+        // Table headers
+        const headers = ['Metric', 'Current', 'Previous', 'Change'];
+        const headerRow = headers.join('\t') + '\n';
+        requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: "\nTop Pages Performance\n"
+            text: headerRow
           }
         });
 
-        // Format subsection title
-        sectionRequests.push({
-          updateParagraphStyle: {
+        // Make header row bold
+        requests.push({
+          updateTextStyle: {
             range: {
-              startIndex: currentIndex + 1,
-              endIndex: currentIndex + 1 + "Top Pages Performance".length
+              startIndex: currentIndex,
+              endIndex: currentIndex + headerRow.length - 1
             },
-            paragraphStyle: {
-              namedStyleType: "HEADING_3"
-            },
-            fields: "namedStyleType"
+            textStyle: { bold: true },
+            fields: 'bold'
           }
         });
 
-        currentIndex += "\nTop Pages Performance\n".length;
+        currentIndex += headerRow.length;
 
-        const pagesMetrics = [
-          "Page\tClicks\tImpressions\tCTR\tPosition",
-          ...data.pages.map((page: any) => 
-            `${page.page}\t${page.current.clicks}\t${page.current.impressions}\t${page.current.ctr}%\t${page.current.position}`
-          )
-        ].join('\n') + '\n\n';
+        // Add table rows
+        const metrics = [];
+        if (section.data.current.sessions !== undefined) {
+          metrics.push({
+            name: 'Sessions',
+            current: section.data.current.sessions,
+            previous: section.data.previous.sessions,
+            change: section.data.changes.sessions
+          });
+        }
+        
+        if (section.data.current.conversions !== undefined) {
+          metrics.push({
+            name: `Conversions${section.data.current.conversionGoal ? ` (${section.data.current.conversionGoal})` : ''}`,
+            current: section.data.current.conversions,
+            previous: section.data.previous.conversions,
+            change: section.data.changes.conversions
+          });
+        }
+        
+        if (section.data.current.revenue !== undefined && section.data.current.revenue > 0) {
+          metrics.push({
+            name: 'Revenue',
+            current: `$${section.data.current.revenue.toLocaleString()}`,
+            previous: `$${section.data.previous.revenue.toLocaleString()}`,
+            change: section.data.changes.revenue
+          });
+        }
 
-        sectionRequests.push({
+        for (const metric of metrics) {
+          const row = [
+            metric.name,
+            metric.current.toString(),
+            metric.previous.toString(),
+            `${metric.change >= 0 ? '+' : ''}${typeof metric.change === 'number' ? metric.change.toFixed(1) : metric.change}%`
+          ].join('\t') + '\n';
+
+          requests.push({
+            insertText: {
+              location: { index: currentIndex },
+              text: row
+            }
+          });
+
+          currentIndex += row.length;
+        }
+
+        // Add spacing after table
+        requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: pagesMetrics
+            text: '\n\n'
           }
         });
-
-        currentIndex += pagesMetrics.length;
+        currentIndex += 2;
       }
-
-      return sectionRequests;
-    };
-
-    // Add analysis sections
-    if (report.weekly_analysis) {
-      requests.push(...createMetricsSection('Weekly Analysis', report.weekly_analysis));
-    }
-    if (report.monthly_analysis) {
-      requests.push(...createMetricsSection('Monthly Analysis', report.monthly_analysis));
-    }
-    if (report.quarterly_analysis) {
-      requests.push(...createMetricsSection('Quarterly Analysis', report.quarterly_analysis));
-    }
-    if (report.ytd_analysis) {
-      requests.push(...createMetricsSection('Year to Date Analysis', report.ytd_analysis));
-    }
-    if (report.last28_yoy_analysis) {
-      requests.push(...createMetricsSection('Last 28 Days Year over Year Analysis', report.last28_yoy_analysis));
     }
 
-    // Process requests in batches
+    // Process requests in small batches to avoid API limits
     const BATCH_SIZE = 20;
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
       const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
-      await docs.documents.batchUpdate({
-        documentId: docId,
-        requestBody: { requests: batch },
-      });
-      // Add delay between batches
-      if (i + BATCH_SIZE < requests.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      try {
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: { requests: batch },
+        });
+        // Add delay between batches
+        if (i + BATCH_SIZE < requests.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (error) {
+        console.error(`Error processing batch ${i / BATCH_SIZE + 1}:`, error);
+        throw error;
       }
     }
 
     console.log('Document created successfully');
+    const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
+    
     return new Response(
       JSON.stringify({
-        docUrl: `https://docs.google.com/document/d/${docId}/edit`,
+        docUrl,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -362,10 +375,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in create-report-doc function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'An unknown error occurred',
-        details: error instanceof Error ? error.stack : undefined
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'An unknown error occurred' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

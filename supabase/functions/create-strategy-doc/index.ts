@@ -59,7 +59,7 @@ serve(async (req) => {
     const requests = [];
     let currentIndex = 1;
 
-    // Add title
+    // Add title with formatting
     requests.push({
       insertText: {
         location: { index: currentIndex },
@@ -110,18 +110,57 @@ serve(async (req) => {
 
       currentIndex += topic.title.length + 1;
 
-      // Add description
-      const descriptionText = `Description:\n${topic.description}\n\n`;
+      // Add description with formatting
       requests.push({
         insertText: {
           location: { index: currentIndex },
-          text: descriptionText
+          text: "Description:\n"
         }
       });
-      currentIndex += descriptionText.length;
+      
+      requests.push({
+        updateTextStyle: {
+          range: {
+            startIndex: currentIndex,
+            endIndex: currentIndex + "Description:".length
+          },
+          textStyle: { bold: true },
+          fields: "bold"
+        }
+      });
+
+      currentIndex += "Description:\n".length;
+
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: `${topic.description}\n\n`
+        }
+      });
+      currentIndex += topic.description.length + 2;
 
       // Add target keywords
-      const keywordsText = `Target Keywords:\n${topic.targetKeywords.join(', ')}\n\n`;
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: "Target Keywords:\n"
+        }
+      });
+
+      requests.push({
+        updateTextStyle: {
+          range: {
+            startIndex: currentIndex,
+            endIndex: currentIndex + "Target Keywords:".length
+          },
+          textStyle: { bold: true },
+          fields: "bold"
+        }
+      });
+
+      currentIndex += "Target Keywords:\n".length;
+
+      const keywordsText = topic.targetKeywords.join(', ') + '\n\n';
       requests.push({
         insertText: {
           location: { index: currentIndex },
@@ -130,38 +169,137 @@ serve(async (req) => {
       });
       currentIndex += keywordsText.length;
 
-      // Add priority
-      const priorityText = `Priority: ${topic.priority}\n\n`;
+      // Add priority with color coding
+      const priorityColor = {
+        high: { red: 0.8, green: 0.3, blue: 0.3 },
+        medium: { red: 0.9, green: 0.6, blue: 0.3 },
+        low: { red: 0.3, green: 0.6, blue: 0.3 }
+      }[topic.priority];
+
       requests.push({
         insertText: {
           location: { index: currentIndex },
-          text: priorityText
+          text: "Priority: "
         }
       });
-      currentIndex += priorityText.length;
 
-      // Add implementation steps
-      if (topic.implementationSteps && topic.implementationSteps.length > 0) {
-        const stepsText = `Implementation Steps:\n${topic.implementationSteps.map(step => `• ${step}`).join('\n')}\n\n`;
+      requests.push({
+        updateTextStyle: {
+          range: {
+            startIndex: currentIndex,
+            endIndex: currentIndex + "Priority:".length
+          },
+          textStyle: { bold: true },
+          fields: "bold"
+        }
+      });
+
+      currentIndex += "Priority: ".length;
+
+      requests.push({
+        insertText: {
+          location: { index: currentIndex },
+          text: `${topic.priority.toUpperCase()}\n\n`
+        }
+      });
+
+      requests.push({
+        updateTextStyle: {
+          range: {
+            startIndex: currentIndex,
+            endIndex: currentIndex + topic.priority.length
+          },
+          textStyle: {
+            foregroundColor: { color: { rgbColor: priorityColor } },
+            bold: true
+          },
+          fields: "foregroundColor,bold"
+        }
+      });
+
+      currentIndex += topic.priority.length + 2;
+
+      // Add implementation steps with bullet points
+      if (topic.implementationSteps?.length > 0) {
         requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: stepsText
+            text: "Implementation Steps:\n"
           }
         });
-        currentIndex += stepsText.length;
+
+        requests.push({
+          updateTextStyle: {
+            range: {
+              startIndex: currentIndex,
+              endIndex: currentIndex + "Implementation Steps:".length
+            },
+            textStyle: { bold: true },
+            fields: "bold"
+          }
+        });
+
+        currentIndex += "Implementation Steps:\n".length;
+
+        for (const step of topic.implementationSteps) {
+          requests.push({
+            insertText: {
+              location: { index: currentIndex },
+              text: `${step}\n`
+            }
+          });
+
+          requests.push({
+            createParagraphBullets: {
+              range: {
+                startIndex: currentIndex,
+                endIndex: currentIndex + step.length + 1
+              },
+              bulletPreset: "BULLET_DISC_CIRCLE_SQUARE"
+            }
+          });
+
+          currentIndex += step.length + 1;
+        }
+
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: "\n"
+          }
+        });
+        currentIndex += 1;
       }
 
       // Add conversion strategy
       if (topic.conversionStrategy) {
-        const conversionText = `Conversion Strategy:\n${topic.conversionStrategy}\n\n`;
         requests.push({
           insertText: {
             location: { index: currentIndex },
-            text: conversionText
+            text: "Conversion Strategy:\n"
           }
         });
-        currentIndex += conversionText.length;
+
+        requests.push({
+          updateTextStyle: {
+            range: {
+              startIndex: currentIndex,
+              endIndex: currentIndex + "Conversion Strategy:".length
+            },
+            textStyle: { bold: true },
+            fields: "bold"
+          }
+        });
+
+        currentIndex += "Conversion Strategy:\n".length;
+
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text: `${topic.conversionStrategy}\n\n`
+          }
+        });
+        currentIndex += topic.conversionStrategy.length + 2;
       }
 
       // Add separator
@@ -174,17 +312,22 @@ serve(async (req) => {
       currentIndex += "---\n\n".length;
     }
 
-    // Process requests in batches
-    const BATCH_SIZE = 20;
+    // Process requests in small batches to avoid API limits
+    const BATCH_SIZE = 3;
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
       const batch = requests.slice(i, Math.min(i + BATCH_SIZE, requests.length));
-      await docs.documents.batchUpdate({
-        documentId: docId,
-        requestBody: { requests: batch },
-      });
-      // Add delay between batches
-      if (i + BATCH_SIZE < requests.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      try {
+        await docs.documents.batchUpdate({
+          documentId: docId,
+          requestBody: { requests: batch },
+        });
+        // Add delay between batches
+        if (i + BATCH_SIZE < requests.length) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (error) {
+        console.error(`Error processing batch ${i / BATCH_SIZE + 1}:`, error);
+        throw error;
       }
     }
 
