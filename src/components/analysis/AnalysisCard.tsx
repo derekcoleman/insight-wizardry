@@ -26,7 +26,7 @@ interface AnalysisCardProps {
 }
 
 export function AnalysisCard({ title, dateRange, data, channelName = 'Overall' }: AnalysisCardProps) {
-  // Extract keywords from search terms
+  const shouldShowSearchConsoleData = channelName === 'Overall' || channelName === 'Organic Search';
   const keywords = data.searchTerms?.map(term => term.term) || [];
 
   return (
@@ -45,7 +45,7 @@ export function AnalysisCard({ title, dateRange, data, channelName = 'Overall' }
             {data.dataSources?.ga4 && (
               <Badge variant="secondary">GA4</Badge>
             )}
-            {data.dataSources?.gsc && (
+            {shouldShowSearchConsoleData && data.dataSources?.gsc && (
               <Badge variant="secondary">Search Console</Badge>
             )}
           </div>
@@ -74,7 +74,7 @@ export function AnalysisCard({ title, dateRange, data, channelName = 'Overall' }
               channel={channelName}
             />
           </div>
-          {data.summary && (
+          {data.summary && shouldShowSearchConsoleData && (
             <div className="text-sm text-muted-foreground mt-4 whitespace-pre-line">
               {data.summary}
             </div>
@@ -85,16 +85,16 @@ export function AnalysisCard({ title, dateRange, data, channelName = 'Overall' }
               <ProductPerformanceTable products={data.current.products} />
             </>
           )}
-          {data.searchTerms && channelName === 'Organic Search' && (
+          {shouldShowSearchConsoleData && data.searchTerms && (
             <SearchTermsTable searchTerms={data.searchTerms} domain={data.domain} />
           )}
-          {data.pages && channelName === 'Organic Search' && (
+          {shouldShowSearchConsoleData && data.pages && (
             <>
               <h3 className="text-lg font-semibold mt-6 mb-2">Top Pages</h3>
               <TopPagesTable pages={data.pages} />
             </>
           )}
-          {keywords.length > 0 && channelName === 'Organic Search' && (
+          {shouldShowSearchConsoleData && keywords.length > 0 && (
             <TrendsAnalysis keywords={keywords} />
           )}
         </div>

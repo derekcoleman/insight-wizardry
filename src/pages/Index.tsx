@@ -42,7 +42,7 @@ const Index = () => {
             </Card>
           ) : (
             <div className="mt-10">
-              <GrowthChannelTabs defaultTab="seo" analysisData={analysisData} />
+              <GrowthChannelTabs defaultTab="growth" analysisData={analysisData} />
             </div>
           )}
         </div>
