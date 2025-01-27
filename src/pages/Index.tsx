@@ -3,8 +3,24 @@ import { GrowthChannelTabs } from "@/components/GrowthChannelTabs";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { Card } from "@/components/ui/card";
 
+interface AnalysisData {
+  report: {
+    weekly_analysis: any;
+    monthly_analysis: any;
+    quarterly_analysis: any;
+    ytd_analysis: any;
+    last28_yoy_analysis: any;
+  } | null;
+}
+
 const Index = () => {
   const [isConnected, setIsConnected] = useState(false);
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+
+  const handleAnalysisComplete = (data: AnalysisData) => {
+    setAnalysisData(data);
+    setIsConnected(true);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -22,11 +38,11 @@ const Index = () => {
           
           {!isConnected ? (
             <Card className="max-w-xl mx-auto p-6">
-              <GoogleConnect onConnectionChange={setIsConnected} />
+              <GoogleConnect onAnalysisComplete={handleAnalysisComplete} />
             </Card>
           ) : (
             <div className="mt-10">
-              <GrowthChannelTabs />
+              <GrowthChannelTabs defaultTab="seo" analysisData={analysisData} />
             </div>
           )}
         </div>

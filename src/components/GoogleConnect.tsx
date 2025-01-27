@@ -15,9 +15,10 @@ import { ConnectionStatus } from "@/components/ConnectionStatus";
 
 interface GoogleConnectProps {
   onConnectionChange?: (connected: boolean) => void;
+  onAnalysisComplete?: (data: { report: any }) => void;
 }
 
-export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
+export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: GoogleConnectProps) {
   const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
   const [selectedGoal, setSelectedGoal] = useState<string>("");
@@ -104,6 +105,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
       }
 
       setReport(result.data.report);
+      onAnalysisComplete?.(result.data);
       toast({
         title: "Success",
         description: "Analysis completed successfully",
