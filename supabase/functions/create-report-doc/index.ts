@@ -66,18 +66,17 @@ serve(async (req) => {
       }
     });
 
-    // Format title
     requests.push({
       updateParagraphStyle: {
         range: {
           startIndex: currentIndex,
-          endIndex: currentIndex + "Analytics Report".length
+          endIndex: currentIndex + 'Analytics Report\n'.length
         },
         paragraphStyle: {
-          namedStyleType: "HEADING_1",
-          alignment: "CENTER"
+          namedStyleType: 'HEADING_1',
+          alignment: 'CENTER'
         },
-        fields: "namedStyleType,alignment"
+        fields: 'namedStyleType,alignment'
       }
     });
 
@@ -259,56 +258,33 @@ serve(async (req) => {
         }
       }
 
-      // Create metrics table with formatting
+      // Create metrics table
       if (section.data.current) {
-        // First, create the table structure
-        requests.push({
-          insertTable: {
-            rows: 5, // Header + potential metrics (sessions, conversions, revenue)
-            columns: 4,
-            location: { index: currentIndex }
-          }
-        });
-
-        // Insert header text
+        // Table headers
         const headers = ['Metric', 'Current', 'Previous', 'Change'];
-        headers.forEach((header, i) => {
-          requests.push({
-            insertText: {
-              location: { index: currentIndex + i },
-              text: header
-            }
-          });
-        });
-
-        // Style header row
+        const headerRow = headers.join('\t') + '\n';
         requests.push({
-          updateTableCellStyle: {
-            tableRange: {
-              tableCellLocation: {
-                tableStartLocation: { index: currentIndex },
-                rowIndex: 0,
-                columnIndex: 0
-              },
-              rowSpan: 1,
-              columnSpan: 4
-            },
-            tableCellStyle: {
-              backgroundColor: {
-                color: {
-                  rgbColor: {
-                    red: 0.95,
-                    green: 0.95,
-                    blue: 0.95
-                  }
-                }
-              }
-            },
-            fields: 'backgroundColor'
+          insertText: {
+            location: { index: currentIndex },
+            text: headerRow
           }
         });
 
-        // Add metrics data
+        // Make header row bold
+        requests.push({
+          updateTextStyle: {
+            range: {
+              startIndex: currentIndex,
+              endIndex: currentIndex + headerRow.length - 1
+            },
+            textStyle: { bold: true },
+            fields: 'bold'
+          }
+        });
+
+        currentIndex += headerRow.length;
+
+        // Add table rows
         const metrics = [];
         if (section.data.current.sessions !== undefined) {
           metrics.push({
@@ -337,44 +313,24 @@ serve(async (req) => {
           });
         }
 
-        metrics.forEach((metric, rowIndex) => {
-          const cells = [
+        for (const metric of metrics) {
+          const row = [
             metric.name,
             metric.current.toString(),
             metric.previous.toString(),
             `${metric.change >= 0 ? '+' : ''}${typeof metric.change === 'number' ? metric.change.toFixed(1) : metric.change}%`
-          ];
+          ].join('\t') + '\n';
 
-          cells.forEach((cell, colIndex) => {
-            requests.push({
-              insertText: {
-                location: { 
-                  index: currentIndex + ((rowIndex + 1) * 4) + colIndex 
-                },
-                text: cell
-              }
-            });
-
-            // Right-align numeric columns
-            if (colIndex > 0) {
-              requests.push({
-                updateParagraphStyle: {
-                  range: {
-                    startIndex: currentIndex + ((rowIndex + 1) * 4) + colIndex,
-                    endIndex: currentIndex + ((rowIndex + 1) * 4) + colIndex + cell.length
-                  },
-                  paragraphStyle: {
-                    alignment: 'END'
-                  },
-                  fields: 'alignment'
-                }
-              });
+          requests.push({
+            insertText: {
+              location: { index: currentIndex },
+              text: row
             }
           });
-        });
 
-        currentIndex += (metrics.length + 1) * 4; // Account for header row + data rows
-        
+          currentIndex += row.length;
+        }
+
         // Add spacing after table
         requests.push({
           insertText: {
