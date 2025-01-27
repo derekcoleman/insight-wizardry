@@ -66,17 +66,18 @@ serve(async (req) => {
       }
     });
 
+    // Format title
     requests.push({
       updateParagraphStyle: {
         range: {
           startIndex: currentIndex,
-          endIndex: currentIndex + 'Analytics Report\n'.length
+          endIndex: currentIndex + "Analytics Report".length
         },
         paragraphStyle: {
-          namedStyleType: 'HEADING_1',
-          alignment: 'CENTER'
+          namedStyleType: "HEADING_1",
+          alignment: "CENTER"
         },
-        fields: 'namedStyleType,alignment'
+        fields: "namedStyleType,alignment"
       }
     });
 
@@ -258,9 +259,9 @@ serve(async (req) => {
         }
       }
 
-      // Create metrics table
+      // Create metrics table with formatting
       if (section.data.current) {
-        // Table headers
+        // Table headers with background color
         const headers = ['Metric', 'Current', 'Previous', 'Change'];
         const headerRow = headers.join('\t') + '\n';
         requests.push({
@@ -270,15 +271,43 @@ serve(async (req) => {
           }
         });
 
-        // Make header row bold
+        // Make header row bold and centered
         requests.push({
           updateTextStyle: {
             range: {
               startIndex: currentIndex,
               endIndex: currentIndex + headerRow.length - 1
             },
-            textStyle: { bold: true },
+            textStyle: { 
+              bold: true 
+            },
             fields: 'bold'
+          }
+        });
+
+        // Add light gray background to header row
+        requests.push({
+          updateTableCellStyle: {
+            tableRange: {
+              tableCellLocation: {
+                rowIndex: 0,
+                columnIndex: 0
+              },
+              rowSpan: 1,
+              columnSpan: headers.length
+            },
+            tableCellStyle: {
+              backgroundColor: {
+                color: {
+                  rgbColor: {
+                    red: 0.95,
+                    green: 0.95,
+                    blue: 0.95
+                  }
+                }
+              }
+            },
+            fields: 'backgroundColor'
           }
         });
 
@@ -327,6 +356,22 @@ serve(async (req) => {
               text: row
             }
           });
+
+          // Right-align numeric columns
+          for (let col = 1; col <= 3; col++) {
+            requests.push({
+              updateParagraphStyle: {
+                range: {
+                  startIndex: currentIndex + row.indexOf('\t'),
+                  endIndex: currentIndex + row.lastIndexOf('\t')
+                },
+                paragraphStyle: {
+                  alignment: 'END'
+                },
+                fields: 'alignment'
+              }
+            });
+          }
 
           currentIndex += row.length;
         }
