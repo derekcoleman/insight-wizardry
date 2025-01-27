@@ -7,7 +7,7 @@ interface MetricCardProps {
   icon?: React.ReactNode;
 }
 
-export function MetricCard({ title, value, change, icon }: MetricCardProps) {
+export function MetricOverviewCard({ title, value, change, icon }: MetricCardProps) {
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-2">
