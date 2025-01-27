@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { GoogleConnect } from "./GoogleConnect";
 import { LineChart, BarChart3, Share2, MessageSquareShare, TrendingUp } from "lucide-react";
+import { MetricCard } from "./MetricOverviewCard";
 
 interface GrowthChannelTabsProps {
   defaultTab?: string;
