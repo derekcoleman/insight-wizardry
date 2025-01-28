@@ -1,4 +1,7 @@
 import { formatNumber } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { FileDown } from "lucide-react";
+import { exportToCSV } from "@/utils/csvExport";
 
 interface MetricsTableProps {
   data: {
@@ -83,38 +86,62 @@ export function MetricsTable({ data, conversionGoal }: MetricsTableProps) {
     },
   ];
 
+  const handleExportCSV = () => {
+    const csvData = metrics.map(metric => ({
+      Metric: metric.name,
+      Current: metric.format ? metric.format(metric.current) : formatMetric(metric.current, metric.prefix),
+      Previous: metric.format ? metric.format(metric.previous) : formatMetric(metric.previous, metric.prefix),
+      'Change %': `${metric.change >= 0 ? '+' : ''}${metric.change.toFixed(1)}%`
+    }));
+    
+    exportToCSV(csvData, 'metrics-analysis');
+  };
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left py-2">Metric</th>
-            <th className="text-right py-2">Current</th>
-            <th className="text-right py-2">Previous</th>
-            <th className="text-right py-2">Change</th>
-          </tr>
-        </thead>
-        <tbody>
-          {metrics.map((metric, index) => (
-            <tr key={index} className="border-b last:border-0">
-              <td className="py-2">{metric.name}</td>
-              <td className="text-right py-2">
-                {metric.format 
-                  ? metric.format(metric.current)
-                  : formatMetric(metric.current, metric.prefix)}
-              </td>
-              <td className="text-right py-2">
-                {metric.format
-                  ? metric.format(metric.previous)
-                  : formatMetric(metric.previous, metric.prefix)}
-              </td>
-              <td className={`text-right py-2 ${metric.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {metric.change >= 0 ? '↑' : '↓'} {Math.abs(metric.change).toFixed(1)}%
-              </td>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button
+          onClick={handleExportCSV}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <FileDown className="h-4 w-4" />
+          Export to CSV
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left py-2">Metric</th>
+              <th className="text-right py-2">Current</th>
+              <th className="text-right py-2">Previous</th>
+              <th className="text-right py-2">Change</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {metrics.map((metric, index) => (
+              <tr key={index} className="border-b last:border-0">
+                <td className="py-2">{metric.name}</td>
+                <td className="text-right py-2">
+                  {metric.format 
+                    ? metric.format(metric.current)
+                    : formatMetric(metric.current, metric.prefix)}
+                </td>
+                <td className="text-right py-2">
+                  {metric.format
+                    ? metric.format(metric.previous)
+                    : formatMetric(metric.previous, metric.prefix)}
+                </td>
+                <td className={`text-right py-2 ${metric.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {metric.change >= 0 ? '↑' : '↓'} {Math.abs(metric.change).toFixed(1)}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
