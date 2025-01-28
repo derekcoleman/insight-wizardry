@@ -34,18 +34,44 @@ function NavHeader() {
 
   useEffect(() => {
     const getProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.email) {
-        setUserEmail(session.user.email);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("Session:", session); // Debug log
+        if (session?.user?.email) {
+          setUserEmail(session.user.email);
+          console.log("User email set:", session.user.email); // Debug log
+        }
+      } catch (error) {
+        console.error("Error fetching session:", error);
       }
     };
+
     getProfile();
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Auth state changed:", session); // Debug log
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+      } else {
+        setUserEmail(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
-    window.location.reload();
+    try {
+      await supabase.auth.signOut();
+      setUserEmail(null);
+      navigate('/');
+      window.location.reload();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
   
   return (
