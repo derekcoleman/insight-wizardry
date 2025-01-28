@@ -29,10 +29,10 @@ export function MetricsTable({ data, conversionGoal }: MetricsTableProps) {
 
   const metrics = [
     {
-      name: "Total Active Users",
-      current: data.current?.activeUsers || 0,
-      previous: data.previous?.activeUsers || 0,
-      change: data.changes?.activeUsers || 0,
+      name: "Total Sessions",
+      current: data.current?.sessions || 0,
+      previous: data.previous?.sessions || 0,
+      change: data.changes?.sessions || 0,
     },
     {
       name: "Organic Sessions",
