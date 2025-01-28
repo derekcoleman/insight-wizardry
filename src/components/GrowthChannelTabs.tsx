@@ -47,6 +47,7 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       ...analysis,
       current: {
         ...analysis.current,
+        activeUsers: analysis.current?.channelGroupings?.[normalizedChannel]?.activeUsers || 0,
         sessions: analysis.current?.channelGroupings?.[normalizedChannel]?.sessions || 0,
         conversions: analysis.current?.channelGroupings?.[normalizedChannel]?.conversions || 0,
         revenue: analysis.current?.channelGroupings?.[normalizedChannel]?.revenue || 0,
@@ -56,6 +57,7 @@ export function GrowthChannelTabs({ defaultTab = "growth", analysisData }: Growt
       },
       previous: {
         ...analysis.previous,
+        activeUsers: analysis.previous?.channelGroupings?.[normalizedChannel]?.activeUsers || 0,
         sessions: analysis.previous?.channelGroupings?.[normalizedChannel]?.sessions || 0,
         conversions: analysis.previous?.channelGroupings?.[normalizedChannel]?.conversions || 0,
         revenue: analysis.previous?.channelGroupings?.[normalizedChannel]?.revenue || 0,

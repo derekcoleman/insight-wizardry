@@ -35,7 +35,7 @@ export function MetricsTable({ data, conversionGoal }: MetricsTableProps) {
       change: data.changes?.activeUsers || 0,
     },
     {
-      name: "Organic Users",
+      name: "Organic Sessions",
       current: data.current?.channelGroupings?.organic_search?.sessions || 0,
       previous: data.previous?.channelGroupings?.organic_search?.sessions || 0,
       change: calculatePercentage(
