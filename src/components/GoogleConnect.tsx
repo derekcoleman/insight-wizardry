@@ -7,11 +7,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGoogleServices } from "@/hooks/useGoogleServices";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 
-interface GoogleConnectProps {
-  onConnectionChange?: (connected: boolean) => void;
+interface AnalysisData {
+  report: {
+    weekly_analysis: any;
+    monthly_analysis: any;
+    quarterly_analysis: any;
+    ytd_analysis: any;
+    last28_yoy_analysis: any;
+  } | null;
 }
 
-export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
+interface GoogleConnectProps {
+  onConnectionChange?: (connected: boolean) => void;
+  onAnalysisComplete?: (data: AnalysisData) => void;
+}
+
+export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: GoogleConnectProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -30,7 +41,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
           return;
         }
 
-        const { error } = await supabase.functions.invoke('check-auth-status');
+        const { data, error } = await supabase.functions.invoke('check-auth-status');
         if (error) {
           console.error("Auth status check failed:", error);
           setError("Failed to verify authentication status");
@@ -39,6 +50,8 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
             description: "Failed to verify authentication status",
             variant: "destructive",
           });
+        } else if (data) {
+          onAnalysisComplete?.(data as AnalysisData);
         }
       } catch (error) {
         console.error("Error checking auth status:", error);
@@ -47,7 +60,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
     };
 
     checkAuthStatus();
-  }, [toast]);
+  }, [toast, onAnalysisComplete]);
 
   useEffect(() => {
     onConnectionChange?.(gaConnected || gscConnected);
