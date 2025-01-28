@@ -14,8 +14,62 @@ serve(async (req) => {
   }
 
   try {
-    const { data } = await req.json();
+    const { data, channel } = await req.json();
     console.log('Generating insights for data:', data);
+
+    // For Organic Search, first get trends data
+    let trendsData = null;
+    if (channel === 'Organic Search' && data.monthly_analysis?.searchTerms) {
+      const keywords = data.monthly_analysis.searchTerms
+        .slice(0, 5)
+        .map((term: any) => term.term);
+
+      try {
+        // Get trends data
+        const trendsResponse = await fetch(
+          'https://reuyjwtdaxjjthgmfmbd.functions.supabase.co/google-trends',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+            },
+            body: JSON.stringify({ keywords })
+          }
+        );
+
+        if (!trendsResponse.ok) {
+          throw new Error('Failed to fetch trends data');
+        }
+
+        trendsData = await trendsResponse.json();
+
+        // Analyze trends
+        const analysisResponse = await fetch(
+          'https://reuyjwtdaxjjthgmfmbd.functions.supabase.co/analyze-trends',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+            },
+            body: JSON.stringify({ keywords, trendsData })
+          }
+        );
+
+        if (!analysisResponse.ok) {
+          throw new Error('Failed to analyze trends');
+        }
+
+        const analysisResult = await analysisResponse.json();
+        trendsData = {
+          ...trendsData,
+          analysis: analysisResult.analysis
+        };
+      } catch (error) {
+        console.error('Error getting trends data:', error);
+      }
+    }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -56,6 +110,13 @@ serve(async (req) => {
 - Terms with position improvements or declines
 - Opportunities for content optimization based on search intent
 
+${trendsData ? `
+5. Search Trends Analysis
+- Seasonal patterns in search behavior
+- Growing search terms and topics
+- Content opportunities based on trends
+` : ''}
+
 Format your response in two sections:
 Key Findings:
 • List your findings as bullet points
@@ -64,6 +125,7 @@ Key Findings:
 • Include specific metrics and percentages when relevant
 • Highlight both positive trends and areas of concern
 • Compare branded vs non-branded performance where relevant
+${trendsData ? '• Include insights from search trends analysis' : ''}
 
 Recommended Next Steps:
 • List specific actions to take
@@ -71,11 +133,15 @@ Recommended Next Steps:
 • Prioritize high-impact activities
 • Include page-specific and keyword-specific recommendations
 • Provide specific optimization suggestions for underperforming pages
-• Suggest content strategies based on search term analysis`
+• Suggest content strategies based on search term analysis
+${trendsData ? '• Include recommendations based on search trends' : ''}`
           },
           {
             role: "user",
-            content: JSON.stringify(data),
+            content: JSON.stringify({
+              ...data,
+              trendsData: trendsData
+            }),
           },
         ],
       }),
