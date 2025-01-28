@@ -84,34 +84,45 @@ function formatDate(date: Date): string {
 function generateDetailedSummary(changes: any, current: any, previous: any, periodText: string) {
   let summary = `${periodText} Performance Analysis:\n\n`;
   
-  // Overall Metrics
+  // Get channel-specific metrics if they exist
+  const channelMetrics = {
+    current: current.channelGroupings?.organic_search || {},
+    previous: previous.channelGroupings?.organic_search || {},
+  };
+  
+  // Use channel metrics if they exist, otherwise fall back to total metrics
+  const metricsToUse = channelMetrics.current.sessions !== undefined ? {
+    current: channelMetrics.current,
+    previous: channelMetrics.previous,
+    changes: {
+      sessions: ((channelMetrics.current.sessions - channelMetrics.previous.sessions) / channelMetrics.previous.sessions) * 100,
+      conversions: ((channelMetrics.current.conversions - channelMetrics.previous.conversions) / channelMetrics.previous.conversions) * 100,
+      revenue: ((channelMetrics.current.revenue - channelMetrics.previous.revenue) / channelMetrics.previous.revenue) * 100,
+    }
+  } : {
+    current,
+    previous,
+    changes
+  };
+  
+  // Traffic and Engagement
   summary += `Traffic and Engagement:\n`;
-  summary += `Total sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
+  if (metricsToUse.current.sessions !== undefined) {
+    const sessionPrefix = channelMetrics.current.sessions !== undefined ? "Organic search" : "Total";
+    summary += `${sessionPrefix} sessions ${formatChange(metricsToUse.changes.sessions, true)} from ${metricsToUse.previous.sessions.toLocaleString()} to ${metricsToUse.current.sessions.toLocaleString()}. `;
+  }
   
-  if (current.conversions > 0) {
+  // Conversions
+  if (metricsToUse.current.conversions > 0) {
     const conversionType = formatEventName(current.conversionGoal || 'Total Conversions');
-    summary += `\n\nConversions:\nTotal ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
+    const conversionPrefix = channelMetrics.current.conversions !== undefined ? "Organic search" : "Total";
+    summary += `\n\nConversions:\n${conversionPrefix} ${conversionType} ${formatChange(metricsToUse.changes.conversions, true)} from ${metricsToUse.previous.conversions.toLocaleString()} to ${metricsToUse.current.conversions.toLocaleString()}. `;
   }
   
-  if (current.revenue > 0) {
-    summary += `\n\nRevenue:\nTotal revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
-  }
-  
-  // Channel-specific metrics
-  if (current.channelGroupings) {
-    summary += `\n\nChannel Performance:\n`;
-    const channels = Object.keys(current.channelGroupings).filter(channel => channel !== 'total');
-    
-    channels.forEach(channel => {
-      const currentChannel = current.channelGroupings[channel];
-      const previousChannel = previous.channelGroupings?.[channel];
-      
-      if (currentChannel && previousChannel) {
-        const sessionChange = ((currentChannel.sessions - previousChannel.sessions) / previousChannel.sessions) * 100;
-        summary += `\n${channel.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}: `;
-        summary += `Sessions ${formatChange(sessionChange, true)} from ${previousChannel.sessions.toLocaleString()} to ${currentChannel.sessions.toLocaleString()}. `;
-      }
-    });
+  // Revenue
+  if (metricsToUse.current.revenue > 0) {
+    const revenuePrefix = channelMetrics.current.revenue !== undefined ? "Organic search" : "Total";
+    summary += `\n\nRevenue:\n${revenuePrefix} revenue ${formatChange(metricsToUse.changes.revenue, true)} from $${metricsToUse.previous.revenue.toLocaleString()} to $${metricsToUse.current.revenue.toLocaleString()}. `;
   }
   
   // GSC Metrics if available
