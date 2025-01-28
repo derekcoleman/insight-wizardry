@@ -21,7 +21,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
       metrics: [
         { name: 'sessions' },
         { name: 'activeUsers' },
-        { name: mainConversionGoal ? 'eventCount' : 'conversions' },
+        { name: mainConversionGoal === 'Total Events' ? 'eventCount' : 'eventName:' + mainConversionGoal },
         { name: 'totalRevenue' }
       ],
     };
@@ -137,7 +137,7 @@ function processChannelData(sessionData: any, mainConversionGoal?: string) {
   // Calculate totals
   const totals = {
     sessions: 0,
-    activeUsers: totalActiveUsers, // Use the sum we calculated
+    activeUsers: totalActiveUsers,
     conversions: 0,
     revenue: 0
   };
