@@ -19,8 +19,9 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
         { name: 'sessionDefaultChannelGrouping' }
       ],
       metrics: [
+        { name: 'activeUsers' },
         { name: 'sessions' },
-        { name: 'conversions' },
+        { name: mainConversionGoal || 'conversions' },
         { name: 'totalRevenue' }
       ],
     };
@@ -89,6 +90,10 @@ function processChannelData(sessionData: any) {
   const channelMappings = {
     'Organic Search': 'organic_search',
     'Paid Search': 'paid_search',
+    'CPC': 'paid_search',
+    'Google Ads': 'paid_search',
+    'Pmax': 'paid_search',
+    'Performance Max': 'paid_search',
     'Paid Social': 'paid_social',
     'Organic Social': 'organic_social',
     'Email': 'email',
@@ -104,9 +109,10 @@ function processChannelData(sessionData: any) {
     if (channel) {
       const normalizedChannel = channelMappings[channel] || channel.toLowerCase().replace(/\s+/g, '_');
       channelData[normalizedChannel] = {
-        sessions: Number(row.metricValues?.[0]?.value || 0),
-        conversions: Number(row.metricValues?.[1]?.value || 0),
-        revenue: Number(row.metricValues?.[2]?.value || 0)
+        activeUsers: Number(row.metricValues?.[0]?.value || 0),
+        sessions: Number(row.metricValues?.[1]?.value || 0),
+        conversions: Number(row.metricValues?.[2]?.value || 0),
+        revenue: Number(row.metricValues?.[3]?.value || 0)
       };
       console.log(`Processed channel ${channel} (${normalizedChannel}):`, channelData[normalizedChannel]);
     }
@@ -114,12 +120,14 @@ function processChannelData(sessionData: any) {
 
   // Calculate totals
   const totals = {
+    activeUsers: 0,
     sessions: 0,
     conversions: 0,
     revenue: 0
   };
 
   Object.values(channelData).forEach((data: any) => {
+    totals.activeUsers += data.activeUsers;
     totals.sessions += data.sessions;
     totals.conversions += data.conversions;
     totals.revenue += data.revenue;
@@ -137,6 +145,7 @@ export function extractChannelMetrics(data: any, channelName: string) {
   if (!data?.channelGroupings) {
     console.warn(`No channel groupings found for: ${channelName}`);
     return {
+      activeUsers: 0,
       sessions: 0,
       conversions: 0,
       revenue: 0
@@ -145,6 +154,7 @@ export function extractChannelMetrics(data: any, channelName: string) {
 
   const normalizedChannelName = channelName.toLowerCase().replace(/\s+/g, '_');
   const metrics = data.channelGroupings[normalizedChannelName] || {
+    activeUsers: 0,
     sessions: 0,
     conversions: 0,
     revenue: 0
@@ -161,6 +171,7 @@ export function extractTotalMetrics(data: any) {
   if (!data?.channelGroupings?.total) {
     console.warn('No total metrics found');
     return {
+      activeUsers: 0,
       sessions: 0,
       conversions: 0,
       revenue: 0
