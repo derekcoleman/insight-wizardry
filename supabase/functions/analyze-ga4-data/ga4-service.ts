@@ -10,6 +10,12 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
   try {
     // First request: Get session data using sessionDefaultChannelGrouping
     console.log('Fetching session data...');
+
+    // Format the conversion metric correctly
+    const conversionMetric = mainConversionGoal && mainConversionGoal !== 'Total Events' 
+      ? `keyEvents:${mainConversionGoal}`
+      : 'conversions';
+
     const sessionRequestBody = {
       dateRanges: [{
         startDate: startDate.toISOString().split('T')[0],
@@ -21,7 +27,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
       metrics: [
         { name: 'totalUsers' },
         { name: 'sessions' },
-        { name: mainConversionGoal ? mainConversionGoal : 'conversions' },
+        { name: conversionMetric },
         { name: 'totalRevenue' }
       ],
     };
