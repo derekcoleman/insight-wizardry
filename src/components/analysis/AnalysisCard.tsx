@@ -5,6 +5,7 @@ import { SearchTermsTable } from "./SearchTermsTable";
 import { TopPagesTable } from "./TopPagesTable";
 import { ProductPerformanceTable } from "./ProductPerformanceTable";
 import { TrendsAnalysis } from "./TrendsAnalysis";
+import { MetricsTable } from "./MetricsTable";
 
 interface AnalysisCardProps {
   title: string;
@@ -28,6 +29,7 @@ interface AnalysisCardProps {
 export function AnalysisCard({ title, dateRange, data, channelName = 'Overall' }: AnalysisCardProps) {
   const shouldShowSearchConsoleData = channelName === 'Overall' || channelName === 'Organic Search';
   const keywords = data.searchTerms?.map(term => term.term) || [];
+  const conversionGoal = data.current?.conversionGoal || 'Conversions';
 
   return (
     <Card className="max-w-[75%] mx-auto">
@@ -52,7 +54,10 @@ export function AnalysisCard({ title, dateRange, data, channelName = 'Overall' }
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {channelName === 'Overall' && (
+            <MetricsTable data={data} conversionGoal={conversionGoal} />
+          )}
           <div className="grid grid-cols-3 gap-4">
             <MetricCard
               title="Sessions"
