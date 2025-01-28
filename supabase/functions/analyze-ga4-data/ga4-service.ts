@@ -19,8 +19,9 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
         { name: 'sessionDefaultChannelGrouping' }
       ],
       metrics: [
+        { name: 'totalUsers' },
         { name: 'sessions' },
-        { name: 'conversions' },
+        { name: mainConversionGoal ? mainConversionGoal : 'conversions' },
         { name: 'totalRevenue' }
       ],
     };
@@ -89,6 +90,9 @@ function processChannelData(sessionData: any) {
   const channelMappings = {
     'Organic Search': 'organic_search',
     'Paid Search': 'paid_search',
+    'CPC': 'paid_search',
+    'Google Ads': 'paid_search',
+    'Pmax': 'paid_search',
     'Paid Social': 'paid_social',
     'Organic Social': 'organic_social',
     'Email': 'email',
@@ -99,15 +103,38 @@ function processChannelData(sessionData: any) {
     'Video': 'video'
   };
   
+  let totalActiveUsers = 0;
+
   sessionData.rows.forEach((row: any) => {
     const channel = row.dimensionValues?.[0]?.value;
     if (channel) {
       const normalizedChannel = channelMappings[channel] || channel.toLowerCase().replace(/\s+/g, '_');
-      channelData[normalizedChannel] = {
-        sessions: Number(row.metricValues?.[0]?.value || 0),
-        conversions: Number(row.metricValues?.[1]?.value || 0),
-        revenue: Number(row.metricValues?.[2]?.value || 0)
-      };
+      
+      // Add active users to total
+      totalActiveUsers += Number(row.metricValues?.[0]?.value || 0);
+      
+      // If this is a paid search variant, merge the data into paid_search
+      if (channelMappings[channel] === 'paid_search') {
+        if (!channelData['paid_search']) {
+          channelData['paid_search'] = {
+            sessions: 0,
+            conversions: 0,
+            revenue: 0,
+            activeUsers: 0
+          };
+        }
+        channelData['paid_search'].sessions += Number(row.metricValues?.[1]?.value || 0);
+        channelData['paid_search'].conversions += Number(row.metricValues?.[2]?.value || 0);
+        channelData['paid_search'].revenue += Number(row.metricValues?.[3]?.value || 0);
+        channelData['paid_search'].activeUsers += Number(row.metricValues?.[0]?.value || 0);
+      } else {
+        channelData[normalizedChannel] = {
+          sessions: Number(row.metricValues?.[1]?.value || 0),
+          conversions: Number(row.metricValues?.[2]?.value || 0),
+          revenue: Number(row.metricValues?.[3]?.value || 0),
+          activeUsers: Number(row.metricValues?.[0]?.value || 0)
+        };
+      }
       console.log(`Processed channel ${channel} (${normalizedChannel}):`, channelData[normalizedChannel]);
     }
   });
@@ -116,7 +143,8 @@ function processChannelData(sessionData: any) {
   const totals = {
     sessions: 0,
     conversions: 0,
-    revenue: 0
+    revenue: 0,
+    activeUsers: totalActiveUsers
   };
 
   Object.values(channelData).forEach((data: any) => {
@@ -139,7 +167,8 @@ export function extractChannelMetrics(data: any, channelName: string) {
     return {
       sessions: 0,
       conversions: 0,
-      revenue: 0
+      revenue: 0,
+      activeUsers: 0
     };
   }
 
@@ -147,7 +176,8 @@ export function extractChannelMetrics(data: any, channelName: string) {
   const metrics = data.channelGroupings[normalizedChannelName] || {
     sessions: 0,
     conversions: 0,
-    revenue: 0
+    revenue: 0,
+    activeUsers: 0
   };
 
   console.log(`Extracted metrics for ${channelName}:`, metrics);
@@ -163,7 +193,8 @@ export function extractTotalMetrics(data: any) {
     return {
       sessions: 0,
       conversions: 0,
-      revenue: 0
+      revenue: 0,
+      activeUsers: 0
     };
   }
 
