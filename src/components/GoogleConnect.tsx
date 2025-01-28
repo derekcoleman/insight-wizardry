@@ -49,6 +49,12 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     const createUserProfile = async () => {
       if (userEmail) {
         try {
+          const { data: session } = await supabase.auth.getSession();
+          if (!session?.session?.user?.id) {
+            console.error('No authenticated user found');
+            return;
+          }
+
           const { data: existingProfile, error: fetchError } = await supabase
             .from('profiles')
             .select('*')
@@ -63,20 +69,38 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
           if (!existingProfile) {
             const { error: insertError } = await supabase
               .from('profiles')
-              .insert([{ email: userEmail }]);
+              .insert({
+                id: session.session.user.id,
+                email: userEmail
+              });
 
             if (insertError) {
               console.error('Error creating profile:', insertError);
+              toast({
+                title: "Error",
+                description: "Failed to create user profile",
+                variant: "destructive",
+              });
+            } else {
+              toast({
+                title: "Success",
+                description: "Profile created successfully",
+              });
             }
           }
         } catch (error) {
           console.error('Error in profile creation:', error);
+          toast({
+            title: "Error",
+            description: "Failed to create user profile",
+            variant: "destructive",
+          });
         }
       }
     };
 
     createUserProfile();
-  }, [userEmail]);
+  }, [userEmail, toast]);
 
   const handleGaAccountChange = async (value: string) => {
     try {
