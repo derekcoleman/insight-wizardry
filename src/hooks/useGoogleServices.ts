@@ -161,7 +161,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setAccessToken(response.access_token);
       
       try {
-        console.log("Starting Google services connection...");
         const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
           headers: {
             Authorization: `Bearer ${response.access_token}`,
@@ -175,10 +174,11 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         const userInfo = await userInfoResponse.json();
         setUserEmail(userInfo.email);
 
-        // Clear existing accounts before fetching new ones
         setGaAccounts([]);
         setGscAccounts([]);
         setConversionGoals([]);
+        setGaConnected(false);
+        setGscConnected(false);
 
         try {
           console.log("Fetching GA4 accounts...");
@@ -226,7 +226,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             }
           }
 
-          console.log("All GA4 Properties:", allProperties);
+          console.log("All GA4 Properties Response:", allProperties);
           
           if (allProperties.length === 0) {
             toast({
