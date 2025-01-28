@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import SeoStrategy from "./pages/SeoStrategy";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => {
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/seo-strategy" element={<SeoStrategy />} />
+                <Route path="/profile" element={<Profile />} />
               </Routes>
             </AppLayout>
           </TooltipProvider>

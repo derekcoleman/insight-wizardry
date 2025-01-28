@@ -36,10 +36,8 @@ function NavHeader() {
     const getProfile = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        console.log("Session:", session); // Debug log
         if (session?.user?.email) {
           setUserEmail(session.user.email);
-          console.log("User email set:", session.user.email); // Debug log
         }
       } catch (error) {
         console.error("Error fetching session:", error);
@@ -48,9 +46,7 @@ function NavHeader() {
 
     getProfile();
 
-    // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Auth state changed:", session); // Debug log
       if (session?.user?.email) {
         setUserEmail(session.user.email);
       } else {
@@ -109,7 +105,7 @@ function NavHeader() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>{userEmail}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
                     <UserRound className="mr-2 h-4 w-4" />
                     Profile
                   </DropdownMenuItem>

@@ -61,6 +61,25 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
         // Cache the insights for this channel
         insightsCache.set(cacheKey, data.insights);
         setInsights(data.insights);
+
+        // Save to search history
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              search_history: supabase.sql`array_append(COALESCE(search_history, ARRAY[]::jsonb[]), ${JSON.stringify({
+                type: channelName,
+                timestamp: new Date().toISOString(),
+                insights: data.insights
+              })}::jsonb)`
+            })
+            .eq('id', session.user.id);
+
+          if (updateError) {
+            console.error('Error updating search history:', updateError);
+          }
+        }
       } catch (error) {
         console.error('Error generating insights:', error);
       } finally {

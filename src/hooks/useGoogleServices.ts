@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Account {
   id: string;
@@ -173,6 +174,25 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
         const userInfo = await userInfoResponse.json();
         setUserEmail(userInfo.email);
+
+        // Save Google OAuth data to profile
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              google_oauth_data: {
+                email: userInfo.email,
+                access_token: response.access_token,
+                timestamp: new Date().toISOString()
+              }
+            })
+            .eq('id', session.user.id);
+
+          if (updateError) {
+            console.error('Error updating profile:', updateError);
+          }
+        }
 
         setGaAccounts([]);
         setGscAccounts([]);
