@@ -1,122 +1,135 @@
-import { formatEventName } from "./ga4-service.ts";
+import { extractChannelMetrics, extractTotalMetrics } from './ga4-service.ts';
+import { extractGSCMetrics } from './gsc-service.ts';
 
-function formatChange(value: number, includeDirection: boolean = false): string {
-  const direction = value >= 0 ? 'improved' : 'declined';
-  return `${value >= 0 ? 'increased' : 'decreased'} by ${Math.abs(value).toFixed(1)}% ${includeDirection ? `(${direction})` : ''}`;
-}
+const formatEventName = (eventName: string): string => {
+  if (eventName === 'Total Events') return eventName;
+  return eventName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
 
 export function analyzeTimePeriod(
-  currentData: any,
-  previousData: any,
-  currentGSCData: any,
-  previousGSCData: any,
-  periodText: string,
-  currentDateRange: { start: Date; end: Date },
-  previousDateRange: { start: Date; end: Date },
-  channelName: string = 'Overall'
+  currentGA4Data: any, 
+  previousGA4Data: any, 
+  currentGSCData: any, 
+  previousGSCData: any, 
+  period: string, 
+  currentDateRange: { start: Date; end: Date }, 
+  previousDateRange: { start: Date; end: Date }
 ) {
-  const changes = calculateChanges(currentData, previousData);
-  const gscChanges = calculateGSCChanges(currentGSCData, previousGSCData);
+  const metrics = {
+    current: {
+      ...extractTotalMetrics(currentGA4Data),
+      ...(currentGSCData ? extractGSCMetrics(currentGSCData) : {}),
+      conversionGoal: currentGA4Data?.conversionGoal || 'Total Conversions',
+      channelGroupings: currentGA4Data?.channelGroupings || {}
+    },
+    previous: {
+      ...extractTotalMetrics(previousGA4Data),
+      ...(previousGSCData ? extractGSCMetrics(previousGSCData) : {}),
+      conversionGoal: previousGA4Data?.conversionGoal || 'Total Conversions',
+      channelGroupings: previousGA4Data?.channelGroupings || {}
+    },
+  };
 
+  const changes = calculateChanges(metrics.current, metrics.previous);
+
+  // Format the period string to include the date ranges
+  const periodText = `${formatDate(currentDateRange.start)} to ${formatDate(currentDateRange.end)} vs ${formatDate(previousDateRange.start)} to ${formatDate(previousDateRange.end)}`;
+  
   return {
-    current: currentData,
-    previous: previousData,
+    period: periodText,
+    current: metrics.current,
+    previous: metrics.previous,
     changes,
-    gscChanges,
-    period: `${formatDateRange(currentDateRange)} vs ${formatDateRange(previousDateRange)}`,
-    summary: generateDetailedSummary(changes, currentData, previousData, periodText, currentGSCData, previousGSCData, gscChanges, channelName),
+    summary: generateDetailedSummary(changes, metrics.current, metrics.previous, periodText),
     dataSources: {
-      ga4: true,
-      gsc: Boolean(currentGSCData && previousGSCData)
-    }
+      ga4: Boolean(currentGA4Data),
+      gsc: Boolean(currentGSCData),
+    },
   };
-}
-
-function generateDetailedSummary(
-  changes: any, 
-  current: any, 
-  previous: any, 
-  periodText: string, 
-  currentGSCData?: any, 
-  previousGSCData?: any, 
-  gscChanges?: any,
-  channelName: string = 'Overall'
-) {
-  let summary = `${periodText} Performance Analysis:\n\n`;
-  
-  // Get channel-specific metrics if they exist and we're looking at organic search
-  const isOrganicSearch = channelName === 'Organic Search';
-  
-  const metricsToUse = isOrganicSearch ? {
-    current: current.channelGroupings?.organic_search || current,
-    previous: previous.channelGroupings?.organic_search || previous,
-    changes: {
-      sessions: ((current.channelGroupings?.organic_search?.sessions - previous.channelGroupings?.organic_search?.sessions) / previous.channelGroupings?.organic_search?.sessions) * 100,
-      conversions: ((current.channelGroupings?.organic_search?.conversions - previous.channelGroupings?.organic_search?.conversions) / previous.channelGroupings?.organic_search?.conversions) * 100,
-      revenue: ((current.channelGroupings?.organic_search?.revenue - previous.channelGroupings?.organic_search?.revenue) / previous.channelGroupings?.organic_search?.revenue) * 100,
-    }
-  } : {
-    current: current.channelGroupings?.total || current,
-    previous: previous.channelGroupings?.total || previous,
-    changes
-  };
-  
-  // Traffic and Engagement
-  summary += `Traffic and Engagement:\n`;
-  const sessionPrefix = isOrganicSearch ? "Organic search" : "Total";
-  summary += `${sessionPrefix} sessions ${formatChange(metricsToUse.changes.sessions, true)} from ${metricsToUse.previous.sessions.toLocaleString()} to ${metricsToUse.current.sessions.toLocaleString()}. `;
-  
-  // Conversions
-  if (metricsToUse.current.conversions > 0) {
-    const conversionType = formatEventName(current.conversionGoal || 'Total Conversions');
-    const conversionPrefix = isOrganicSearch ? "Organic search" : "Total";
-    summary += `\n\nConversions:\n${conversionPrefix} ${conversionType} ${formatChange(metricsToUse.changes.conversions, true)} from ${metricsToUse.previous.conversions.toLocaleString()} to ${metricsToUse.current.conversions.toLocaleString()}. `;
-  }
-  
-  // Revenue
-  if (metricsToUse.current.revenue > 0) {
-    const revenuePrefix = isOrganicSearch ? "Organic search" : "Total";
-    summary += `\n\nRevenue:\n${revenuePrefix} revenue ${formatChange(metricsToUse.changes.revenue, true)} from $${metricsToUse.previous.revenue.toLocaleString()} to $${metricsToUse.current.revenue.toLocaleString()}. `;
-  }
-  
-  // GSC Metrics if available
-  if (currentGSCData && previousGSCData && gscChanges && isOrganicSearch) {
-    summary += `\n\nSearch Console Metrics:\n`;
-    summary += `Clicks ${formatChange(gscChanges.clicks, true)} from ${previousGSCData.clicks.toLocaleString()} to ${currentGSCData.clicks.toLocaleString()}. `;
-    summary += `Impressions ${formatChange(gscChanges.impressions, true)} from ${previousGSCData.impressions.toLocaleString()} to ${currentGSCData.impressions.toLocaleString()}. `;
-    
-    if (currentGSCData.ctr > 0 && previousGSCData.ctr > 0) {
-      summary += `CTR ${formatChange(gscChanges.ctr, true)} from ${(previousGSCData.ctr * 100).toFixed(2)}% to ${(currentGSCData.ctr * 100).toFixed(2)}%. `;
-    }
-    
-    if (currentGSCData.position > 0 && previousGSCData.position > 0) {
-      const positionChange = -gscChanges.position; // Invert because lower position is better
-      summary += `Average position ${formatChange(positionChange, true)} from ${previousGSCData.position.toFixed(1)} to ${currentGSCData.position.toFixed(1)}. `;
-    }
-  }
-  
-  return summary;
 }
 
 function calculateChanges(current: any, previous: any) {
-  const changes = {
-    sessions: ((current.sessions - previous.sessions) / previous.sessions) * 100,
-    conversions: ((current.conversions - previous.conversions) / previous.conversions) * 100,
-    revenue: ((current.revenue - previous.revenue) / previous.revenue) * 100,
-  };
+  const changes: any = {};
+  
+  for (const key in current) {
+    if (typeof current[key] === 'number' && typeof previous[key] === 'number') {
+      changes[key] = previous[key] === 0 
+        ? (current[key] > 0 ? 100 : 0)
+        : ((current[key] - previous[key]) / previous[key]) * 100;
+    }
+  }
+  
   return changes;
 }
 
-function calculateGSCChanges(current: any, previous: any) {
-  const changes = {
-    clicks: ((current.clicks - previous.clicks) / previous.clicks) * 100,
-    impressions: ((current.impressions - previous.impressions) / previous.impressions) * 100,
-    ctr: ((current.ctr - previous.ctr) / previous.ctr) * 100,
-    position: previous.position - current.position,
-  };
-  return changes;
+function formatChange(change: number, higherIsBetter: boolean = true) {
+  if (!change || isNaN(change)) return "remained stable";
+  
+  const direction = change > 0 ? "increased" : "decreased";
+  const goodBad = higherIsBetter ? 
+    (change > 0 ? "improved" : "declined") : 
+    (change > 0 ? "declined" : "improved");
+  
+  return `${direction} by ${Math.abs(change).toFixed(1)}% (${goodBad})`;
 }
 
-function formatDateRange(range: { start: Date; end: Date }) {
-  return `${range.start.toLocaleDateString()} - ${range.end.toLocaleDateString()}`;
+function formatDate(date: Date): string {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}
+
+function generateDetailedSummary(changes: any, current: any, previous: any, periodText: string) {
+  let summary = `${periodText} Performance Analysis:\n\n`;
+  
+  // Overall Metrics
+  summary += `Traffic and Engagement:\n`;
+  summary += `Total sessions ${formatChange(changes.sessions, true)} from ${previous.sessions.toLocaleString()} to ${current.sessions.toLocaleString()}. `;
+  
+  if (current.conversions > 0) {
+    const conversionType = formatEventName(current.conversionGoal || 'Total Conversions');
+    summary += `\n\nConversions:\nTotal ${conversionType} ${formatChange(changes.conversions, true)} from ${previous.conversions.toLocaleString()} to ${current.conversions.toLocaleString()}. `;
+  }
+  
+  if (current.revenue > 0) {
+    summary += `\n\nRevenue:\nTotal revenue ${formatChange(changes.revenue, true)} from $${previous.revenue.toLocaleString()} to $${current.revenue.toLocaleString()}. `;
+  }
+  
+  // Channel-specific metrics
+  if (current.channelGroupings) {
+    summary += `\n\nChannel Performance:\n`;
+    const channels = Object.keys(current.channelGroupings).filter(channel => channel !== 'total');
+    
+    channels.forEach(channel => {
+      const currentChannel = current.channelGroupings[channel];
+      const previousChannel = previous.channelGroupings?.[channel];
+      
+      if (currentChannel && previousChannel) {
+        const sessionChange = ((currentChannel.sessions - previousChannel.sessions) / previousChannel.sessions) * 100;
+        summary += `\n${channel.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}: `;
+        summary += `Sessions ${formatChange(sessionChange, true)} from ${previousChannel.sessions.toLocaleString()} to ${currentChannel.sessions.toLocaleString()}. `;
+      }
+    });
+  }
+  
+  // GSC Metrics if available
+  if (current.clicks !== undefined) {
+    summary += `\n\nSearch Console Performance:\n`;
+    summary += `Clicks ${formatChange(changes.clicks, true)} from ${Math.round(previous.clicks).toLocaleString()} to ${Math.round(current.clicks).toLocaleString()}. `;
+    summary += `Impressions ${formatChange(changes.impressions, true)} from ${Math.round(previous.impressions).toLocaleString()} to ${Math.round(current.impressions).toLocaleString()}. `;
+    
+    const currentCtr = current.ctr;
+    const previousCtr = previous.ctr;
+    if (!isNaN(currentCtr) && !isNaN(previousCtr)) {
+      summary += `The click-through rate (CTR) ${formatChange(changes.ctr, true)} to ${currentCtr.toFixed(1)}%. `;
+    }
+    
+    if (current.position !== undefined && previous.position !== undefined) {
+      summary += `The average position ${formatChange(changes.position, false)} to ${current.position.toFixed(1)}. `;
+    }
+  }
+
+  return summary;
 }
