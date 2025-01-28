@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import { GrowthChannelTabs } from "@/components/GrowthChannelTabs";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { Card } from "@/components/ui/card";
@@ -15,10 +14,8 @@ interface AnalysisData {
 }
 
 const Index = () => {
-  const [searchParams] = useSearchParams();
   const [isConnected, setIsConnected] = useState(false);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
-  const activeTab = searchParams.get('tab') || 'growth';
 
   const handleAnalysisComplete = (data: AnalysisData) => {
     setAnalysisData(data);
@@ -45,7 +42,7 @@ const Index = () => {
             </Card>
           ) : (
             <div className="mt-10">
-              <GrowthChannelTabs defaultTab={activeTab} analysisData={analysisData} />
+              <GrowthChannelTabs defaultTab="growth" analysisData={analysisData} />
             </div>
           )}
         </div>
