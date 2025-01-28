@@ -65,14 +65,16 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
         // Save to search history
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.id) {
+          const searchHistoryEntry = {
+            type: channelName,
+            timestamp: new Date().toISOString(),
+            insights: data.insights
+          };
+
           const { error: updateError } = await supabase
             .from('profiles')
             .update({
-              search_history: supabase.sql`array_append(COALESCE(search_history, ARRAY[]::jsonb[]), ${JSON.stringify({
-                type: channelName,
-                timestamp: new Date().toISOString(),
-                insights: data.insights
-              })}::jsonb)`
+              search_history: searchHistoryEntry
             })
             .eq('id', session.user.id);
 
