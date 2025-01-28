@@ -27,7 +27,8 @@ interface AnalysisCardProps {
 export function AnalysisCard({ title, dateRange, data, channelName = 'Overall' }: AnalysisCardProps) {
   const shouldShowSearchConsoleData = channelName === 'Overall' || channelName === 'Organic Search';
 
-  return="max-w-[75%] mx-auto">
+  return (
+    <Card className="max-w-[75%] mx-auto">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
