@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MetricCard } from "./MetricCard";
-import { SearchTermsTable } from "./SearchTermsTable";
-import { TopPagesTable } from "./TopPagesTable";
-import { ProductPerformanceTable } from "./ProductPerformanceTable";
+import { MetricCard } from "./analysis/MetricCard";
+import { SearchTermsTable } from "./analysis/SearchTermsTable";
+import { TopPagesTable } from "./analysis/TopPagesTable";
+import { ProductPerformanceTable } from "./analysis/ProductPerformanceTable";
 
 interface AnalysisCardProps {
   title: string;
