@@ -38,11 +38,45 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     handleLogin,
     fetchConversionGoals,
     accessToken,
+    userEmail
   } = useGoogleServices();
 
   useEffect(() => {
     onConnectionChange?.(gaConnected || gscConnected);
   }, [gaConnected, gscConnected, onConnectionChange]);
+
+  useEffect(() => {
+    const createUserProfile = async () => {
+      if (userEmail) {
+        try {
+          const { data: existingProfile, error: fetchError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', userEmail)
+            .single();
+
+          if (fetchError && fetchError.code !== 'PGRST116') {
+            console.error('Error checking profile:', fetchError);
+            return;
+          }
+
+          if (!existingProfile) {
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert([{ email: userEmail }]);
+
+            if (insertError) {
+              console.error('Error creating profile:', insertError);
+            }
+          }
+        } catch (error) {
+          console.error('Error in profile creation:', error);
+        }
+      }
+    };
+
+    createUserProfile();
+  }, [userEmail]);
 
   const handleGaAccountChange = async (value: string) => {
     try {

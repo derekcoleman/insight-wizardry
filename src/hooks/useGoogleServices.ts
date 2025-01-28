@@ -23,14 +23,8 @@ interface UseGoogleServicesReturn {
   handleLogin: () => void;
   fetchConversionGoals: (propertyId: string) => Promise<void>;
   accessToken: string | null;
+  userEmail: string | null;
 }
-
-const formatEventName = (eventName: string): string => {
-  return eventName
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
 
 export function useGoogleServices(): UseGoogleServicesReturn {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
@@ -41,6 +35,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleApiError = (error: any, apiName: string) => {
@@ -87,7 +82,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
       
-      // Fetch all available events
       const response = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
         {
@@ -120,7 +114,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const data = await response.json();
       console.log("Events data response:", data);
 
-      // Extract unique event names and sort them
       const uniqueEvents = new Set<string>();
       data.rows?.forEach((row: any) => {
         const eventName = row.dimensionValues?.[0]?.value;
@@ -131,7 +124,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       const eventsList = Array.from(uniqueEvents).sort();
       
-      // Create the goals list with Total Events as the first option and format event names
       const goals = [
         { id: 'Total Events', name: 'Total Events' },
         ...eventsList.map(event => ({
@@ -169,6 +161,19 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setAccessToken(response.access_token);
       
       try {
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: {
+            Authorization: `Bearer ${response.access_token}`,
+          },
+        });
+
+        if (!userInfoResponse.ok) {
+          throw new Error('Failed to fetch user info');
+        }
+
+        const userInfo = await userInfoResponse.json();
+        setUserEmail(userInfo.email);
+
         setGaAccounts([]);
         setGscAccounts([]);
         setConversionGoals([]);
@@ -299,7 +304,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/analytics.readonly",
       "https://www.googleapis.com/auth/webmasters.readonly",
       "https://www.googleapis.com/auth/analytics",
-      "https://www.googleapis.com/auth/analytics.edit"
+      "https://www.googleapis.com/auth/analytics.edit",
+      "https://www.googleapis.com/auth/userinfo.email"
     ].join(" "),
     flow: "implicit"
   });
@@ -315,5 +321,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     handleLogin: () => login(),
     fetchConversionGoals,
     accessToken,
+    userEmail,
   };
 }
