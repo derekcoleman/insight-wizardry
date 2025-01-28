@@ -26,6 +26,13 @@ const Privacy = () => {
       </section>
 
       <section className="mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Data Sharing</h2>
+        <p className="mb-4">
+          We do not share your personal information or data with any third parties. Your data is strictly used for providing and improving our services, and we are committed to maintaining the confidentiality and security of your information.
+        </p>
+      </section>
+
+      <section className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">How We Use Your Information</h2>
         <p className="mb-4">
           We use the information we collect to:
