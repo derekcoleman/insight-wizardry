@@ -1,5 +1,13 @@
 import { corsHeaders } from "./cors.ts";
 
+export function formatEventName(eventName: string): string {
+  if (eventName === 'Total Events') return eventName;
+  return eventName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export async function fetchGA4Data(propertyId: string, accessToken: string, startDate: Date, endDate: Date, mainConversionGoal?: string) {
   console.log(`Fetching GA4 data for property ${propertyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
   console.log('Using event metric:', mainConversionGoal || 'Total Events');

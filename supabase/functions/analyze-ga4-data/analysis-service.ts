@@ -12,7 +12,8 @@ export function analyzeTimePeriod(
   previousGSCData: any,
   periodText: string,
   currentDateRange: { start: Date; end: Date },
-  previousDateRange: { start: Date; end: Date }
+  previousDateRange: { start: Date; end: Date },
+  channelName: string = 'Overall'
 ) {
   const changes = calculateChanges(currentData, previousData);
   const gscChanges = calculateGSCChanges(currentGSCData, previousGSCData);
@@ -23,7 +24,7 @@ export function analyzeTimePeriod(
     changes,
     gscChanges,
     period: `${formatDateRange(currentDateRange)} vs ${formatDateRange(previousDateRange)}`,
-    summary: generateDetailedSummary(changes, currentData, previousData, periodText, currentGSCData, previousGSCData, gscChanges),
+    summary: generateDetailedSummary(changes, currentData, previousData, periodText, currentGSCData, previousGSCData, gscChanges, channelName),
     dataSources: {
       ga4: true,
       gsc: Boolean(currentGSCData && previousGSCData)
@@ -38,25 +39,25 @@ function generateDetailedSummary(
   periodText: string, 
   currentGSCData?: any, 
   previousGSCData?: any, 
-  gscChanges?: any
+  gscChanges?: any,
+  channelName: string = 'Overall'
 ) {
   let summary = `${periodText} Performance Analysis:\n\n`;
   
   // Get channel-specific metrics if they exist and we're looking at organic search
-  const isOrganicSearch = current.channelGroupings?.organic_search && 
-                         Object.keys(current.channelGroupings).length === 1;
+  const isOrganicSearch = channelName === 'Organic Search';
   
   const metricsToUse = isOrganicSearch ? {
-    current: current.channelGroupings.organic_search,
-    previous: previous.channelGroupings.organic_search,
+    current: current.channelGroupings?.organic_search || current,
+    previous: previous.channelGroupings?.organic_search || previous,
     changes: {
-      sessions: ((current.channelGroupings.organic_search.sessions - previous.channelGroupings.organic_search.sessions) / previous.channelGroupings.organic_search.sessions) * 100,
-      conversions: ((current.channelGroupings.organic_search.conversions - previous.channelGroupings.organic_search.conversions) / previous.channelGroupings.organic_search.conversions) * 100,
-      revenue: ((current.channelGroupings.organic_search.revenue - previous.channelGroupings.organic_search.revenue) / previous.channelGroupings.organic_search.revenue) * 100,
+      sessions: ((current.channelGroupings?.organic_search?.sessions - previous.channelGroupings?.organic_search?.sessions) / previous.channelGroupings?.organic_search?.sessions) * 100,
+      conversions: ((current.channelGroupings?.organic_search?.conversions - previous.channelGroupings?.organic_search?.conversions) / previous.channelGroupings?.organic_search?.conversions) * 100,
+      revenue: ((current.channelGroupings?.organic_search?.revenue - previous.channelGroupings?.organic_search?.revenue) / previous.channelGroupings?.organic_search?.revenue) * 100,
     }
   } : {
-    current,
-    previous,
+    current: current.channelGroupings?.total || current,
+    previous: previous.channelGroupings?.total || previous,
     changes
   };
   
@@ -79,7 +80,7 @@ function generateDetailedSummary(
   }
   
   // GSC Metrics if available
-  if (currentGSCData && previousGSCData && gscChanges) {
+  if (currentGSCData && previousGSCData && gscChanges && isOrganicSearch) {
     summary += `\n\nSearch Console Metrics:\n`;
     summary += `Clicks ${formatChange(gscChanges.clicks, true)} from ${previousGSCData.clicks.toLocaleString()} to ${currentGSCData.clicks.toLocaleString()}. `;
     summary += `Impressions ${formatChange(gscChanges.impressions, true)} from ${previousGSCData.impressions.toLocaleString()} to ${currentGSCData.impressions.toLocaleString()}. `;
