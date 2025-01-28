@@ -65,16 +65,33 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
         // Save to search history
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.id) {
-          const searchHistoryEntry = {
+          // First get the current search history
+          const { data: profileData, error: fetchError } = await supabase
+            .from('profiles')
+            .select('search_history')
+            .eq('id', session.user.id)
+            .single();
+
+          if (fetchError) {
+            console.error('Error fetching search history:', fetchError);
+            return;
+          }
+
+          // Create the new search history entry
+          const newEntry = {
             type: channelName,
             timestamp: new Date().toISOString(),
             insights: data.insights
           };
 
+          // Combine existing history with new entry
+          const updatedHistory = [...(profileData?.search_history || []), newEntry];
+
+          // Update the profile with the new search history
           const { error: updateError } = await supabase
             .from('profiles')
             .update({
-              search_history: searchHistoryEntry
+              search_history: updatedHistory
             })
             .eq('id', session.user.id);
 
