@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
-import { Home, LineChart, PanelLeft, UserRound, Settings2 } from "lucide-react";
+import { Home, LineChart, PanelLeft, UserRound, Settings2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const items = [
   {
@@ -31,46 +33,76 @@ function NavHeader() {
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const getProfile = async () => {
+    const checkAuthStatus = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        console.log("Session:", session); // Debug log
+        console.log("Initial session check:", session);
+
         if (session?.user?.email) {
           setUserEmail(session.user.email);
-          console.log("User email set:", session.user.email); // Debug log
+          setAuthError(null);
+          
+          // Check auth status with edge function
+          const { error } = await supabase.functions.invoke('check-auth-status');
+          if (error) {
+            console.error("Auth status check failed:", error);
+            setAuthError("Failed to verify authentication status");
+          }
+        } else {
+          console.log("No active session found");
+          setUserEmail(null);
         }
       } catch (error) {
-        console.error("Error fetching session:", error);
+        console.error("Error checking auth status:", error);
+        setAuthError("Failed to check authentication status");
       }
     };
 
-    getProfile();
+    checkAuthStatus();
 
-    // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Auth state changed:", session); // Debug log
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session);
+      
       if (session?.user?.email) {
         setUserEmail(session.user.email);
+        setAuthError(null);
+        toast({
+          title: "Authenticated",
+          description: `Logged in as ${session.user.email}`,
+        });
       } else {
         setUserEmail(null);
+        if (event === 'SIGNED_OUT') {
+          toast({
+            title: "Signed out",
+            description: "You have been signed out successfully",
+          });
+        }
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [toast]);
 
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
       setUserEmail(null);
+      setAuthError(null);
       navigate('/');
-      window.location.reload();
     } catch (error) {
       console.error("Error signing out:", error);
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
     }
   };
   
@@ -97,8 +129,15 @@ function NavHeader() {
             </Link>
           </div>
 
-          {userEmail && (
-            <div className="flex items-center">
+          {authError && (
+            <Alert variant="destructive" className="absolute top-20 right-4 w-auto max-w-md">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{authError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex items-center">
+            {userEmail ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
@@ -106,7 +145,7 @@ function NavHeader() {
                     <span className="sr-only">Open user menu</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>{userEmail}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>
@@ -123,8 +162,8 @@ function NavHeader() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
-          )}
+            ) : null}
+          </div>
         </div>
       </div>
     </nav>
