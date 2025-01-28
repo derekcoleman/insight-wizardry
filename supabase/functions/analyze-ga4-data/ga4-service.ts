@@ -20,8 +20,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
       ],
       metrics: [
         { name: 'sessions' },
-        { name: 'activeUsers' },
-        { name: mainConversionGoal || 'conversions' },
+        { name: 'conversions' },
         { name: 'totalRevenue' }
       ],
     };
@@ -63,7 +62,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
     }
 
     // Process channel data
-    const channelData = processChannelData(sessionData, mainConversionGoal);
+    const channelData = processChannelData(sessionData);
     console.log('Processed channel data:', channelData);
 
     return {
@@ -80,7 +79,7 @@ export async function fetchGA4Data(propertyId: string, accessToken: string, star
   }
 }
 
-function processChannelData(sessionData: any, mainConversionGoal?: string) {
+function processChannelData(sessionData: any) {
   if (!sessionData.rows) {
     console.warn('No rows in session data to process channel groupings');
     return {};
@@ -90,10 +89,6 @@ function processChannelData(sessionData: any, mainConversionGoal?: string) {
   const channelMappings = {
     'Organic Search': 'organic_search',
     'Paid Search': 'paid_search',
-    'CPC': 'paid_search',
-    'Google Ads': 'paid_search',
-    'Pmax': 'paid_search',
-    'Performance Max': 'paid_search',
     'Paid Social': 'paid_social',
     'Organic Social': 'organic_social',
     'Email': 'email',
@@ -104,22 +99,14 @@ function processChannelData(sessionData: any, mainConversionGoal?: string) {
     'Video': 'video'
   };
   
-  let totalActiveUsers = 0;
-
   sessionData.rows.forEach((row: any) => {
     const channel = row.dimensionValues?.[0]?.value;
     if (channel) {
       const normalizedChannel = channelMappings[channel] || channel.toLowerCase().replace(/\s+/g, '_');
-      
-      // Add active users to total
-      const activeUsers = Number(row.metricValues?.[1]?.value || 0);
-      totalActiveUsers += activeUsers;
-
       channelData[normalizedChannel] = {
         sessions: Number(row.metricValues?.[0]?.value || 0),
-        activeUsers: activeUsers,
-        conversions: Number(row.metricValues?.[2]?.value || 0),
-        revenue: Number(row.metricValues?.[3]?.value || 0)
+        conversions: Number(row.metricValues?.[1]?.value || 0),
+        revenue: Number(row.metricValues?.[2]?.value || 0)
       };
       console.log(`Processed channel ${channel} (${normalizedChannel}):`, channelData[normalizedChannel]);
     }
@@ -128,7 +115,6 @@ function processChannelData(sessionData: any, mainConversionGoal?: string) {
   // Calculate totals
   const totals = {
     sessions: 0,
-    activeUsers: totalActiveUsers,
     conversions: 0,
     revenue: 0
   };
@@ -152,7 +138,6 @@ export function extractChannelMetrics(data: any, channelName: string) {
     console.warn(`No channel groupings found for: ${channelName}`);
     return {
       sessions: 0,
-      activeUsers: 0,
       conversions: 0,
       revenue: 0
     };
@@ -161,7 +146,6 @@ export function extractChannelMetrics(data: any, channelName: string) {
   const normalizedChannelName = channelName.toLowerCase().replace(/\s+/g, '_');
   const metrics = data.channelGroupings[normalizedChannelName] || {
     sessions: 0,
-    activeUsers: 0,
     conversions: 0,
     revenue: 0
   };
@@ -178,7 +162,6 @@ export function extractTotalMetrics(data: any) {
     console.warn('No total metrics found');
     return {
       sessions: 0,
-      activeUsers: 0,
       conversions: 0,
       revenue: 0
     };

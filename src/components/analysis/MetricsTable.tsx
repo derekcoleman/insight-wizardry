@@ -1,7 +1,4 @@
 import { formatNumber } from "@/lib/utils";
-import { exportToCSV } from "@/utils/csvExport";
-import { Button } from "@/components/ui/button";
-import { FileDown } from "lucide-react";
 
 interface MetricsTableProps {
   data: {
@@ -14,7 +11,7 @@ interface MetricsTableProps {
 
 export function MetricsTable({ data, conversionGoal }: MetricsTableProps) {
   const formatMetric = (value: number, prefix: string = "") => {
-    return `${prefix}${value.toLocaleString()}`;
+    return `${prefix}${formatNumber(value)}`;
   };
 
   const calculatePercentage = (value: number, total: number) => {
@@ -86,30 +83,8 @@ export function MetricsTable({ data, conversionGoal }: MetricsTableProps) {
     },
   ];
 
-  const handleExportCSV = () => {
-    const csvData = metrics.map(metric => ({
-      Metric: metric.name,
-      Current: metric.format ? metric.format(metric.current) : formatMetric(metric.current, metric.prefix),
-      Previous: metric.format ? metric.format(metric.previous) : formatMetric(metric.previous, metric.prefix),
-      'Change (%)': `${metric.change >= 0 ? '+' : ''}${metric.change.toFixed(1)}%`
-    }));
-    
-    exportToCSV(csvData, 'metrics-analysis');
-  };
-
   return (
     <div className="overflow-x-auto">
-      <div className="flex justify-end mb-4">
-        <Button
-          onClick={handleExportCSV}
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-2"
-        >
-          <FileDown className="h-4 w-4" />
-          Export to CSV
-        </Button>
-      </div>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b">
