@@ -35,17 +35,22 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   } = useGoogleServices();
 
   useEffect(() => {
-    onConnectionChange?.(gaConnected || gscConnected);
+    if (gaConnected || gscConnected) {
+      console.log("Connection status changed:", { gaConnected, gscConnected });
+      onConnectionChange?.(true);
+    }
   }, [gaConnected, gscConnected, onConnectionChange]);
 
   const handleAnalyze = async (ga4Property: string, gscProperty: string, mainConversionGoal: string) => {
     if (!ga4Property || !accessToken) {
-      console.log("Missing required data:", { ga4Property, hasAccessToken: !!accessToken });
+      console.error("Missing required data:", { ga4Property, hasAccessToken: !!accessToken });
+      setAnalysisError("Missing required Google Analytics property or access token");
       return;
     }
 
     setIsAnalyzing(true);
     setAnalysisError(null);
+    
     try {
       console.log("Starting analysis with:", {
         ga4Property,
@@ -64,7 +69,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
       });
 
       if (result.error) {
-        console.error('Analysis error:', result.error);
         throw new Error(result.error.message || 'Failed to analyze data');
       }
       
@@ -74,9 +78,9 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
 
       setReport(result.data.report);
       onAnalysisComplete?.(result.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Analysis error:', error);
-      setAnalysisError(error instanceof Error ? error.message : 'Failed to analyze data');
+      setAnalysisError(error.message || 'Failed to analyze data');
       setReport(null);
     } finally {
       setIsAnalyzing(false);
