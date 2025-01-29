@@ -75,7 +75,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const signInWithGoogle = async (googleAccessToken: string) => {
     try {
-      console.log("Starting Google OAuth flow with token:", googleAccessToken.substring(0, 10) + "...");
+      console.log("Starting Google OAuth flow with token");
       
       // Get user info from Google first
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -93,6 +93,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
+      // Store the access token first
+      setAccessToken(googleAccessToken);
+
       // Sign in with Supabase using the Google token
       const { data: signInData, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -100,13 +103,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           queryParams: {
             access_token: googleAccessToken,
             prompt: 'consent',
-            scope: [
-              "https://www.googleapis.com/auth/analytics.readonly",
-              "https://www.googleapis.com/auth/webmasters.readonly",
-              "https://www.googleapis.com/auth/gmail.readonly",
-              "https://www.googleapis.com/auth/userinfo.email",
-              "https://www.googleapis.com/auth/userinfo.profile"
-            ].join(" ")
           },
         },
       });
@@ -117,9 +113,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       console.log("Supabase sign in successful:", signInData);
-
-      // Store the access token
-      setAccessToken(googleAccessToken);
 
       // Test Gmail connection
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
@@ -336,7 +329,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setError(null);
       
       try {
-        console.log("Google login successful, access token:", response.access_token.substring(0, 10) + "...");
+        console.log("Google login successful, proceeding with token");
         await signInWithGoogle(response.access_token);
         
         toast({
