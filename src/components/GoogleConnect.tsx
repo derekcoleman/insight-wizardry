@@ -15,6 +15,11 @@ interface GoogleConnectProps {
   onAnalysisComplete?: (data: { report: any }) => void;
 }
 
+interface GoogleOAuthData {
+  connected: boolean;
+  email: string;
+}
+
 export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: GoogleConnectProps) {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -61,8 +66,9 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
           throw profileError;
         }
 
-        if (profile?.google_oauth_data?.connected) {
-          console.log("Found existing Google OAuth data:", profile.google_oauth_data);
+        const googleOAuthData = profile?.google_oauth_data as GoogleOAuthData;
+        if (googleOAuthData?.connected) {
+          console.log("Found existing Google OAuth data:", googleOAuthData);
           onConnectionChange?.(true);
           navigate('/projects');
         }

@@ -40,12 +40,14 @@ const Projects = () => {
       if (error) throw error;
       return data;
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to fetch profile data",
-        variant: "destructive",
-      });
+    meta: {
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "Failed to fetch profile data",
+          variant: "destructive",
+        });
+      }
     }
   });
 
