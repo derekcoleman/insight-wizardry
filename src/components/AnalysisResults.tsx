@@ -63,7 +63,9 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
         setInsights(data.insights);
 
         // Save to search history
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionResponse = await supabase.auth.getSession();
+        const session = sessionResponse.data.session;
+        
         if (session?.user?.id) {
           // First get the current search history
           const { data: profileData, error: fetchError } = await supabase
@@ -313,8 +315,10 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
             </Button>
           )}
           <Button
-            onClick={() => {
-              const { data: { session } } = supabase.auth.getSession();
+            onClick={async () => {
+              const sessionResponse = await supabase.auth.getSession();
+              const session = sessionResponse.data.session;
+              
               if (!session?.user?.id) {
                 toast({
                   title: "Authentication required",
