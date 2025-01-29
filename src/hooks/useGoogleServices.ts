@@ -279,12 +279,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         setIsLoading(false);
       }
     },
-    onError: (error) => {
-      console.error("Google login error:", error);
-      setError(error.message || "Failed to authenticate with Google");
+    onError: (errorResponse) => {
+      console.error("Google login error:", errorResponse);
+      const errorMessage = errorResponse.error_description || errorResponse.error || "Failed to authenticate with Google";
+      setError(errorMessage);
       toast({
         title: "Authentication Error",
-        description: error.message || "Failed to authenticate with Google",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -296,8 +297,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
     flow: "implicit",
-    prompt: "consent",
-    ux_mode: "popup"
+    prompt: "consent"
   });
 
   return {
