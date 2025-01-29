@@ -16,19 +16,26 @@ serve(async (req) => {
   }
 
   try {
-    const { ga4Property, gscProperty, accessToken, mainConversionGoal } = await req.json();
-    console.log('Starting analysis with parameters:', { 
-      hasGA4Property: !!ga4Property,
-      hasGSCProperty: !!gscProperty,
-      hasAccessToken: !!accessToken,
-      hasMainConversionGoal: !!mainConversionGoal 
+    console.log('Received request with method:', req.method);
+    
+    const requestBody = await req.json();
+    console.log('Request body:', {
+      hasGA4Property: !!requestBody.ga4Property,
+      hasGSCProperty: !!requestBody.gscProperty,
+      hasAccessToken: !!requestBody.accessToken,
+      hasMainConversionGoal: !!requestBody.mainConversionGoal,
+      accessTokenLength: requestBody.accessToken ? requestBody.accessToken.length : 0,
+      accessTokenPrefix: requestBody.accessToken ? requestBody.accessToken.substring(0, 10) + '...' : 'none'
     });
+
+    const { ga4Property, gscProperty, accessToken, mainConversionGoal } = requestBody;
 
     // Validate required parameters
     if (!ga4Property || !accessToken) {
       console.error('Missing required parameters:', { 
         hasGA4Property: !!ga4Property,
-        hasAccessToken: !!accessToken 
+        hasAccessToken: !!accessToken,
+        ga4PropertyValue: ga4Property || 'not provided',
       });
       return new Response(
         JSON.stringify({ 
@@ -48,7 +55,11 @@ serve(async (req) => {
 
     // Validate access token format
     if (typeof accessToken !== 'string' || !accessToken.startsWith('ya29.')) {
-      console.error('Invalid access token format');
+      console.error('Invalid access token format:', {
+        tokenType: typeof accessToken,
+        tokenLength: accessToken ? accessToken.length : 0,
+        tokenPrefix: accessToken ? accessToken.substring(0, 10) + '...' : 'none'
+      });
       return new Response(
         JSON.stringify({ 
           error: 'Invalid access token format',
@@ -69,9 +80,8 @@ serve(async (req) => {
     const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
 
-    const now = new Date();
-    
     // Last 7 days (yesterday to 7 days ago)
+    const now = new Date();
     const last7DaysEnd = new Date(now);
     last7DaysEnd.setDate(last7DaysEnd.getDate() - 1);
     const last7DaysStart = new Date(last7DaysEnd);
@@ -127,7 +137,22 @@ serve(async (req) => {
     prev28YoYStart.setFullYear(prev28YoYStart.getFullYear() - 1);
 
     try {
-      console.log('Starting data fetching process...');
+      console.log('Starting data fetching process with parameters:', {
+        cleanPropertyId,
+        domain,
+        hasMainConversionGoal: !!mainConversionGoal,
+        dateRanges: {
+          weekly: {
+            start: last7DaysStart.toISOString(),
+            end: last7DaysEnd.toISOString()
+          },
+          monthly: {
+            start: last28DaysStart.toISOString(),
+            end: last28DaysEnd.toISOString()
+          }
+        }
+      });
+
       const [
         weeklyGA4Data,
         prevWeekGA4Data,
@@ -284,15 +309,23 @@ serve(async (req) => {
       console.error('Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
-        type: error instanceof Error ? error.constructor.name : typeof error
+        type: error instanceof Error ? error.constructor.name : typeof error,
+        properties: error instanceof Error ? Object.keys(error) : undefined,
+        stringified: JSON.stringify(error, null, 2)
       });
 
       // Specific error handling for common Google API errors
       if (error instanceof Error) {
         if (error.message.includes('401')) {
+          console.error('Authentication error details:', {
+            originalError: error,
+            message: error.message,
+            stack: error.stack
+          });
           return new Response(JSON.stringify({ 
             error: 'Authentication failed',
             details: 'Your Google authentication has expired or is invalid. Please try logging in again.',
+            originalError: error.message,
             status: 'error'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -300,9 +333,15 @@ serve(async (req) => {
           });
         }
         if (error.message.includes('403')) {
+          console.error('Authorization error details:', {
+            originalError: error,
+            message: error.message,
+            stack: error.stack
+          });
           return new Response(JSON.stringify({ 
             error: 'Access denied',
             details: 'You do not have permission to access this Google Analytics property. Please check your permissions.',
+            originalError: error.message,
             status: 'error'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -315,6 +354,7 @@ serve(async (req) => {
         error: error instanceof Error ? error.message : 'An error occurred during data analysis',
         details: error instanceof Error ? error.stack : undefined,
         type: error instanceof Error ? error.constructor.name : typeof error,
+        stringified: JSON.stringify(error, null, 2),
         status: 'error'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -326,13 +366,16 @@ serve(async (req) => {
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      type: error instanceof Error ? error.constructor.name : typeof error
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      properties: error instanceof Error ? Object.keys(error) : undefined,
+      stringified: JSON.stringify(error, null, 2)
     });
 
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'An unknown error occurred',
       details: error instanceof Error ? error.stack : undefined,
       type: error instanceof Error ? error.constructor.name : typeof error,
+      stringified: JSON.stringify(error, null, 2),
       status: 'error'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
