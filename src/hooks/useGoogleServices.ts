@@ -77,6 +77,21 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     try {
       console.log("Starting Supabase Google OAuth sign in...");
       
+      // Get user info from Google first
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          Authorization: `Bearer ${googleAccessToken}`,
+        },
+      });
+
+      if (!userInfoResponse.ok) {
+        throw new Error('Failed to fetch user info from Google');
+      }
+
+      const userInfo = await userInfoResponse.json();
+      setUserEmail(userInfo.email);
+
+      // Then sign in with Supabase
       const { data: signInData, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -101,25 +116,22 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       console.log("Supabase sign in successful:", signInData);
 
-      // Get user info from Google
-      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
-      });
-
-      if (!userInfoResponse.ok) {
-        throw new Error('Failed to fetch user info from Google');
+      // Wait for the session to be established
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        throw sessionError;
       }
 
-      const userInfo = await userInfoResponse.json();
-      setUserEmail(userInfo.email);
+      if (!session?.user?.id) {
+        throw new Error('No session or user ID available');
+      }
 
-      // Update profile with Google OAuth data
+      // Now update the profile
       const { error: updateError } = await supabase
         .from('profiles')
         .upsert({
-          id: (await supabase.auth.getUser()).data.user?.id,
+          id: session.user.id,
           email: userInfo.email,
           google_oauth_data: userInfo
         }, {
@@ -153,7 +165,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
     } catch (error: any) {
       console.error('Error in signInWithGoogle:', error);
-      handleApiError(error, 'Google Authentication');
+      handleApiError(error, 'Google Services');
       throw error;
     }
   };
