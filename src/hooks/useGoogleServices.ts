@@ -1,36 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { GoogleAccount, ConversionGoal, GoogleOAuthData } from "@/types/google";
 
-interface Account {
-  id: string;
-  name: string;
-}
-
-interface ConversionGoal {
-  id: string;
-  name: string;
-}
-
-interface UseGoogleServicesReturn {
-  gaAccounts: Account[];
-  gscAccounts: Account[];
-  conversionGoals: ConversionGoal[];
-  isLoading: boolean;
-  error: string | null;
-  gaConnected: boolean;
-  gscConnected: boolean;
-  gmailConnected: boolean;
-  handleLogin: () => void;
-  fetchConversionGoals: (propertyId: string) => Promise<void>;
-  accessToken: string | null;
-  userEmail: string | null;
-}
-
-export function useGoogleServices(): UseGoogleServicesReturn {
-  const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
-  const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
+export function useGoogleServices() {
+  const [gaAccounts, setGaAccounts] = useState<GoogleAccount[]>([]);
+  const [gscAccounts, setGscAccounts] = useState<GoogleAccount[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +16,35 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Load persisted OAuth data on mount
+  useEffect(() => {
+    const loadPersistedAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.id) return;
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('google_oauth_data')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile?.google_oauth_data) {
+          const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
+          if (oauthData.access_token) {
+            setAccessToken(oauthData.access_token);
+            setUserEmail(oauthData.email);
+            await fetchGoogleServices(oauthData.access_token);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading persisted auth:', error);
+      }
+    };
+
+    loadPersistedAuth();
+  }, []);
 
   const handleApiError = (error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
@@ -52,49 +57,68 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     });
   };
 
-  const signInWithGoogle = async (googleAccessToken: string) => {
+  const fetchGoogleServices = async (token: string) => {
     try {
-      console.log("Starting Google OAuth flow");
-      setAccessToken(googleAccessToken);
+      const [userInfo, gaResponse, gscResponse, gmailResponse] = await Promise.all([
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(res => res.json()),
+        fetch("https://analyticsadmin.googleapis.com/v1alpha/accounts", {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(res => res.json()),
+        fetch("https://www.googleapis.com/webmasters/v3/sites", {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(res => res.json()),
+        fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(res => res.ok)
+      ]);
 
-      // Get user info from Google
-      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
-      });
-
-      if (!userInfoResponse.ok) {
-        throw new Error('Failed to fetch user info from Google');
-      }
-
-      const userInfo = await userInfoResponse.json();
-      console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
-      // Sign in with Supabase using custom credentials
-      const { error: signInError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          queryParams: {
-            prompt: 'consent',
-            access_type: 'offline',
-          },
-        },
-      });
+      // Process GA4 accounts
+      if (gaResponse.accounts?.length > 0) {
+        setGaConnected(true);
+        const propertiesPromises = gaResponse.accounts.map((account: any) =>
+          fetch(
+            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          ).then(res => res.json())
+        );
 
-      if (signInError) {
-        throw signInError;
+        const propertiesResponses = await Promise.all(propertiesPromises);
+        const allProperties = propertiesResponses.flatMap(response => 
+          response.properties || []
+        );
+
+        setGaAccounts(allProperties.map((p: any) => ({
+          id: p.name,
+          name: p.displayName,
+        })));
+
+        toast({
+          title: "Success",
+          description: "Connected to Google Analytics 4",
+        });
       }
 
-      // Test Gmail connection
-      const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
-      });
+      // Process Search Console sites
+      if (gscResponse.siteEntry?.length > 0) {
+        setGscConnected(true);
+        setGscAccounts(gscResponse.siteEntry.map((s: any) => ({
+          id: s.siteUrl,
+          name: s.siteUrl,
+        })));
+        toast({
+          title: "Success",
+          description: "Connected to Search Console",
+        });
+      }
 
-      if (gmailResponse.ok) {
+      // Process Gmail connection
+      if (gmailResponse) {
         setGmailConnected(true);
         toast({
           title: "Success",
@@ -102,92 +126,23 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         });
       }
 
-      // Fetch GA4 accounts
-      const gaResponse = await fetch(
-        "https://analyticsadmin.googleapis.com/v1alpha/accounts",
-        {
-          headers: {
-            Authorization: `Bearer ${googleAccessToken}`,
-          },
-        }
-      );
+      // Save OAuth data to profile
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const oauthData: GoogleOAuthData = {
+          access_token: token,
+          email: userInfo.email,
+          timestamp: Date.now()
+        };
 
-      if (!gaResponse.ok) {
-        throw new Error(`GA4 API error: ${gaResponse.statusText}`);
+        await supabase
+          .from('profiles')
+          .update({ google_oauth_data: oauthData })
+          .eq('id', session.user.id);
       }
 
-      const gaData = await gaResponse.json();
-      console.log("GA4 Response:", gaData);
-
-      if (gaData.accounts?.length > 0) {
-        setGaConnected(true);
-        toast({
-          title: "Success",
-          description: "Connected to Google Analytics 4",
-        });
-
-        // Fetch GA4 properties for all accounts
-        const allProperties = [];
-        for (const account of gaData.accounts) {
-          const propertiesResponse = await fetch(
-            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
-            {
-              headers: {
-                Authorization: `Bearer ${googleAccessToken}`,
-              },
-            }
-          );
-
-          if (propertiesResponse.ok) {
-            const propertiesData = await propertiesResponse.json();
-            if (propertiesData.properties) {
-              allProperties.push(...propertiesData.properties);
-            }
-          }
-        }
-
-        setGaAccounts(
-          allProperties.map((p: any) => ({
-            id: p.name,
-            name: p.displayName,
-          }))
-        );
-      }
-
-      // Fetch Search Console sites
-      const gscResponse = await fetch(
-        "https://www.googleapis.com/webmasters/v3/sites",
-        {
-          headers: {
-            Authorization: `Bearer ${googleAccessToken}`,
-          },
-        }
-      );
-
-      if (!gscResponse.ok) {
-        throw new Error(`Search Console API error: ${gscResponse.statusText}`);
-      }
-
-      const gscData = await gscResponse.json();
-      console.log("Search Console Response:", gscData);
-      
-      if (gscData.siteEntry?.length > 0) {
-        setGscConnected(true);
-        toast({
-          title: "Success",
-          description: "Connected to Search Console",
-        });
-        
-        setGscAccounts(
-          gscData.siteEntry.map((s: any) => ({
-            id: s.siteUrl,
-            name: s.siteUrl,
-          }))
-        );
-      }
-
-    } catch (error: any) {
-      console.error('Error in signInWithGoogle:', error);
+    } catch (error) {
+      console.error('Error in fetchGoogleServices:', error);
       handleApiError(error, "Google Services");
     }
   };
@@ -229,8 +184,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       const data = await response.json();
-      console.log("Events data response:", data);
-
       const uniqueEvents = new Set<string>();
       data.rows?.forEach((row: any) => {
         const eventName = row.dimensionValues?.[0]?.value;
@@ -240,7 +193,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       });
 
       const eventsList = Array.from(uniqueEvents).sort();
-      
       const goals = [
         { id: 'Total Events', name: 'Total Events' },
         ...eventsList.map(event => ({
@@ -257,7 +209,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           description: `Found ${goals.length - 1} events in this GA4 property`,
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching events:", error);
       handleApiError(error, "Google Analytics");
       setConversionGoals([]);
@@ -271,7 +223,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       
       try {
         console.log("Google login successful, token:", response.access_token);
-        await signInWithGoogle(response.access_token);
+        setAccessToken(response.access_token);
+        await fetchGoogleServices(response.access_token);
       } catch (error: any) {
         console.error("Login error:", error);
         handleApiError(error, "Google Services");

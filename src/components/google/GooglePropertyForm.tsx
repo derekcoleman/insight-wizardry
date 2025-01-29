@@ -5,6 +5,8 @@ import { PropertySelector } from "@/components/PropertySelector";
 import { ConversionGoalSelector } from "@/components/ConversionGoalSelector";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface Account {
   id: string;
@@ -58,10 +60,10 @@ export function GooglePropertyForm({
   };
 
   const handleAnalyze = () => {
-    if (!selectedGaAccount) {
+    if (!selectedGaAccount || !selectedGscAccount || !selectedGoal) {
       toast({
-        title: "Error",
-        description: "Please select a Google Analytics property first.",
+        title: "Missing Required Fields",
+        description: "Please select a GA4 property, Search Console property, and conversion goal.",
         variant: "destructive",
       });
       return;
@@ -69,8 +71,20 @@ export function GooglePropertyForm({
     onAnalyze(selectedGaAccount, selectedGscAccount, selectedGoal);
   };
 
+  const allFieldsSelected = selectedGaAccount && selectedGscAccount && selectedGoal;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {gaAccounts.length === 0 && gscAccounts.length === 0 && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No Google Properties Found</AlertTitle>
+          <AlertDescription>
+            Please make sure you have access to GA4 and Search Console properties.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {gaAccounts.length > 0 && (
         <div className="max-w-md mx-auto">
           <PropertySelector
@@ -83,7 +97,7 @@ export function GooglePropertyForm({
         </div>
       )}
 
-      {conversionGoals.length > 0 && (
+      {selectedGaAccount && conversionGoals.length > 0 && (
         <div className="max-w-md mx-auto">
           <ConversionGoalSelector
             goals={conversionGoals}
@@ -113,11 +127,11 @@ export function GooglePropertyForm({
         <div className="max-w-sm mx-auto">
           <Button 
             onClick={handleAnalyze}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || !allFieldsSelected}
             className="w-full"
           >
             {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Analyze Data
+            {allFieldsSelected ? 'Analyze Data' : 'Select All Required Fields'}
           </Button>
         </div>
       )}
