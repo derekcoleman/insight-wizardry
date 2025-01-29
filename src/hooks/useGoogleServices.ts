@@ -75,7 +75,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const signInWithGoogle = async (googleAccessToken: string) => {
     try {
-      console.log("Starting Supabase Google OAuth sign in...");
+      console.log("Starting Google OAuth flow...");
       
       // Get user info from Google first
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -91,7 +91,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const userInfo = await userInfoResponse.json();
       setUserEmail(userInfo.email);
 
-      // Then sign in with Supabase
+      // Sign in with Supabase and wait for it to complete
       const { data: signInData, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -116,15 +116,20 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       console.log("Supabase sign in successful:", signInData);
 
-      // Wait for the session to be established
+      // Wait a moment for the session to be established
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Get the session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
+        console.error('Session error:', sessionError);
         throw sessionError;
       }
 
       if (!session?.user?.id) {
-        throw new Error('No session or user ID available');
+        console.error('No session or user ID available after waiting');
+        throw new Error('Authentication failed - please try again');
       }
 
       // Now update the profile
