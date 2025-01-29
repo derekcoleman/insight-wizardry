@@ -11,7 +11,6 @@ import Terms from "./pages/Terms";
 import SeoStrategy from "./pages/SeoStrategy";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
-import Projects from "./pages/Projects";
 
 const queryClient = new QueryClient();
 
@@ -36,7 +35,6 @@ const App = () => {
                 <Route path="/seo-strategy" element={<SeoStrategy />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/projects" element={<Projects />} />
               </Routes>
             </AppLayout>
           </TooltipProvider>
