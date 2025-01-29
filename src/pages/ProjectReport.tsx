@@ -15,6 +15,7 @@ interface AnalysisReport {
   quarterly_analysis: any;
   ytd_analysis: any;
   last28_yoy_analysis: any;
+  yoy_analysis: any;
   status: string;
   user_id: string | null;
   project_id: string | null;
