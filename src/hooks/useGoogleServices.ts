@@ -32,7 +32,7 @@ export function useGoogleServices() {
           .single();
 
         if (profile?.google_oauth_data) {
-          const oauthData = profile.google_oauth_data as GoogleOAuthData;
+          const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
           const timestamp = new Date(oauthData.timestamp);
           const now = new Date();
           const hoursSinceAuth = (now.getTime() - timestamp.getTime()) / (1000 * 60 * 60);
