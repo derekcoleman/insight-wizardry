@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ExportButtons } from "./analysis/ExportButtons";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 interface AnalysisResultsProps {
   report: {
@@ -35,6 +36,24 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Query to check if user has Google OAuth data
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) return null;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('google_oauth_data')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    }
+  });
 
   useEffect(() => {
     const generateInsights = async () => {
@@ -246,9 +265,8 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
   };
 
   const handleSaveProject = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.user?.id) {
+    // Check if user has Google OAuth data
+    if (!profile?.google_oauth_data) {
       toast({
         title: "Connect Google Services",
         description: "Please connect your Google account to save this project.",
