@@ -100,9 +100,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const { data: signInData, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          redirectTo: window.location.origin,
           queryParams: {
             access_token: googleAccessToken,
-            prompt: 'consent',
           },
         },
       });
