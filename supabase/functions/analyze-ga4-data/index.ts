@@ -17,16 +17,46 @@ serve(async (req) => {
 
   try {
     const { ga4Property, gscProperty, accessToken, mainConversionGoal } = await req.json();
-    console.log('Analyzing data for:', { ga4Property, gscProperty, mainConversionGoal });
+    console.log('Starting analysis with parameters:', { 
+      hasGA4Property: !!ga4Property,
+      hasGSCProperty: !!gscProperty,
+      hasAccessToken: !!accessToken,
+      hasMainConversionGoal: !!mainConversionGoal 
+    });
 
+    // Validate required parameters
     if (!ga4Property || !accessToken) {
+      console.error('Missing required parameters:', { 
+        hasGA4Property: !!ga4Property,
+        hasAccessToken: !!accessToken 
+      });
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required parameters: ga4Property or accessToken',
+          error: 'Missing required parameters',
+          details: {
+            ga4Property: !ga4Property ? 'GA4 property ID is required' : null,
+            accessToken: !accessToken ? 'Access token is required' : null
+          },
           status: 'error'
         }), 
         { 
           status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Validate access token format
+    if (typeof accessToken !== 'string' || !accessToken.startsWith('ya29.')) {
+      console.error('Invalid access token format');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid access token format',
+          details: 'The provided access token appears to be invalid. Please ensure you are properly authenticated with Google.',
+          status: 'error'
+        }), 
+        { 
+          status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -39,7 +69,6 @@ serve(async (req) => {
     const cleanPropertyId = ga4Property.replace(/^properties\//, '').replace(/\/$/, '');
     console.log('Clean property ID:', cleanPropertyId);
 
-    // Calculate date ranges
     const now = new Date();
     
     // Last 7 days (yesterday to 7 days ago)
@@ -98,7 +127,7 @@ serve(async (req) => {
     prev28YoYStart.setFullYear(prev28YoYStart.getFullYear() - 1);
 
     try {
-      // Fetch all GA4 and GSC data
+      console.log('Starting data fetching process...');
       const [
         weeklyGA4Data,
         prevWeekGA4Data,
@@ -168,6 +197,9 @@ serve(async (req) => {
           fetchGSCPages(gscProperty, accessToken, last28YoYStart, last28YoYEnd, prev28YoYStart, prev28YoYEnd)
         ] : Array(20).fill(null))
       ]);
+
+      console.log('Data fetching completed successfully');
+      console.log('Starting analysis process...');
 
       const analysis = {
         weekly_analysis: {
@@ -242,15 +274,47 @@ serve(async (req) => {
         }
       };
 
+      console.log('Analysis completed successfully');
       return new Response(JSON.stringify({ report: analysis }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       });
     } catch (error) {
       console.error('Error in data fetching or analysis:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        type: error instanceof Error ? error.constructor.name : typeof error
+      });
+
+      // Specific error handling for common Google API errors
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          return new Response(JSON.stringify({ 
+            error: 'Authentication failed',
+            details: 'Your Google authentication has expired or is invalid. Please try logging in again.',
+            status: 'error'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401,
+          });
+        }
+        if (error.message.includes('403')) {
+          return new Response(JSON.stringify({ 
+            error: 'Access denied',
+            details: 'You do not have permission to access this Google Analytics property. Please check your permissions.',
+            status: 'error'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 403,
+          });
+        }
+      }
+
       return new Response(JSON.stringify({ 
         error: error instanceof Error ? error.message : 'An error occurred during data analysis',
         details: error instanceof Error ? error.stack : undefined,
+        type: error instanceof Error ? error.constructor.name : typeof error,
         status: 'error'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -258,10 +322,17 @@ serve(async (req) => {
       });
     }
   } catch (error) {
-    console.error('Error in analyze-ga4-data function:', error);
+    console.error('Fatal error in analyze-ga4-data function:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      type: error instanceof Error ? error.constructor.name : typeof error
+    });
+
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'An unknown error occurred',
       details: error instanceof Error ? error.stack : undefined,
+      type: error instanceof Error ? error.constructor.name : typeof error,
       status: 'error'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
