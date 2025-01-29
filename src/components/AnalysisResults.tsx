@@ -312,6 +312,27 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
               Generate SEO Strategy
             </Button>
           )}
+          <Button
+            onClick={() => {
+              const { data: { session } } = supabase.auth.getSession();
+              if (!session?.user?.id) {
+                toast({
+                  title: "Authentication required",
+                  description: "Please sign in to save this project.",
+                  variant: "destructive",
+                });
+                return;
+              }
+              navigate('/');
+              toast({
+                title: "Create a project",
+                description: "Click the + button next to Projects in the sidebar to save this analysis.",
+              });
+            }}
+            variant="outline"
+          >
+            Save as Project
+          </Button>
           <ExportButtons
             onExportDoc={handleCreateDoc}
             onExportPdf={handleCreatePdf}

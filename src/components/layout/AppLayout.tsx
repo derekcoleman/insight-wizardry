@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
-import { Home, LineChart, PanelLeft, UserRound, Settings2 } from "lucide-react";
+import { Home, LineChart, PanelLeft, UserRound, Settings2, Folder, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -11,9 +11,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
+import { useToast } from "@/components/ui/use-toast";
 
 const items = [
   {
@@ -171,6 +180,52 @@ function NavHeader() {
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to create a project.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase.from("projects").insert({
+        name,
+        url,
+        user_id: session.user.id,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Project created successfully",
+        description: `${name} has been added to your projects.`,
+      });
+
+      setOpen(false);
+      setName("");
+      setUrl("");
+      navigate('/');
+    } catch (error) {
+      toast({
+        title: "Error creating project",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -192,6 +247,57 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <div className="flex items-center justify-between w-full">
+                        <Link to="/" className="flex items-center gap-2">
+                          <Folder className="h-4 w-4" />
+                          <span>Projects</span>
+                        </Link>
+                        <Dialog open={open} onOpenChange={setOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6">
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Create New Project</DialogTitle>
+                            </DialogHeader>
+                            <form onSubmit={handleCreateProject} className="space-y-4">
+                              <div className="space-y-2">
+                                <label htmlFor="name" className="text-sm font-medium">
+                                  Project Name
+                                </label>
+                                <Input
+                                  id="name"
+                                  value={name}
+                                  onChange={(e) => setName(e.target.value)}
+                                  placeholder="My Website"
+                                  required
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label htmlFor="url" className="text-sm font-medium">
+                                  Website URL
+                                </label>
+                                <Input
+                                  id="url"
+                                  value={url}
+                                  onChange={(e) => setUrl(e.target.value)}
+                                  placeholder="https://example.com"
+                                  type="url"
+                                />
+                              </div>
+                              <Button type="submit" className="w-full">
+                                Create Project
+                              </Button>
+                            </form>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
