@@ -32,24 +32,56 @@ export function useGoogleServices() {
   // Load stored token on mount and verify it
   useEffect(() => {
     const verifyStoredToken = async () => {
-      const storedToken = localStorage.getItem(GOOGLE_TOKEN_KEY);
-      const tokenExpiry = localStorage.getItem(GOOGLE_TOKEN_EXPIRY_KEY);
-      
-      if (storedToken && tokenExpiry) {
-        const expiryTime = parseInt(tokenExpiry);
-        if (expiryTime > Date.now()) {
-          console.log("Found valid stored Google token");
-          setAccessToken(storedToken);
-          await initializeWithToken(storedToken);
-        } else {
-          console.log("Stored token expired, clearing");
-          localStorage.removeItem(GOOGLE_TOKEN_KEY);
-          localStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.log("No Supabase session found");
+          return;
         }
+
+        const storedToken = localStorage.getItem(GOOGLE_TOKEN_KEY);
+        const tokenExpiry = localStorage.getItem(GOOGLE_TOKEN_EXPIRY_KEY);
+        
+        if (storedToken && tokenExpiry) {
+          const expiryTime = parseInt(tokenExpiry);
+          if (expiryTime > Date.now()) {
+            console.log("Found valid stored Google token");
+            setAccessToken(storedToken);
+            await initializeWithToken(storedToken);
+          } else {
+            console.log("Stored token expired, clearing");
+            localStorage.removeItem(GOOGLE_TOKEN_KEY);
+            localStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY);
+          }
+        }
+      } catch (error) {
+        console.error("Error verifying token:", error);
       }
     };
 
     verifyStoredToken();
+  }, []);
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user?.email);
+      if (event === 'SIGNED_IN') {
+        const storedToken = localStorage.getItem(GOOGLE_TOKEN_KEY);
+        if (storedToken) {
+          await initializeWithToken(storedToken);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        localStorage.removeItem(GOOGLE_TOKEN_KEY);
+        localStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY);
+        setAccessToken(null);
+        setUserEmail(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const storeToken = (token: string) => {
@@ -79,8 +111,8 @@ export function useGoogleServices() {
       setUserEmail(userInfo.email);
 
       // Update profile in Supabase with Google OAuth data
-      const { data: session } = await supabase.auth.getSession();
-      if (session?.session?.user?.id) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
@@ -90,12 +122,15 @@ export function useGoogleServices() {
               connected: true
             }
           })
-          .eq('id', session.session.user.id);
+          .eq('id', session.user.id);
 
         if (updateError) {
           console.error('Error updating profile:', updateError);
           throw new Error('Failed to update profile with Google data');
         }
+      } else {
+        console.error('No Supabase session found when trying to update profile');
+        throw new Error('Authentication required');
       }
 
       // Test service connections
