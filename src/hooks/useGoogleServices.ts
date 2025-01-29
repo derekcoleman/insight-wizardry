@@ -91,7 +91,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const userInfo = await userInfoResponse.json();
       setUserEmail(userInfo.email);
 
-      // Sign in with Supabase and wait for it to complete
+      // Sign in with Supabase
       const { data: signInData, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -116,10 +116,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       console.log("Supabase sign in successful:", signInData);
 
-      // Wait a moment for the session to be established
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Get the session
+      // Get the session immediately after sign in
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
@@ -128,24 +125,46 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       if (!session?.user?.id) {
-        console.error('No session or user ID available after waiting');
-        throw new Error('Authentication failed - please try again');
-      }
+        // Try to get the session one more time after a short delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const { data: { session: retrySession }, error: retryError } = await supabase.auth.getSession();
+        
+        if (retryError || !retrySession?.user?.id) {
+          console.error('No session available after retry');
+          throw new Error('Failed to establish session - please try again');
+        }
+        
+        // Update the profile with retry session
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: retrySession.user.id,
+            email: userInfo.email,
+            google_oauth_data: userInfo
+          }, {
+            onConflict: 'id'
+          });
 
-      // Now update the profile
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: session.user.id,
-          email: userInfo.email,
-          google_oauth_data: userInfo
-        }, {
-          onConflict: 'id'
-        });
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+          throw updateError;
+        }
+      } else {
+        // Update the profile with initial session
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: session.user.id,
+            email: userInfo.email,
+            google_oauth_data: userInfo
+          }, {
+            onConflict: 'id'
+          });
 
-      if (updateError) {
-        console.error('Error updating profile:', updateError);
-        throw updateError;
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+          throw updateError;
+        }
       }
 
       // Test Gmail connection
@@ -163,6 +182,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         });
       }
 
+      setAccessToken(googleAccessToken);
       toast({
         title: "Connected",
         description: "Successfully connected with Google services",
@@ -170,7 +190,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
     } catch (error: any) {
       console.error('Error in signInWithGoogle:', error);
-      handleApiError(error, 'Google Services');
+      handleApiError(error, "Google Services");
       throw error;
     }
   };
