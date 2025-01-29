@@ -9,7 +9,6 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 
 interface AnalysisData {
   report: {
@@ -34,7 +33,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const {
     gaAccounts,
@@ -50,23 +48,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     accessToken,
     userEmail
   } = useGoogleServices();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to continue",
-          variant: "destructive",
-        });
-        navigate('/auth');
-        return;
-      }
-    };
-
-    checkAuth();
-  }, [navigate, toast]);
 
   useEffect(() => {
     if (gaConnected || gscConnected || gmailConnected) {
