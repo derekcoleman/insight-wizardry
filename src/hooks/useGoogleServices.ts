@@ -78,6 +78,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         options: {
           queryParams: {
             access_token: googleAccessToken,
+            prompt: 'select_account',
           },
         },
       });
@@ -285,7 +286,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
-    flow: "implicit"
+    flow: "implicit",
+    select_account: true,
   });
 
   return {
