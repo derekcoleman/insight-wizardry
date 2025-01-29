@@ -10,9 +10,22 @@ import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
 
+interface AnalysisData {
+  report: {
+    weekly_analysis: any;
+    monthly_analysis: any;
+    quarterly_analysis: any;
+    ytd_analysis: any;
+    last28_yoy_analysis: any;
+  };
+  ga4Property?: string;
+  gscProperty?: string;
+  mainConversionGoal?: string;
+}
+
 interface GoogleConnectProps {
   onConnectionChange?: (connected: boolean) => void;
-  onAnalysisComplete?: (data: { report: any }) => void;
+  onAnalysisComplete?: (data: AnalysisData) => void;
 }
 
 export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: GoogleConnectProps) {
