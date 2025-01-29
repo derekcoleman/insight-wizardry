@@ -71,45 +71,30 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     });
   };
 
-  const signInWithGoogle = async (googleAccessToken: string, userInfo: any) => {
+  const signInWithGoogle = async (googleAccessToken: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { data: authData, error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        token: googleAccessToken,
-        nonce: 'NONCE', // This should be randomly generated in a production environment
+        options: {
+          queryParams: {
+            access_token: googleAccessToken,
+          },
+        },
       });
 
-      if (error) {
-        console.error('Error signing in with Google:', error);
-        throw error;
+      if (authError) {
+        console.error('Error signing in with Google:', authError);
+        throw authError;
       }
 
-      // Update the profile with Google OAuth data
-      if (data.user) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            email: userInfo.email,
-            google_oauth_data: {
-              email: userInfo.email,
-              access_token: googleAccessToken,
-              picture: userInfo.picture,
-              name: userInfo.name,
-              timestamp: new Date().toISOString()
-            }
-          })
-          .eq('id', data.user.id);
-
-        if (updateError) {
-          console.error('Error updating profile:', updateError);
-          throw updateError;
-        }
-
+      if (authData.user) {
         toast({
           title: "Success",
           description: "Successfully signed in with Google",
         });
       }
+
+      return authData;
     } catch (error) {
       console.error('Error in signInWithGoogle:', error);
       throw error;
@@ -207,6 +192,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setAccessToken(response.access_token);
       
       try {
+        // Sign in with Google OAuth
+        await signInWithGoogle(response.access_token);
+
         // Fetch user info from Google
         const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
           headers: {
@@ -220,9 +208,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
         const userInfo = await userInfoResponse.json();
         setUserEmail(userInfo.email);
-
-        // Sign in with Google and update profile
-        await signInWithGoogle(response.access_token, userInfo);
 
         // Fetch GA4 accounts
         console.log("Fetching GA4 accounts...");
