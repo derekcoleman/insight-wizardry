@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,22 +13,10 @@ interface ConversionGoal {
   name: string;
 }
 
-interface UseGoogleServicesReturn {
-  gaAccounts: Account[];
-  gscAccounts: Account[];
-  conversionGoals: ConversionGoal[];
-  isLoading: boolean;
-  error: string | null;
-  gaConnected: boolean;
-  gscConnected: boolean;
-  gmailConnected: boolean;
-  handleLogin: () => void;
-  fetchConversionGoals: (propertyId: string) => Promise<void>;
-  accessToken: string | null;
-  userEmail: string | null;
-}
+const GOOGLE_TOKEN_KEY = 'google_access_token';
+const GOOGLE_TOKEN_EXPIRY_KEY = 'google_token_expiry';
 
-export function useGoogleServices(): UseGoogleServicesReturn {
+export function useGoogleServices() {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
@@ -41,27 +29,41 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleApiError = (error: any, apiName: string) => {
-    console.error(`${apiName} API Error:`, error);
-    const errorMessage = error.response?.data?.error?.message || error.message || "An unknown error occurred";
-    setError(`${apiName} API error: ${errorMessage}`);
-    toast({
-      title: "Error",
-      description: errorMessage,
-      variant: "destructive",
-    });
+  // Load stored token on mount
+  useEffect(() => {
+    const storedToken = localStorage.getItem(GOOGLE_TOKEN_KEY);
+    const tokenExpiry = localStorage.getItem(GOOGLE_TOKEN_EXPIRY_KEY);
+    
+    if (storedToken && tokenExpiry) {
+      const expiryTime = parseInt(tokenExpiry);
+      if (expiryTime > Date.now()) {
+        console.log("Found valid stored Google token");
+        setAccessToken(storedToken);
+        initializeWithToken(storedToken);
+      } else {
+        console.log("Stored token expired, clearing");
+        localStorage.removeItem(GOOGLE_TOKEN_KEY);
+        localStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY);
+      }
+    }
+  }, []);
+
+  const storeToken = (token: string) => {
+    // Store token with 1 hour expiry
+    const expiryTime = Date.now() + (60 * 60 * 1000);
+    localStorage.setItem(GOOGLE_TOKEN_KEY, token);
+    localStorage.setItem(GOOGLE_TOKEN_EXPIRY_KEY, expiryTime.toString());
+    setAccessToken(token);
   };
 
-  const signInWithGoogle = async (googleAccessToken: string) => {
+  const initializeWithToken = async (token: string) => {
     try {
-      console.log("Starting Google OAuth flow");
-      setAccessToken(googleAccessToken);
+      setIsLoading(true);
+      setError(null);
 
-      // Get user info from Google
+      // Get user info
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!userInfoResponse.ok) {
@@ -72,123 +74,92 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
-      // Sign in with Supabase using custom credentials
-      const { error: signInError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          queryParams: {
-            prompt: 'consent',
-            access_type: 'offline',
-          },
-        },
-      });
-
-      if (signInError) {
-        throw signInError;
-      }
-
-      // Test Gmail connection
-      const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
-      });
-
-      if (gmailResponse.ok) {
-        setGmailConnected(true);
-        toast({
-          title: "Success",
-          description: "Connected to Gmail",
-        });
-      }
-
-      // Fetch GA4 accounts
-      const gaResponse = await fetch(
-        "https://analyticsadmin.googleapis.com/v1alpha/accounts",
-        {
-          headers: {
-            Authorization: `Bearer ${googleAccessToken}`,
-          },
-        }
-      );
-
-      if (!gaResponse.ok) {
-        throw new Error(`GA4 API error: ${gaResponse.statusText}`);
-      }
-
-      const gaData = await gaResponse.json();
-      console.log("GA4 Response:", gaData);
-
-      if (gaData.accounts?.length > 0) {
-        setGaConnected(true);
-        toast({
-          title: "Success",
-          description: "Connected to Google Analytics 4",
-        });
-
-        // Fetch GA4 properties for all accounts
-        const allProperties = [];
-        for (const account of gaData.accounts) {
-          const propertiesResponse = await fetch(
-            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
-            {
-              headers: {
-                Authorization: `Bearer ${googleAccessToken}`,
-              },
+      // Update profile in Supabase
+      const { data: session } = await supabase.auth.getSession();
+      if (session?.session?.user?.id) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            google_oauth_data: {
+              email: userInfo.email,
+              access_token: token,
             }
-          );
+          })
+          .eq('id', session.session.user.id);
 
-          if (propertiesResponse.ok) {
-            const propertiesData = await propertiesResponse.json();
-            if (propertiesData.properties) {
-              allProperties.push(...propertiesData.properties);
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+        }
+      }
+
+      // Test service connections
+      const [gaResponse, gscResponse, gmailResponse] = await Promise.all([
+        fetch('https://analyticsadmin.googleapis.com/v1alpha/accounts', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch('https://www.googleapis.com/webmasters/v3/sites', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ]);
+
+      setGaConnected(gaResponse.ok);
+      setGscConnected(gscResponse.ok);
+      setGmailConnected(gmailResponse.ok);
+
+      if (gaResponse.ok) {
+        const gaData = await gaResponse.json();
+        if (gaData.accounts?.length > 0) {
+          const allProperties = [];
+          for (const account of gaData.accounts) {
+            const propertiesResponse = await fetch(
+              `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            if (propertiesResponse.ok) {
+              const propertiesData = await propertiesResponse.json();
+              if (propertiesData.properties) {
+                allProperties.push(...propertiesData.properties);
+              }
             }
           }
-        }
 
-        setGaAccounts(
-          allProperties.map((p: any) => ({
-            id: p.name,
-            name: p.displayName,
-          }))
-        );
+          setGaAccounts(
+            allProperties.map((p: any) => ({
+              id: p.name,
+              name: p.displayName,
+            }))
+          );
+        }
       }
 
-      // Fetch Search Console sites
-      const gscResponse = await fetch(
-        "https://www.googleapis.com/webmasters/v3/sites",
-        {
-          headers: {
-            Authorization: `Bearer ${googleAccessToken}`,
-          },
+      if (gscResponse.ok) {
+        const gscData = await gscResponse.json();
+        if (gscData.siteEntry?.length > 0) {
+          setGscAccounts(
+            gscData.siteEntry.map((s: any) => ({
+              id: s.siteUrl,
+              name: s.siteUrl,
+            }))
+          );
         }
-      );
-
-      if (!gscResponse.ok) {
-        throw new Error(`Search Console API error: ${gscResponse.statusText}`);
-      }
-
-      const gscData = await gscResponse.json();
-      console.log("Search Console Response:", gscData);
-      
-      if (gscData.siteEntry?.length > 0) {
-        setGscConnected(true);
-        toast({
-          title: "Success",
-          description: "Connected to Search Console",
-        });
-        
-        setGscAccounts(
-          gscData.siteEntry.map((s: any) => ({
-            id: s.siteUrl,
-            name: s.siteUrl,
-          }))
-        );
       }
 
     } catch (error: any) {
-      console.error('Error in signInWithGoogle:', error);
-      handleApiError(error, "Google Services");
+      console.error('Error in initializeWithToken:', error);
+      setError(error.message || 'Failed to initialize Google services');
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to initialize Google services',
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -259,25 +230,16 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
     } catch (error: any) {
       console.error("Error fetching events:", error);
-      handleApiError(error, "Google Analytics");
+      setError(error.message || "Failed to fetch events");
       setConversionGoals([]);
     }
   };
 
   const login = useGoogleLogin({
     onSuccess: async (response) => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        console.log("Google login successful, token:", response.access_token);
-        await signInWithGoogle(response.access_token);
-      } catch (error: any) {
-        console.error("Login error:", error);
-        handleApiError(error, "Google Services");
-      } finally {
-        setIsLoading(false);
-      }
+      console.log("Google login successful, token:", response.access_token);
+      storeToken(response.access_token);
+      await initializeWithToken(response.access_token);
     },
     onError: (errorResponse) => {
       console.error("Google login error:", errorResponse);
