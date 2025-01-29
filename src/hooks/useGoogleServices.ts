@@ -3,6 +3,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { GoogleOAuthData, GoogleAccount, ConversionGoal } from "@/types/google";
+import { Json } from "@/integrations/supabase/types";
 
 export function useGoogleServices() {
   const [gaAccounts, setGaAccounts] = useState<GoogleAccount[]>([]);
