@@ -36,32 +36,41 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     handleAnalyze
   } = useGoogleServices();
 
+  // Check if user is already authenticated with Google
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          console.log("Checking existing session:", session.user.id);
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('google_oauth_data')
-            .eq('id', session.user.id)
-            .single();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
 
-          if (profileError) {
-            console.error("Profile fetch error:", profileError);
-            return;
-          }
-          
-          if (profile?.google_oauth_data?.connected) {
-            console.log("Found existing Google OAuth data:", profile.google_oauth_data);
-            onConnectionChange?.(true);
-            navigate('/projects');
-          }
+        if (!session?.user?.id) {
+          console.log("No active session found");
+          return;
         }
-      } catch (error) {
+
+        console.log("Active session found:", session.user.id);
+        
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('google_oauth_data')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error("Profile fetch error:", profileError);
+          throw profileError;
+        }
+
+        if (profile?.google_oauth_data?.connected) {
+          console.log("Found existing Google OAuth data:", profile.google_oauth_data);
+          onConnectionChange?.(true);
+          navigate('/projects');
+        } else {
+          console.log("No existing Google OAuth data found");
+        }
+      } catch (error: any) {
         console.error("Session check error:", error);
-        setError("Failed to check session status");
+        setError(error.message);
         toast({
           title: "Session Error",
           description: "Failed to check session status. Please try again.",
@@ -73,60 +82,61 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     checkSession();
   }, [onConnectionChange, navigate, toast]);
 
+  // Handle Google services connection status changes
   useEffect(() => {
-    if (gaConnected || gscConnected || gmailConnected) {
-      console.log("Connection status changed:", { gaConnected, gscConnected, gmailConnected });
-      onConnectionChange?.(true);
-      
-      if (userEmail) {
-        const updateProfile = async () => {
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user?.id) {
-              console.error("No session found when updating profile");
-              return;
-            }
-
-            console.log("Updating profile for user:", session.user.id);
-            const { error: updateError } = await supabase
-              .from('profiles')
-              .update({
-                email: userEmail,
-                google_oauth_data: {
-                  connected: true,
-                  email: userEmail,
-                  ga_connected: gaConnected,
-                  gsc_connected: gscConnected,
-                  gmail_connected: gmailConnected
-                }
-              })
-              .eq('id', session.user.id);
-
-            if (updateError) {
-              console.error("Profile update error:", updateError);
-              toast({
-                title: "Update Error",
-                description: "Failed to update profile. Please try again.",
-                variant: "destructive",
-              });
-              return;
-            }
-
-            console.log("Profile updated successfully, navigating to projects");
-            navigate('/projects');
-          } catch (error) {
-            console.error("Profile update error:", error);
-            toast({
-              title: "Update Error",
-              description: "An unexpected error occurred. Please try again.",
-              variant: "destructive",
-            });
-          }
-        };
-        
-        updateProfile();
+    const updateUserProfile = async () => {
+      if (!gaConnected && !gscConnected && !gmailConnected) {
+        console.log("No Google services connected yet");
+        return;
       }
-    }
+
+      if (!userEmail) {
+        console.log("No user email available");
+        return;
+      }
+
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        if (!session?.user?.id) {
+          console.error("No active session found when updating profile");
+          return;
+        }
+
+        console.log("Updating profile for user:", session.user.id);
+        
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            email: userEmail,
+            google_oauth_data: {
+              connected: true,
+              email: userEmail,
+              ga_connected: gaConnected,
+              gsc_connected: gscConnected,
+              gmail_connected: gmailConnected
+            }
+          })
+          .eq('id', session.user.id);
+
+        if (updateError) throw updateError;
+
+        console.log("Profile updated successfully");
+        onConnectionChange?.(true);
+        navigate('/projects');
+      } catch (error: any) {
+        console.error("Profile update error:", error);
+        setError(error.message);
+        toast({
+          title: "Update Error",
+          description: "Failed to update profile. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    updateUserProfile();
   }, [gaConnected, gscConnected, gmailConnected, userEmail, navigate, onConnectionChange, toast]);
 
   const handlePropertyAnalysis = async (gaProperty: string, gscProperty: string, goal: string) => {
