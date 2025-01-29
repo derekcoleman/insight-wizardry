@@ -20,6 +20,15 @@ interface GoogleOAuthData {
   email: string;
 }
 
+const isGoogleOAuthData = (data: any): data is GoogleOAuthData => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.connected === 'boolean' &&
+    typeof data.email === 'string'
+  );
+};
+
 export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: GoogleConnectProps) {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -66,8 +75,8 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
           throw profileError;
         }
 
-        const googleOAuthData = profile?.google_oauth_data as GoogleOAuthData;
-        if (googleOAuthData?.connected) {
+        const googleOAuthData = profile?.google_oauth_data;
+        if (isGoogleOAuthData(googleOAuthData) && googleOAuthData.connected) {
           console.log("Found existing Google OAuth data:", googleOAuthData);
           onConnectionChange?.(true);
           navigate('/projects');
