@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGoogleServices } from "@/hooks/useGoogleServices";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
 
 interface GoogleConnectProps {
@@ -26,8 +27,34 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     gscConnected,
     gmailConnected,
     handleLogin,
-    userEmail
+    userEmail,
+    gaAccounts,
+    gscAccounts,
+    conversionGoals,
+    fetchConversionGoals,
+    isAnalyzing,
+    handleAnalyze
   } = useGoogleServices();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('google_oauth_data')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profile?.google_oauth_data) {
+          console.log("Found existing Google OAuth data");
+          onConnectionChange?.(true);
+        }
+      }
+    };
+
+    checkSession();
+  }, [onConnectionChange]);
 
   useEffect(() => {
     if (gaConnected || gscConnected || gmailConnected) {
@@ -40,6 +67,20 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
       }
     }
   }, [gaConnected, gscConnected, gmailConnected, userEmail, navigate, onConnectionChange]);
+
+  const handlePropertyAnalysis = async (gaProperty: string, gscProperty: string, goal: string) => {
+    try {
+      const result = await handleAnalyze(gaProperty, gscProperty, goal);
+      onAnalysisComplete?.(result);
+    } catch (error: any) {
+      setError(error.message);
+      toast({
+        title: "Analysis Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <Card className="max-w-xl mx-auto">
@@ -65,6 +106,17 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
           gscConnected={gscConnected} 
           gmailConnected={gmailConnected}
         />
+
+        {(gaConnected || gscConnected) && (
+          <GooglePropertyForm
+            gaAccounts={gaAccounts}
+            gscAccounts={gscAccounts}
+            conversionGoals={conversionGoals}
+            isAnalyzing={isAnalyzing}
+            onAnalyze={handlePropertyAnalysis}
+            fetchConversionGoals={fetchConversionGoals}
+          />
+        )}
       </CardContent>
     </Card>
   );

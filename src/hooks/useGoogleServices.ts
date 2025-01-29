@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Account {
@@ -18,11 +18,13 @@ interface UseGoogleServicesReturn {
   gscAccounts: Account[];
   conversionGoals: ConversionGoal[];
   isLoading: boolean;
+  isAnalyzing: boolean;
   error: string | null;
   gaConnected: boolean;
   gscConnected: boolean;
   gmailConnected: boolean;
   handleLogin: () => void;
+  handleAnalyze: (gaProperty: string, gscProperty: string, goal: string) => Promise<any>;
   fetchConversionGoals: (propertyId: string) => Promise<void>;
   accessToken: string | null;
   userEmail: string | null;
@@ -33,6 +35,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
@@ -72,19 +75,18 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
-      // Sign in with Supabase using custom credentials
-      const { error: signInError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          queryParams: {
-            prompt: 'consent',
-            access_type: 'offline',
-          },
-        },
-      });
-
-      if (signInError) {
-        throw signInError;
+      // Store OAuth data in profile
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        await supabase
+          .from('profiles')
+          .update({
+            google_oauth_data: {
+              access_token: googleAccessToken,
+              email: userInfo.email,
+            }
+          })
+          .eq('id', session.user.id);
       }
 
       // Test Gmail connection
@@ -264,6 +266,43 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     }
   };
 
+  const handleAnalyze = useCallback(async (gaProperty: string, gscProperty: string, goal: string) => {
+    setIsAnalyzing(true);
+    setError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) {
+        throw new Error("User not authenticated");
+      }
+
+      const response = await fetch('/api/analyze-ga4-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ga4Property: gaProperty,
+          gscProperty,
+          goal,
+          accessToken,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Analysis failed');
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error: any) {
+      handleApiError(error, "Analysis");
+      throw error;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [accessToken]);
+
   const login = useGoogleLogin({
     onSuccess: async (response) => {
       setIsLoading(true);
@@ -305,11 +344,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     gscAccounts,
     conversionGoals,
     isLoading,
+    isAnalyzing,
     error,
     gaConnected,
     gscConnected,
     gmailConnected,
     handleLogin: () => login(),
+    handleAnalyze,
     fetchConversionGoals,
     accessToken,
     userEmail,
