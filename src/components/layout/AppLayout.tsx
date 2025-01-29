@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
-import { useToast, toast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 const items = [
   {
@@ -100,18 +100,13 @@ function NavHeader() {
 
   const handleSignOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
+      await supabase.auth.signOut();
+      setUserEmail(null);
+      setUserProfile(null);
       navigate('/');
-      window.location.reload(); // Force reload to clear all states
+      window.location.reload();
     } catch (error) {
       console.error("Error signing out:", error);
-      toast({
-        title: "Error",
-        description: "Failed to sign out. Please try again.",
-        variant: "destructive",
-      });
     }
   };
   

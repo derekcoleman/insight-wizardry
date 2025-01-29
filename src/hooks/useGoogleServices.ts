@@ -72,22 +72,19 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
-      // Store the access token in the profile
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            google_oauth_data: {
-              ...userInfo,
-              access_token: googleAccessToken
-            }
-          })
-          .eq('id', session.user.id);
+      // Sign in with Supabase using custom credentials
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            prompt: 'consent',
+            access_type: 'offline',
+          },
+        },
+      });
 
-        if (updateError) {
-          console.error('Error updating profile:', updateError);
-        }
+      if (signInError) {
+        throw signInError;
       }
 
       // Test Gmail connection
