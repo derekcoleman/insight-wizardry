@@ -287,7 +287,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
     flow: "implicit",
-    select_account: true,
+    prompt: "select_account"
   });
 
   return {
