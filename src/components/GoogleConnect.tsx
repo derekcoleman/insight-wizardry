@@ -8,7 +8,6 @@ import { useGoogleServices } from "@/hooks/useGoogleServices";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
-import { GoogleAuthCheck } from "@/components/google/GoogleAuthCheck";
 import { useToast } from "@/hooks/use-toast";
 
 interface GoogleConnectProps {
@@ -80,7 +79,12 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
       }
 
       setReport(result.data.report);
-      onAnalysisComplete?.(result.data);
+      onAnalysisComplete?.({
+        report: result.data.report,
+        ga4Property,
+        gscProperty,
+        mainConversionGoal
+      });
     } catch (error: any) {
       console.error('Analysis error:', error);
       setAnalysisError(error.message || 'Failed to analyze data');
@@ -104,9 +108,11 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
             </Alert>
           )}
           
-          <div className="max-w-sm mx-auto">
-            <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
-          </div>
+          {!gaConnected && !gscConnected && !gmailConnected && (
+            <div className="max-w-sm mx-auto">
+              <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
+            </div>
+          )}
 
           <ConnectionStatus 
             gaConnected={gaConnected} 
@@ -114,14 +120,16 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
             gmailConnected={gmailConnected}
           />
 
-          <GooglePropertyForm
-            gaAccounts={gaAccounts}
-            gscAccounts={gscAccounts}
-            conversionGoals={conversionGoals}
-            isAnalyzing={isAnalyzing}
-            onAnalyze={handleAnalyze}
-            fetchConversionGoals={fetchConversionGoals}
-          />
+          {(gaConnected || gscConnected) && (
+            <GooglePropertyForm
+              gaAccounts={gaAccounts}
+              gscAccounts={gscAccounts}
+              conversionGoals={conversionGoals}
+              isAnalyzing={isAnalyzing}
+              onAnalyze={handleAnalyze}
+              fetchConversionGoals={fetchConversionGoals}
+            />
+          )}
 
           {analysisError && (
             <Alert variant="destructive" className="mt-4">

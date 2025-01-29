@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { GoogleConnect } from "@/components/GoogleConnect";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Project {
   id: string;
@@ -36,6 +37,7 @@ export function ProjectList() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [activeTab, setActiveTab] = useState("details");
   const { toast } = useToast();
 
   const { data: session } = useQuery({
@@ -87,11 +89,11 @@ export function ProjectList() {
     }
 
     try {
-      const { error } = await supabase.from("projects").insert({
+      const { data: project, error } = await supabase.from("projects").insert({
         name,
         url,
         user_id: session.user.id,
-      });
+      }).select().single();
 
       if (error) throw error;
 
@@ -100,13 +102,45 @@ export function ProjectList() {
         description: `${name} has been added to your projects.`,
       });
 
-      setOpen(false);
-      setName("");
-      setUrl("");
-      refetchProjects();
+      setSelectedProject(project.id);
+      setActiveTab("connect");
     } catch (error) {
       toast({
         title: "Error creating project",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAnalysisComplete = async (projectId: string, data: any) => {
+    try {
+      // Save the analysis results to the project
+      const { error } = await supabase.from("analytics_reports").insert({
+        user_id: session?.user?.id,
+        ga4_property: data.ga4Property,
+        gsc_property: data.gscProperty,
+        weekly_analysis: data.report.weekly_analysis,
+        monthly_analysis: data.report.monthly_analysis,
+        quarterly_analysis: data.report.quarterly_analysis,
+        yoy_analysis: data.report.last28_yoy_analysis,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Analysis complete",
+        description: "The report has been saved to your project.",
+      });
+
+      setOpen(false);
+      setName("");
+      setUrl("");
+      setActiveTab("details");
+      refetchProjects();
+    } catch (error) {
+      toast({
+        title: "Error saving analysis",
         description: "Please try again later.",
         variant: "destructive",
       });
@@ -129,39 +163,66 @@ export function ProjectList() {
               New Project
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>Create New Project</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCreateProject} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">
-                  Project Name
-                </label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="My Website"
-                  required
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details">Project Details</TabsTrigger>
+                <TabsTrigger value="connect" disabled={!selectedProject}>
+                  Connect Services
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="details">
+                <form onSubmit={handleCreateProject} className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="text-sm font-medium">
+                      Project Name
+                    </label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="My Website"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="url" className="text-sm font-medium">
+                      Website URL
+                    </label>
+                    <Input
+                      id="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://example.com"
+                      type="url"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Create Project
+                  </Button>
+                </form>
+              </TabsContent>
+              <TabsContent value="connect">
+                <GoogleConnect 
+                  onConnectionChange={(connected) => {
+                    if (connected) {
+                      toast({
+                        title: "Connection successful",
+                        description: "Google services have been connected to your project.",
+                      });
+                    }
+                  }}
+                  onAnalysisComplete={(data) => {
+                    if (selectedProject) {
+                      handleAnalysisComplete(selectedProject, data);
+                    }
+                  }}
                 />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="url" className="text-sm font-medium">
-                  Website URL
-                </label>
-                <Input
-                  id="url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  type="url"
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Create Project
-              </Button>
-            </form>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
@@ -234,6 +295,7 @@ export function ProjectList() {
                           });
                         }
                       }}
+                      onAnalysisComplete={(data) => handleAnalysisComplete(project.id, data)}
                     />
                   </div>
                 </DialogContent>
