@@ -71,6 +71,51 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     });
   };
 
+  const signInWithGoogle = async (googleAccessToken: string, userInfo: any) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: googleAccessToken,
+        nonce: 'NONCE', // This should be randomly generated in a production environment
+      });
+
+      if (error) {
+        console.error('Error signing in with Google:', error);
+        throw error;
+      }
+
+      // Update the profile with Google OAuth data
+      if (data.user) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            email: userInfo.email,
+            google_oauth_data: {
+              email: userInfo.email,
+              access_token: googleAccessToken,
+              picture: userInfo.picture,
+              name: userInfo.name,
+              timestamp: new Date().toISOString()
+            }
+          })
+          .eq('id', data.user.id);
+
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+          throw updateError;
+        }
+
+        toast({
+          title: "Success",
+          description: "Successfully signed in with Google",
+        });
+      }
+    } catch (error) {
+      console.error('Error in signInWithGoogle:', error);
+      throw error;
+    }
+  };
+
   const fetchConversionGoals = async (propertyId: string) => {
     if (!accessToken) {
       console.log("No access token available for fetching events");
@@ -162,6 +207,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setAccessToken(response.access_token);
       
       try {
+        // Fetch user info from Google
         const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
           headers: {
             Authorization: `Bearer ${response.access_token}`,
@@ -175,41 +221,38 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         const userInfo = await userInfoResponse.json();
         setUserEmail(userInfo.email);
 
-        // Save Google OAuth data to profile
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({
-              google_oauth_data: {
-                email: userInfo.email,
-                access_token: response.access_token,
-                picture: userInfo.picture,
-                name: userInfo.name,
-                timestamp: new Date().toISOString()
-              }
-            })
-            .eq('id', session.user.id);
+        // Sign in with Google and update profile
+        await signInWithGoogle(response.access_token, userInfo);
 
-          if (updateError) {
-            console.error('Error updating profile:', updateError);
-            toast({
-              title: "Error",
-              description: "Failed to save Google account information",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Success",
-              description: "Google account connected successfully",
-            });
+        // Fetch GA4 accounts
+        console.log("Fetching GA4 accounts...");
+        const gaResponse = await fetch(
+          "https://analyticsadmin.googleapis.com/v1alpha/accounts",
+          {
+            headers: {
+              Authorization: `Bearer ${response.access_token}`,
+            },
           }
+        );
+
+        if (!gaResponse.ok) {
+          throw new Error(`GA4 API error: ${gaResponse.statusText}`);
         }
 
-        try {
-          console.log("Fetching GA4 accounts...");
-          const gaResponse = await fetch(
-            "https://analyticsadmin.googleapis.com/v1alpha/accounts",
+        const gaData = await gaResponse.json();
+        console.log("GA4 Response:", gaData);
+
+        if (!gaData.accounts || gaData.accounts.length === 0) {
+          throw new Error("No GA4 accounts found");
+        }
+
+        // Fetch GA4 properties
+        console.log("Fetching GA4 properties for all accounts...");
+        const allProperties = [];
+        
+        for (const account of gaData.accounts) {
+          const propertiesResponse = await fetch(
+            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
             {
               headers: {
                 Authorization: `Bearer ${response.access_token}`,
@@ -217,108 +260,76 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             }
           );
 
-          if (!gaResponse.ok) {
-            throw new Error(`GA4 API error: ${gaResponse.statusText}`);
+          if (!propertiesResponse.ok) {
+            console.warn(`Failed to fetch properties for account ${account.name}`);
+            continue;
           }
 
-          const gaData = await gaResponse.json();
-          console.log("GA4 Response:", gaData);
-
-          if (!gaData.accounts || gaData.accounts.length === 0) {
-            throw new Error("No GA4 accounts found");
+          const propertiesData = await propertiesResponse.json();
+          if (propertiesData.properties) {
+            allProperties.push(...propertiesData.properties);
           }
-
-          console.log("Fetching GA4 properties for all accounts...");
-          const allProperties = [];
-          
-          for (const account of gaData.accounts) {
-            const propertiesResponse = await fetch(
-              `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${response.access_token}`,
-                },
-              }
-            );
-
-            if (!propertiesResponse.ok) {
-              console.warn(`Failed to fetch properties for account ${account.name}`);
-              continue;
-            }
-
-            const propertiesData = await propertiesResponse.json();
-            if (propertiesData.properties) {
-              allProperties.push(...propertiesData.properties);
-            }
-          }
-
-          console.log("All GA4 Properties Response:", allProperties);
-          
-          if (allProperties.length === 0) {
-            toast({
-              title: "Warning",
-              description: "No Google Analytics 4 properties found",
-              variant: "destructive",
-            });
-          } else {
-            setGaConnected(true);
-            toast({
-              title: "Success",
-              description: "Connected to Google Analytics 4",
-            });
-          }
-          
-          setGaAccounts(
-            allProperties.map((p: any) => ({
-              id: p.name,
-              name: p.displayName,
-            }))
-          );
-        } catch (error: any) {
-          handleApiError(error, "Google Analytics");
         }
 
-        try {
-          console.log("Fetching Search Console sites...");
-          const gscResponse = await fetch(
-            "https://www.googleapis.com/webmasters/v3/sites",
-            {
-              headers: {
-                Authorization: `Bearer ${response.access_token}`,
-              },
-            }
-          );
-
-          if (!gscResponse.ok) {
-            throw new Error(`Search Console API error: ${gscResponse.statusText}`);
-          }
-
-          const gscData = await gscResponse.json();
-          console.log("Search Console Response:", gscData);
-          
-          if (!gscData.siteEntry || gscData.siteEntry.length === 0) {
-            toast({
-              title: "Warning",
-              description: "No Search Console sites found",
-              variant: "destructive",
-            });
-          } else {
-            setGscConnected(true);
-            toast({
-              title: "Success",
-              description: "Connected to Search Console",
-            });
-          }
-          
-          setGscAccounts(
-            gscData.siteEntry?.map((s: any) => ({
-              id: s.siteUrl,
-              name: s.siteUrl,
-            })) || []
-          );
-        } catch (error: any) {
-          handleApiError(error, "Search Console");
+        if (allProperties.length === 0) {
+          toast({
+            title: "Warning",
+            description: "No Google Analytics 4 properties found",
+            variant: "destructive",
+          });
+        } else {
+          setGaConnected(true);
+          toast({
+            title: "Success",
+            description: "Connected to Google Analytics 4",
+          });
         }
+        
+        setGaAccounts(
+          allProperties.map((p: any) => ({
+            id: p.name,
+            name: p.displayName,
+          }))
+        );
+
+        // Fetch Search Console sites
+        console.log("Fetching Search Console sites...");
+        const gscResponse = await fetch(
+          "https://www.googleapis.com/webmasters/v3/sites",
+          {
+            headers: {
+              Authorization: `Bearer ${response.access_token}`,
+            },
+          }
+        );
+
+        if (!gscResponse.ok) {
+          throw new Error(`Search Console API error: ${gscResponse.statusText}`);
+        }
+
+        const gscData = await gscResponse.json();
+        console.log("Search Console Response:", gscData);
+        
+        if (!gscData.siteEntry || gscData.siteEntry.length === 0) {
+          toast({
+            title: "Warning",
+            description: "No Search Console sites found",
+            variant: "destructive",
+          });
+        } else {
+          setGscConnected(true);
+          toast({
+            title: "Success",
+            description: "Connected to Search Console",
+          });
+        }
+        
+        setGscAccounts(
+          gscData.siteEntry?.map((s: any) => ({
+            id: s.siteUrl,
+            name: s.siteUrl,
+          })) || []
+        );
 
       } catch (error: any) {
         handleApiError(error, "Google Services");
