@@ -10,6 +10,7 @@ import { useToast } from "./ui/use-toast";
 import { ExportButtons } from "./analysis/ExportButtons";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 interface AnalysisResultsProps {
   report: {
@@ -35,6 +36,16 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Use React Query to manage authentication state
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    },
+  });
 
   useEffect(() => {
     const generateInsights = async () => {
@@ -62,10 +73,7 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
         insightsCache.set(cacheKey, data.insights);
         setInsights(data.insights);
 
-        // Save to search history
-        const sessionResponse = await supabase.auth.getSession();
-        const session = sessionResponse.data.session;
-        
+        // Save to search history if user is authenticated
         if (session?.user?.id) {
           // First get the current search history
           const { data: profileData, error: fetchError } = await supabase
@@ -109,7 +117,7 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
     };
 
     generateInsights();
-  }, [report, isLoading, providedInsights, channelName]);
+  }, [report, isLoading, providedInsights, channelName, session]);
 
   const handleCreateDoc = async () => {
     if (!report) return;
@@ -246,6 +254,24 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
     }
   };
 
+  const handleSaveProject = async () => {
+    if (!session?.user?.id) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to save this project.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    navigate('/');
+    toast({
+      title: "Create a project",
+      description: "Click the + button next to Projects in the sidebar to save this analysis.",
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="w-full text-left">
@@ -315,24 +341,7 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
             </Button>
           )}
           <Button
-            onClick={async () => {
-              const sessionResponse = await supabase.auth.getSession();
-              const session = sessionResponse.data.session;
-              
-              if (!session?.user?.id) {
-                toast({
-                  title: "Authentication required",
-                  description: "Please sign in to save this project.",
-                  variant: "destructive",
-                });
-                return;
-              }
-              navigate('/');
-              toast({
-                title: "Create a project",
-                description: "Click the + button next to Projects in the sidebar to save this analysis.",
-              });
-            }}
+            onClick={handleSaveProject}
             variant="outline"
           >
             Save as Project
