@@ -194,7 +194,7 @@ export function ProjectList() {
                   return (
                     <Badge 
                       key={service}
-                      variant={connection?.status === 'active' ? 'default' : 'secondary'}
+                      variant={connection?.status === 'active' ? 'success' : 'secondary'}
                       className="flex items-center gap-1"
                     >
                       {connection?.status === 'active' ? (
