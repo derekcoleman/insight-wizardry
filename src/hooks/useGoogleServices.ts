@@ -193,14 +193,18 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
           if (updateError) {
             console.error('Error updating profile:', updateError);
+            toast({
+              title: "Error",
+              description: "Failed to save Google account information",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Success",
+              description: "Google account connected successfully",
+            });
           }
         }
-
-        setGaAccounts([]);
-        setGscAccounts([]);
-        setConversionGoals([]);
-        setGaConnected(false);
-        setGscConnected(false);
 
         try {
           console.log("Fetching GA4 accounts...");

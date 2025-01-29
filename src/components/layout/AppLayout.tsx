@@ -48,6 +48,7 @@ function NavHeader() {
             .single();
             
           if (profileData) {
+            console.log("Profile data:", profileData);
             setUserProfile(profileData);
           }
         }
