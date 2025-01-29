@@ -33,27 +33,34 @@ function NavHeader() {
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const getProfile = async () => {
       try {
+        setIsLoading(true);
         const { data: { session } } = await supabase.auth.getSession();
+        
         if (session?.user?.email) {
           setUserEmail(session.user.email);
           
-          const { data: profileData } = await supabase
+          const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
             
-          if (profileData) {
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+          } else if (profileData) {
             console.log("Profile data:", profileData);
             setUserProfile(profileData);
           }
         }
       } catch (error) {
         console.error("Error fetching session:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -117,7 +124,7 @@ function NavHeader() {
             </Link>
           </div>
 
-          {userEmail && (
+          {!isLoading && userEmail && (
             <div className="flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
