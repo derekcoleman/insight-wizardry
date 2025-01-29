@@ -31,7 +31,7 @@ export function useGoogleServices() {
           .single();
 
         if (profile?.google_oauth_data) {
-          const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
+          const oauthData = profile.google_oauth_data as GoogleOAuthData;
           if (oauthData.access_token) {
             setAccessToken(oauthData.access_token);
             setUserEmail(oauthData.email);

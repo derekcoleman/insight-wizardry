@@ -1,4 +1,5 @@
 export interface GoogleOAuthData {
+  [key: string]: string | number | undefined;
   access_token: string;
   email: string;
   timestamp: number;
