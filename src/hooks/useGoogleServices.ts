@@ -79,6 +79,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           skipBrowserRedirect: true,
           queryParams: {
             access_token: googleAccessToken,
+            scope: [
+              "https://www.googleapis.com/auth/analytics.readonly",
+              "https://www.googleapis.com/auth/webmasters.readonly",
+              "https://www.googleapis.com/auth/gmail.readonly",
+              "https://www.googleapis.com/auth/userinfo.email",
+              "https://www.googleapis.com/auth/userinfo.profile"
+            ].join(" ")
           },
         },
       });
@@ -90,7 +97,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       toast({
         title: "Connected",
-        description: "Successfully connected with Google",
+        description: "Successfully connected with Google services",
       });
 
     } catch (error) {
@@ -322,11 +329,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     scope: [
       "https://www.googleapis.com/auth/analytics.readonly",
       "https://www.googleapis.com/auth/webmasters.readonly",
-      "https://www.googleapis.com/auth/analytics",
-      "https://www.googleapis.com/auth/analytics.edit",
+      "https://www.googleapis.com/auth/gmail.readonly",
       "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/gmail.readonly"
+      "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
     flow: "implicit"
   });
