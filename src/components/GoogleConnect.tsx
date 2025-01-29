@@ -38,32 +38,59 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('google_oauth_data')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profile?.google_oauth_data) {
-          console.log("Found existing Google OAuth data");
-          onConnectionChange?.(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          console.log("Checking existing session:", session.user.id);
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('google_oauth_data')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profile?.google_oauth_data) {
+            console.log("Found existing Google OAuth data");
+            onConnectionChange?.(true);
+            navigate('/projects');
+          }
         }
+      } catch (error) {
+        console.error("Session check error:", error);
+        setError("Failed to check session status");
       }
     };
 
     checkSession();
-  }, [onConnectionChange]);
+  }, [onConnectionChange, navigate]);
 
   useEffect(() => {
     if (gaConnected || gscConnected || gmailConnected) {
       console.log("Connection status changed:", { gaConnected, gscConnected, gmailConnected });
       onConnectionChange?.(true);
       
-      // If user is authenticated and connected, redirect to projects
       if (userEmail) {
-        navigate('/projects');
+        const updateProfile = async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.id) {
+            await supabase
+              .from('profiles')
+              .update({
+                email: userEmail,
+                google_oauth_data: {
+                  connected: true,
+                  email: userEmail,
+                  ga_connected: gaConnected,
+                  gsc_connected: gscConnected,
+                  gmail_connected: gmailConnected
+                }
+              })
+              .eq('id', session.user.id);
+            
+            navigate('/projects');
+          }
+        };
+        
+        updateProfile();
       }
     }
   }, [gaConnected, gscConnected, gmailConnected, userEmail, navigate, onConnectionChange]);
