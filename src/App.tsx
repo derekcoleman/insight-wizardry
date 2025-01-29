@@ -11,6 +11,8 @@ import Terms from "./pages/Terms";
 import SeoStrategy from "./pages/SeoStrategy";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
+import Projects from "./pages/Projects";
+import ProjectReport from "./pages/ProjectReport";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +32,8 @@ const App = () => {
               <Sonner />
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/projects/:projectId/report" element={<ProjectReport />} />
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/seo-strategy" element={<SeoStrategy />} />

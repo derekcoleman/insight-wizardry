@@ -101,14 +101,16 @@ function NavHeader() {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      setUserEmail(null);
-      setUserProfile(null);
       navigate('/');
-      window.location.reload();
     } catch (error) {
       console.error("Error signing out:", error);
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
     }
-  };
+  }
   
   return (
     <nav className="bg-[#221F26] shadow-sm">
