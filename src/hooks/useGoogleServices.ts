@@ -85,11 +85,15 @@ export function useGoogleServices() {
       setGscConnected(gscResponse.ok);
       setGmailConnected(gmailResponse.ok);
 
-      // Sign in to Supabase with Google token
-      const { error: signInError } = await supabase.auth.signInWithIdToken({
+      // Sign in to Supabase with Google OAuth
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        token,
-        nonce: 'NONCE', // Replace with a secure nonce in production
+        options: {
+          queryParams: {
+            access_token: token,
+            prompt: 'consent'
+          }
+        }
       });
 
       if (signInError) {
