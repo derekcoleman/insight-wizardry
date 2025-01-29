@@ -21,6 +21,7 @@ interface UseGoogleServicesReturn {
   error: string | null;
   gaConnected: boolean;
   gscConnected: boolean;
+  gmailConnected: boolean;
   handleLogin: () => void;
   fetchConversionGoals: (propertyId: string) => Promise<void>;
   accessToken: string | null;
@@ -35,6 +36,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   const [error, setError] = useState<string | null>(null);
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
+  const [gmailConnected, setGmailConnected] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
@@ -99,6 +101,21 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         title: "Connected",
         description: "Successfully connected with Google services",
       });
+
+      // Test Gmail connection
+      const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+        headers: {
+          Authorization: `Bearer ${googleAccessToken}`,
+        },
+      });
+
+      if (gmailResponse.ok) {
+        setGmailConnected(true);
+        toast({
+          title: "Success",
+          description: "Connected to Gmail",
+        });
+      }
 
     } catch (error) {
       console.error('Error in signInWithGoogle:', error);
@@ -344,6 +361,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     error,
     gaConnected,
     gscConnected,
+    gmailConnected,
     handleLogin: () => login(),
     fetchConversionGoals,
     accessToken,

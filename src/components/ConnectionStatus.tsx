@@ -4,10 +4,11 @@ import { CheckCircle2 } from "lucide-react";
 interface ConnectionStatusProps {
   gaConnected: boolean;
   gscConnected: boolean;
+  gmailConnected: boolean;
 }
 
-export function ConnectionStatus({ gaConnected, gscConnected }: ConnectionStatusProps) {
-  if (!gaConnected && !gscConnected) return null;
+export function ConnectionStatus({ gaConnected, gscConnected, gmailConnected }: ConnectionStatusProps) {
+  if (!gaConnected && !gscConnected && !gmailConnected) return null;
 
   return (
     <Alert>
@@ -15,8 +16,10 @@ export function ConnectionStatus({ gaConnected, gscConnected }: ConnectionStatus
       <AlertTitle>Connected Services</AlertTitle>
       <AlertDescription>
         {gaConnected && "✓ Google Analytics 4"}
-        {gaConnected && gscConnected && <br />}
+        {gaConnected && (gscConnected || gmailConnected) && <br />}
         {gscConnected && "✓ Search Console"}
+        {gscConnected && gmailConnected && <br />}
+        {gmailConnected && "✓ Gmail"}
       </AlertDescription>
     </Alert>
   );

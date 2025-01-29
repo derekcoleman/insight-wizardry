@@ -30,6 +30,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     error,
     gaConnected,
     gscConnected,
+    gmailConnected,
     handleLogin,
     fetchConversionGoals,
     accessToken,
@@ -37,11 +38,11 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   } = useGoogleServices();
 
   useEffect(() => {
-    if (gaConnected || gscConnected) {
-      console.log("Connection status changed:", { gaConnected, gscConnected });
+    if (gaConnected || gscConnected || gmailConnected) {
+      console.log("Connection status changed:", { gaConnected, gscConnected, gmailConnected });
       onConnectionChange?.(true);
     }
-  }, [gaConnected, gscConnected, onConnectionChange]);
+  }, [gaConnected, gscConnected, gmailConnected, onConnectionChange]);
 
   const handleAnalyze = async (ga4Property: string, gscProperty: string, mainConversionGoal: string) => {
     if (!ga4Property || !accessToken) {
@@ -89,7 +90,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     }
   };
 
-  // Remove the GoogleAuthCheck wrapper since we're handling auth directly
   return (
     <div className="space-y-6">
       <Card className="max-w-xl mx-auto">
@@ -108,7 +108,11 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
             <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
           </div>
 
-          <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
+          <ConnectionStatus 
+            gaConnected={gaConnected} 
+            gscConnected={gscConnected} 
+            gmailConnected={gmailConnected}
+          />
 
           <GooglePropertyForm
             gaAccounts={gaAccounts}
