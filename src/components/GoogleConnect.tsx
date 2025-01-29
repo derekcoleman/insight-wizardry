@@ -65,8 +65,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
           console.log("Found existing Google OAuth data:", profile.google_oauth_data);
           onConnectionChange?.(true);
           navigate('/projects');
-        } else {
-          console.log("No existing Google OAuth data found");
         }
       } catch (error: any) {
         console.error("Session check error:", error);
@@ -85,11 +83,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   // Handle Google services connection status changes
   useEffect(() => {
     const updateUserProfile = async () => {
-      if (!gaConnected && !gscConnected && !gmailConnected) {
-        console.log("No Google services connected yet");
-        return;
-      }
-
       if (!userEmail) {
         console.log("No user email available");
         return;
@@ -112,10 +105,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
             email: userEmail,
             google_oauth_data: {
               connected: true,
-              email: userEmail,
-              ga_connected: gaConnected,
-              gsc_connected: gscConnected,
-              gmail_connected: gmailConnected
+              email: userEmail
             }
           })
           .eq('id', session.user.id);
@@ -136,8 +126,10 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
       }
     };
 
-    updateUserProfile();
-  }, [gaConnected, gscConnected, gmailConnected, userEmail, navigate, onConnectionChange, toast]);
+    if (userEmail) {
+      updateUserProfile();
+    }
+  }, [userEmail, navigate, onConnectionChange, toast]);
 
   const handlePropertyAnalysis = async (gaProperty: string, gscProperty: string, goal: string) => {
     try {
