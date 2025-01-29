@@ -100,13 +100,18 @@ function NavHeader() {
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
-      setUserEmail(null);
-      setUserProfile(null);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
       navigate('/');
-      window.location.reload();
+      window.location.reload(); // Force reload to clear all states
     } catch (error) {
       console.error("Error signing out:", error);
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
     }
   };
   
