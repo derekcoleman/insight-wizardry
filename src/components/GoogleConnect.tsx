@@ -2,12 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { AnalysisResults } from "@/components/AnalysisResults";
 import { supabase } from "@/integrations/supabase/client";
 import { useGoogleServices } from "@/hooks/useGoogleServices";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
-import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
 
 interface AnalysisData {
@@ -29,22 +27,15 @@ interface GoogleConnectProps {
 }
 
 export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: GoogleConnectProps) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [report, setReport] = useState(null);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const {
-    gaAccounts,
-    gscAccounts,
-    conversionGoals,
     isLoading,
-    error,
     gaConnected,
     gscConnected,
     gmailConnected,
     handleLogin,
-    fetchConversionGoals,
     accessToken,
     userEmail
   } = useGoogleServices();
@@ -56,56 +47,31 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     }
   }, [gaConnected, gscConnected, gmailConnected, onConnectionChange]);
 
-  const handleAnalyze = async (ga4Property: string, gscProperty: string, mainConversionGoal: string) => {
-    if (!ga4Property || !accessToken) {
-      console.error("Missing required data:", { ga4Property, hasAccessToken: !!accessToken });
-      setAnalysisError("Missing required Google Analytics property or access token");
-      return;
+  useEffect(() => {
+    if (userEmail && accessToken) {
+      const updateProfile = async () => {
+        try {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              google_oauth_data: {
+                email: userEmail,
+                access_token: accessToken,
+                connected: true
+              }
+            })
+            .eq('email', userEmail);
+
+          if (updateError) throw updateError;
+        } catch (err: any) {
+          console.error('Error updating profile:', err);
+          setError(err.message);
+        }
+      };
+
+      updateProfile();
     }
-
-    setIsAnalyzing(true);
-    setAnalysisError(null);
-    
-    try {
-      console.log("Starting analysis with:", {
-        ga4Property,
-        gscProperty,
-        hasAccessToken: !!accessToken,
-        mainConversionGoal,
-      });
-
-      const result = await supabase.functions.invoke('analyze-ga4-data', {
-        body: {
-          ga4Property,
-          gscProperty,
-          accessToken,
-          mainConversionGoal: mainConversionGoal || undefined,
-        },
-      });
-
-      if (result.error) {
-        throw new Error(result.error.message || 'Failed to analyze data');
-      }
-      
-      if (!result.data?.report) {
-        throw new Error('No report data received from analysis');
-      }
-
-      setReport(result.data.report);
-      onAnalysisComplete?.({
-        report: result.data.report,
-        ga4Property,
-        gscProperty,
-        mainConversionGoal
-      });
-    } catch (error: any) {
-      console.error('Analysis error:', error);
-      setAnalysisError(error.message || 'Failed to analyze data');
-      setReport(null);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+  }, [userEmail, accessToken]);
 
   return (
     <div className="space-y-6">
@@ -132,31 +98,8 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
             gscConnected={gscConnected} 
             gmailConnected={gmailConnected}
           />
-
-          {(gaConnected || gscConnected) && (
-            <GooglePropertyForm
-              gaAccounts={gaAccounts}
-              gscAccounts={gscAccounts}
-              conversionGoals={conversionGoals}
-              isAnalyzing={isAnalyzing}
-              onAnalyze={handleAnalyze}
-              fetchConversionGoals={fetchConversionGoals}
-            />
-          )}
-
-          {analysisError && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Analysis Error</AlertTitle>
-              <AlertDescription>{analysisError}</AlertDescription>
-            </Alert>
-          )}
         </CardContent>
       </Card>
-
-      {(isAnalyzing || report) && (
-        <AnalysisResults report={report} isLoading={isAnalyzing} />
-      )}
     </div>
   );
 }

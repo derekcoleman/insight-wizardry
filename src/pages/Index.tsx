@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GrowthChannelTabs } from "@/components/GrowthChannelTabs";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { Card } from "@/components/ui/card";
 import { ProjectList } from "@/components/ProjectList";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface AnalysisData {
   report: {
@@ -19,6 +20,7 @@ interface AnalysisData {
 const Index = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const navigate = useNavigate();
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -29,6 +31,12 @@ const Index = () => {
     },
   });
 
+  useEffect(() => {
+    if (session && isConnected) {
+      navigate('/projects');
+    }
+  }, [session, isConnected, navigate]);
+
   const handleAnalysisComplete = (data: AnalysisData) => {
     setAnalysisData(data);
     setIsConnected(true);
@@ -38,9 +46,7 @@ const Index = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          {session ? (
-            <ProjectList />
-          ) : (
+          {!session && (
             <>
               <div className="text-center mb-12">
                 <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
@@ -52,15 +58,12 @@ const Index = () => {
                 </p>
               </div>
               
-              {!isConnected ? (
-                <Card className="max-w-xl mx-auto p-6">
-                  <GoogleConnect onAnalysisComplete={handleAnalysisComplete} />
-                </Card>
-              ) : (
-                <div className="mt-10">
-                  <GrowthChannelTabs defaultTab="growth" analysisData={analysisData} />
-                </div>
-              )}
+              <Card className="max-w-xl mx-auto p-6">
+                <GoogleConnect 
+                  onConnectionChange={(connected) => setIsConnected(connected)}
+                  onAnalysisComplete={handleAnalysisComplete} 
+                />
+              </Card>
             </>
           )}
         </div>

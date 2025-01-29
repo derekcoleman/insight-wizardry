@@ -111,6 +111,8 @@ export type Database = {
           id: string
           last_refreshed_at: string | null
           project_id: string
+          selected_goal: string | null
+          selected_property: string | null
           service_type: string
           status: string | null
           updated_at: string
@@ -121,6 +123,8 @@ export type Database = {
           id?: string
           last_refreshed_at?: string | null
           project_id: string
+          selected_goal?: string | null
+          selected_property?: string | null
           service_type: string
           status?: string | null
           updated_at?: string
@@ -131,6 +135,8 @@ export type Database = {
           id?: string
           last_refreshed_at?: string | null
           project_id?: string
+          selected_goal?: string | null
+          selected_property?: string | null
           service_type?: string
           status?: string | null
           updated_at?: string
@@ -147,6 +153,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          analysis_status: string | null
           created_at: string
           id: string
           name: string
@@ -155,6 +162,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          analysis_status?: string | null
           created_at?: string
           id?: string
           name: string
@@ -163,6 +171,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          analysis_status?: string | null
           created_at?: string
           id?: string
           name?: string
