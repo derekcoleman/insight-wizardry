@@ -5,6 +5,21 @@ import { GrowthChannelTabs } from "@/components/GrowthChannelTabs";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface AnalysisReport {
+  id: string;
+  created_at: string;
+  ga4_property: string;
+  gsc_property: string | null;
+  weekly_analysis: any;
+  monthly_analysis: any;
+  quarterly_analysis: any;
+  ytd_analysis: any;
+  last28_yoy_analysis: any;
+  status: string;
+  user_id: string | null;
+  project_id: string | null;
+}
+
 const ProjectReport = () => {
   const { projectId } = useParams();
 
@@ -20,7 +35,7 @@ const ProjectReport = () => {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as AnalysisReport;
     },
     enabled: !!projectId,
   });
@@ -36,11 +51,22 @@ const ProjectReport = () => {
     );
   }
 
+  const formattedReport = report ? {
+    report: {
+      weekly_analysis: report.weekly_analysis,
+      monthly_analysis: report.monthly_analysis,
+      quarterly_analysis: report.quarterly_analysis,
+      ytd_analysis: report.ytd_analysis || null,
+      last28_yoy_analysis: report.last28_yoy_analysis || null,
+      insights: null
+    }
+  } : null;
+
   return (
     <div className="space-y-6">
       <GrowthChannelTabs 
         defaultTab="growth" 
-        analysisData={report ? { report } : null} 
+        analysisData={formattedReport}
       />
     </div>
   );
