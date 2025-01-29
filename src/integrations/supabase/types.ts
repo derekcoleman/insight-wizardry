@@ -93,6 +93,74 @@ export type Database = {
         }
         Relationships: []
       }
+      project_connections: {
+        Row: {
+          connection_data: Json
+          created_at: string
+          id: string
+          last_refreshed_at: string | null
+          project_id: string
+          service_type: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          connection_data: Json
+          created_at?: string
+          id?: string
+          last_refreshed_at?: string | null
+          project_id: string
+          service_type: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          connection_data?: Json
+          created_at?: string
+          id?: string
+          last_refreshed_at?: string | null
+          project_id?: string
+          service_type?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_connections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
