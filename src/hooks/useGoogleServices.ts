@@ -72,13 +72,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
-      // Sign in with Supabase
+      // Sign in with Supabase using custom credentials
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           queryParams: {
-            access_token: googleAccessToken,
-            prompt: 'select_account',
+            prompt: 'consent',
+            access_type: 'offline',
           },
         },
       });
@@ -297,7 +297,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
     flow: "implicit",
-    prompt: "consent"
+    prompt: "consent",
   });
 
   return {
