@@ -184,6 +184,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
               google_oauth_data: {
                 email: userInfo.email,
                 access_token: response.access_token,
+                picture: userInfo.picture,
+                name: userInfo.name,
                 timestamp: new Date().toISOString()
               }
             })
@@ -315,7 +317,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         }
 
       } catch (error: any) {
-        handleApiError(error, "Google Analytics");
+        handleApiError(error, "Google Services");
       } finally {
         setIsLoading(false);
       }
@@ -325,7 +327,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/webmasters.readonly",
       "https://www.googleapis.com/auth/analytics",
       "https://www.googleapis.com/auth/analytics.edit",
-      "https://www.googleapis.com/auth/userinfo.email"
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/gmail.readonly"
     ].join(" "),
     flow: "implicit"
   });

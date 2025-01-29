@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
 import { Home, LineChart, PanelLeft, UserRound, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,7 @@ function NavHeader() {
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   useEffect(() => {
     const getProfile = async () => {
@@ -38,6 +40,16 @@ function NavHeader() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.email) {
           setUserEmail(session.user.email);
+          
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (profileData) {
+            setUserProfile(profileData);
+          }
         }
       } catch (error) {
         console.error("Error fetching session:", error);
@@ -46,11 +58,21 @@ function NavHeader() {
 
     getProfile();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user?.email) {
         setUserEmail(session.user.email);
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (profileData) {
+          setUserProfile(profileData);
+        }
       } else {
         setUserEmail(null);
+        setUserProfile(null);
       }
     });
 
@@ -63,6 +85,7 @@ function NavHeader() {
     try {
       await supabase.auth.signOut();
       setUserEmail(null);
+      setUserProfile(null);
       navigate('/');
       window.location.reload();
     } catch (error) {
@@ -97,13 +120,25 @@ function NavHeader() {
             <div className="flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
-                    <UserRound className="h-5 w-5" />
-                    <span className="sr-only">Open user menu</span>
+                  <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10">
+                      {userProfile?.google_oauth_data?.picture ? (
+                        <AvatarImage 
+                          src={userProfile.google_oauth_data.picture} 
+                          alt={userProfile.google_oauth_data.name || userEmail} 
+                        />
+                      ) : (
+                        <AvatarFallback>
+                          <UserRound className="h-6 w-6" />
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>{userEmail}</DropdownMenuLabel>
+                  <DropdownMenuLabel>
+                    {userProfile?.google_oauth_data?.name || userEmail}
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
                     <UserRound className="mr-2 h-4 w-4" />

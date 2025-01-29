@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 
 interface GoogleAuthButtonProps {
   onClick: () => void;
@@ -15,8 +15,10 @@ export function GoogleAuthButton({ onClick, isLoading }: GoogleAuthButtonProps) 
     >
       {isLoading ? (
         <Loader2 className="h-4 w-4 animate-spin mr-2" />
-      ) : null}
-      Connect Google Account
+      ) : (
+        <Mail className="h-4 w-4 mr-2" />
+      )}
+      Connect Gmail Account
     </Button>
   );
 }
