@@ -13,12 +13,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PropertySelector } from "@/components/PropertySelector";
-import { ConversionGoalSelector } from "@/components/ConversionGoalSelector";
-import { useGoogleServices } from "@/hooks/useGoogleServices";
 
 interface Project {
   id: string;
@@ -41,23 +38,7 @@ export function ProjectList() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [activeTab, setActiveTab] = useState("details");
-  const [selectedGaAccount, setSelectedGaAccount] = useState("");
-  const [selectedGscAccount, setSelectedGscAccount] = useState("");
-  const [selectedGoal, setSelectedGoal] = useState("");
   const { toast } = useToast();
-
-  const {
-    gaAccounts,
-    gscAccounts,
-    conversionGoals,
-    isLoading: isGoogleLoading,
-    error: googleError,
-    gaConnected,
-    gscConnected,
-    handleLogin,
-    fetchConversionGoals,
-    accessToken
-  } = useGoogleServices();
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -107,15 +88,6 @@ export function ProjectList() {
       return;
     }
 
-    if (!selectedGaAccount) {
-      toast({
-        title: "GA4 Property Required",
-        description: "Please select a Google Analytics 4 property.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const { data: project, error } = await supabase.from("projects").insert({
         name,
@@ -125,87 +97,53 @@ export function ProjectList() {
 
       if (error) throw error;
 
-      // Save the selected properties as connections
-      if (selectedGaAccount) {
-        await supabase.from("project_connections").insert({
-          project_id: project.id,
-          service_type: 'ga4',
-          connection_data: {
-            property_id: selectedGaAccount,
-            conversion_goal: selectedGoal
-          },
-          status: 'active'
-        });
-      }
-
-      if (selectedGscAccount) {
-        await supabase.from("project_connections").insert({
-          project_id: project.id,
-          service_type: 'gsc',
-          connection_data: {
-            property_url: selectedGscAccount
-          },
-          status: 'active'
-        });
-      }
-
-      // Run initial analysis
-      const response = await supabase.functions.invoke('analyze-ga4-data', {
-        body: {
-          ga4Property: selectedGaAccount,
-          gscProperty: selectedGscAccount,
-          accessToken,
-          mainConversionGoal: selectedGoal || undefined,
-        },
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to analyze data');
-      }
-
-      // Save analysis results
-      await supabase.from("analytics_reports").insert({
-        user_id: session.user.id,
-        project_id: project.id,
-        ga4_property: selectedGaAccount,
-        gsc_property: selectedGscAccount,
-        weekly_analysis: response.data.report.weekly_analysis,
-        monthly_analysis: response.data.report.monthly_analysis,
-        quarterly_analysis: response.data.report.quarterly_analysis,
-        yoy_analysis: response.data.report.last28_yoy_analysis,
-        status: 'completed'
-      });
-
       toast({
         title: "Project created successfully",
         description: `${name} has been added to your projects.`,
+      });
+
+      setSelectedProject(project.id);
+      setActiveTab("connect");
+    } catch (error) {
+      toast({
+        title: "Error creating project",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAnalysisComplete = async (projectId: string, data: any) => {
+    try {
+      // Save the analysis results to the project
+      const { error } = await supabase.from("analytics_reports").insert({
+        user_id: session?.user?.id,
+        ga4_property: data.ga4Property,
+        gsc_property: data.gscProperty,
+        weekly_analysis: data.report.weekly_analysis,
+        monthly_analysis: data.report.monthly_analysis,
+        quarterly_analysis: data.report.quarterly_analysis,
+        yoy_analysis: data.report.last28_yoy_analysis,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Analysis complete",
+        description: "The report has been saved to your project.",
       });
 
       setOpen(false);
       setName("");
       setUrl("");
       setActiveTab("details");
-      setSelectedGaAccount("");
-      setSelectedGscAccount("");
-      setSelectedGoal("");
       refetchProjects();
-    } catch (error: any) {
-      console.error('Error creating project:', error);
+    } catch (error) {
       toast({
-        title: "Error creating project",
-        description: error.message || "Please try again later.",
+        title: "Error saving analysis",
+        description: "Please try again later.",
         variant: "destructive",
       });
-    }
-  };
-
-  const handleGaAccountChange = async (value: string) => {
-    setSelectedGaAccount(value);
-    setSelectedGoal("");
-    
-    if (value) {
-      console.log("Fetching conversion goals for GA4 property:", value);
-      await fetchConversionGoals(value);
     }
   };
 
@@ -232,85 +170,57 @@ export function ProjectList() {
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="details">Project Details</TabsTrigger>
-                <TabsTrigger value="connect" disabled={!gaConnected}>
-                  Select Properties
+                <TabsTrigger value="connect" disabled={!selectedProject}>
+                  Connect Services
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="details">
-                {!gaConnected ? (
-                  <GoogleConnect />
-                ) : (
-                  <form onSubmit={handleCreateProject} className="space-y-4">
-                    <div className="space-y-2">
-                      <label htmlFor="name" className="text-sm font-medium">
-                        Project Name
-                      </label>
-                      <Input
-                        id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="My Website"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="url" className="text-sm font-medium">
-                        Website URL
-                      </label>
-                      <Input
-                        id="url"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        placeholder="https://example.com"
-                        type="url"
-                      />
-                    </div>
-                    <Button 
-                      type="button" 
-                      className="w-full"
-                      onClick={() => setActiveTab('connect')}
-                    >
-                      Next: Select Properties
-                    </Button>
-                  </form>
-                )}
-              </TabsContent>
-              <TabsContent value="connect">
-                <div className="space-y-4">
-                  <PropertySelector
-                    label="Select Google Analytics 4 Property"
-                    accounts={gaAccounts}
-                    value={selectedGaAccount}
-                    onValueChange={handleGaAccountChange}
-                    placeholder="Select GA4 property"
-                  />
-
-                  {conversionGoals.length > 0 && (
-                    <ConversionGoalSelector
-                      goals={conversionGoals}
-                      value={selectedGoal}
-                      onValueChange={setSelectedGoal}
+                <form onSubmit={handleCreateProject} className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="text-sm font-medium">
+                      Project Name
+                    </label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="My Website"
+                      required
                     />
-                  )}
-
-                  {gscAccounts.length > 0 && (
-                    <PropertySelector
-                      label="Select Search Console Property"
-                      accounts={gscAccounts}
-                      value={selectedGscAccount}
-                      onValueChange={setSelectedGscAccount}
-                      placeholder="Select Search Console property"
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="url" className="text-sm font-medium">
+                      Website URL
+                    </label>
+                    <Input
+                      id="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://example.com"
+                      type="url"
                     />
-                  )}
-
-                  <Button 
-                    onClick={handleCreateProject}
-                    disabled={!selectedGaAccount || isGoogleLoading}
-                    className="w-full"
-                  >
+                  </div>
+                  <Button type="submit" className="w-full">
                     Create Project
                   </Button>
-                </div>
+                </form>
+              </TabsContent>
+              <TabsContent value="connect">
+                <GoogleConnect 
+                  onConnectionChange={(connected) => {
+                    if (connected) {
+                      toast({
+                        title: "Connection successful",
+                        description: "Google services have been connected to your project.",
+                      });
+                    }
+                  }}
+                  onAnalysisComplete={(data) => {
+                    if (selectedProject) {
+                      handleAnalysisComplete(selectedProject, data);
+                    }
+                  }}
+                />
               </TabsContent>
             </Tabs>
           </DialogContent>
@@ -340,12 +250,12 @@ export function ProjectList() {
             
             <div className="mt-4 space-y-2">
               <div className="flex flex-wrap gap-2">
-                {['ga4', 'gsc'].map(service => {
+                {['ga4', 'gsc', 'meta', 'google-ads'].map(service => {
                   const connection = getConnectionStatus(project.id, service);
                   return (
                     <Badge 
                       key={service}
-                      variant={connection?.status === 'active' ? 'default' : 'secondary'}
+                      variant={connection?.status === 'active' ? 'success' : 'secondary'}
                       className="flex items-center gap-1"
                     >
                       {connection?.status === 'active' ? (
@@ -368,15 +278,25 @@ export function ProjectList() {
                     onClick={() => setSelectedProject(project.id)}
                   >
                     <Database className="mr-2 h-4 w-4" />
-                    View Analysis
+                    Manage Connections
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl">
+                <DialogContent className="max-w-3xl">
                   <DialogHeader>
-                    <DialogTitle>Analysis Results - {project.name}</DialogTitle>
+                    <DialogTitle>Connect APIs - {project.name}</DialogTitle>
                   </DialogHeader>
                   <div className="mt-4">
-                    <GoogleConnect />
+                    <GoogleConnect 
+                      onConnectionChange={(connected) => {
+                        if (connected) {
+                          toast({
+                            title: "Connection successful",
+                            description: "Google services have been connected to your project.",
+                          });
+                        }
+                      }}
+                      onAnalysisComplete={(data) => handleAnalysisComplete(project.id, data)}
+                    />
                   </div>
                 </DialogContent>
               </Dialog>

@@ -1,13 +1,36 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { GoogleOAuthData, GoogleAccount, ConversionGoal } from "@/types/google";
-import { Json } from "@/integrations/supabase/types";
 
-export function useGoogleServices() {
-  const [gaAccounts, setGaAccounts] = useState<GoogleAccount[]>([]);
-  const [gscAccounts, setGscAccounts] = useState<GoogleAccount[]>([]);
+interface Account {
+  id: string;
+  name: string;
+}
+
+interface ConversionGoal {
+  id: string;
+  name: string;
+}
+
+interface UseGoogleServicesReturn {
+  gaAccounts: Account[];
+  gscAccounts: Account[];
+  conversionGoals: ConversionGoal[];
+  isLoading: boolean;
+  error: string | null;
+  gaConnected: boolean;
+  gscConnected: boolean;
+  gmailConnected: boolean;
+  handleLogin: () => void;
+  fetchConversionGoals: (propertyId: string) => Promise<void>;
+  accessToken: string | null;
+  userEmail: string | null;
+}
+
+export function useGoogleServices(): UseGoogleServicesReturn {
+  const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
+  const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,39 +41,6 @@ export function useGoogleServices() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const checkExistingAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user?.id) return;
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('google_oauth_data')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profile?.google_oauth_data) {
-          const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
-          const timestamp = new Date(oauthData.timestamp);
-          const now = new Date();
-          const hoursSinceAuth = (now.getTime() - timestamp.getTime()) / (1000 * 60 * 60);
-
-          if (hoursSinceAuth < 1) {
-            console.log('Reusing existing Google OAuth token');
-            setAccessToken(oauthData.access_token);
-            setUserEmail(oauthData.email);
-            await fetchGoogleData(oauthData.access_token);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking existing auth:', error);
-      }
-    };
-
-    checkExistingAuth();
-  }, []);
-
   const handleApiError = (error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
     const errorMessage = error.response?.data?.error?.message || error.message || "An unknown error occurred";
@@ -60,81 +50,6 @@ export function useGoogleServices() {
       description: errorMessage,
       variant: "destructive",
     });
-    setIsLoading(false);
-  };
-
-  const fetchGoogleData = async (token: string) => {
-    const fetchPromises = [];
-
-    // Test Gmail connection
-    fetchPromises.push(
-      fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(response => {
-        if (response.ok) setGmailConnected(true);
-      }).catch(error => console.error('Gmail check failed:', error))
-    );
-
-    // Fetch GA4 accounts
-    fetchPromises.push(
-      fetch("https://analyticsadmin.googleapis.com/v1alpha/accounts", {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(async (response) => {
-        if (!response.ok) throw new Error(`GA4 API error: ${response.statusText}`);
-        const gaData = await response.json();
-        
-        if (gaData.accounts?.length > 0) {
-          setGaConnected(true);
-          // Fetch GA4 properties for all accounts
-          const propertyPromises = gaData.accounts.map((account: any) =>
-            fetch(
-              `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-              }
-            ).then(r => r.json())
-          );
-
-          const propertiesData = await Promise.all(propertyPromises);
-          const allProperties = propertiesData.flatMap(data => data.properties || []);
-          
-          setGaAccounts(
-            allProperties.map((p: any) => ({
-              id: p.name,
-              name: p.displayName,
-            }))
-          );
-        }
-      }).catch(error => handleApiError(error, "Google Analytics"))
-    );
-
-    // Fetch Search Console sites
-    fetchPromises.push(
-      fetch("https://www.googleapis.com/webmasters/v3/sites", {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(async (response) => {
-        if (!response.ok) throw new Error(`Search Console API error: ${response.statusText}`);
-        const gscData = await response.json();
-        
-        if (gscData.siteEntry?.length > 0) {
-          setGscConnected(true);
-          setGscAccounts(
-            gscData.siteEntry.map((s: any) => ({
-              id: s.siteUrl,
-              name: s.siteUrl,
-            }))
-          );
-        }
-      }).catch(error => handleApiError(error, "Search Console"))
-    );
-
-    try {
-      await Promise.all(fetchPromises);
-    } catch (error) {
-      console.error('Error fetching Google data:', error);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const signInWithGoogle = async (googleAccessToken: string) => {
@@ -154,26 +69,122 @@ export function useGoogleServices() {
       }
 
       const userInfo = await userInfoResponse.json();
+      console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
-      // Store OAuth data in profile
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        const oauthData: GoogleOAuthData = {
-          access_token: googleAccessToken,
-          email: userInfo.email,
-          timestamp: new Date().toISOString()
-        };
+      // Sign in with Supabase using custom credentials
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            prompt: 'consent',
+            access_type: 'offline',
+          },
+        },
+      });
 
-        await supabase
-          .from('profiles')
-          .update({ 
-            google_oauth_data: oauthData as unknown as Json 
-          })
-          .eq('id', session.user.id);
+      if (signInError) {
+        throw signInError;
       }
 
-      await fetchGoogleData(googleAccessToken);
+      // Test Gmail connection
+      const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+        headers: {
+          Authorization: `Bearer ${googleAccessToken}`,
+        },
+      });
+
+      if (gmailResponse.ok) {
+        setGmailConnected(true);
+        toast({
+          title: "Success",
+          description: "Connected to Gmail",
+        });
+      }
+
+      // Fetch GA4 accounts
+      const gaResponse = await fetch(
+        "https://analyticsadmin.googleapis.com/v1alpha/accounts",
+        {
+          headers: {
+            Authorization: `Bearer ${googleAccessToken}`,
+          },
+        }
+      );
+
+      if (!gaResponse.ok) {
+        throw new Error(`GA4 API error: ${gaResponse.statusText}`);
+      }
+
+      const gaData = await gaResponse.json();
+      console.log("GA4 Response:", gaData);
+
+      if (gaData.accounts?.length > 0) {
+        setGaConnected(true);
+        toast({
+          title: "Success",
+          description: "Connected to Google Analytics 4",
+        });
+
+        // Fetch GA4 properties for all accounts
+        const allProperties = [];
+        for (const account of gaData.accounts) {
+          const propertiesResponse = await fetch(
+            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
+            {
+              headers: {
+                Authorization: `Bearer ${googleAccessToken}`,
+              },
+            }
+          );
+
+          if (propertiesResponse.ok) {
+            const propertiesData = await propertiesResponse.json();
+            if (propertiesData.properties) {
+              allProperties.push(...propertiesData.properties);
+            }
+          }
+        }
+
+        setGaAccounts(
+          allProperties.map((p: any) => ({
+            id: p.name,
+            name: p.displayName,
+          }))
+        );
+      }
+
+      // Fetch Search Console sites
+      const gscResponse = await fetch(
+        "https://www.googleapis.com/webmasters/v3/sites",
+        {
+          headers: {
+            Authorization: `Bearer ${googleAccessToken}`,
+          },
+        }
+      );
+
+      if (!gscResponse.ok) {
+        throw new Error(`Search Console API error: ${gscResponse.statusText}`);
+      }
+
+      const gscData = await gscResponse.json();
+      console.log("Search Console Response:", gscData);
+      
+      if (gscData.siteEntry?.length > 0) {
+        setGscConnected(true);
+        toast({
+          title: "Success",
+          description: "Connected to Search Console",
+        });
+        
+        setGscAccounts(
+          gscData.siteEntry.map((s: any) => ({
+            id: s.siteUrl,
+            name: s.siteUrl,
+          }))
+        );
+      }
 
     } catch (error: any) {
       console.error('Error in signInWithGoogle:', error);
