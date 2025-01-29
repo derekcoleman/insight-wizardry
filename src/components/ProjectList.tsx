@@ -17,8 +17,9 @@ import { useToast } from "@/components/ui/use-toast";
 interface Project {
   id: string;
   name: string;
-  url: string;
+  url: string | null;
   created_at: string;
+  user_id: string;
 }
 
 export function ProjectList() {
@@ -26,6 +27,15 @@ export function ProjectList() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const { toast } = useToast();
+
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    },
+  });
 
   const { data: projects, refetch } = useQuery({
     queryKey: ["projects"],
@@ -42,13 +52,22 @@ export function ProjectList() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!session?.user?.id) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to create a project.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const { error } = await supabase.from("projects").insert([
-        {
-          name,
-          url,
-        },
-      ]);
+      const { error } = await supabase.from("projects").insert({
+        name,
+        url,
+        user_id: session.user.id,
+      });
 
       if (error) throw error;
 
