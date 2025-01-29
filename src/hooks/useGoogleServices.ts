@@ -18,7 +18,6 @@ export function useGoogleServices() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Check for existing OAuth data on mount
   useEffect(() => {
     const checkExistingAuth = async () => {
       try {
@@ -37,7 +36,6 @@ export function useGoogleServices() {
           const now = new Date();
           const hoursSinceAuth = (now.getTime() - timestamp.getTime()) / (1000 * 60 * 60);
 
-          // If token is less than 1 hour old, reuse it
           if (hoursSinceAuth < 1) {
             console.log('Reusing existing Google OAuth token');
             setAccessToken(oauthData.access_token);
@@ -62,89 +60,80 @@ export function useGoogleServices() {
       description: errorMessage,
       variant: "destructive",
     });
+    setIsLoading(false);
   };
 
   const fetchGoogleData = async (token: string) => {
-    try {
-      // Test Gmail connection
-      const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+    const fetchPromises = [];
+
+    // Test Gmail connection
+    fetchPromises.push(
+      fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
         headers: { Authorization: `Bearer ${token}` },
-      });
+      }).then(response => {
+        if (response.ok) setGmailConnected(true);
+      }).catch(error => console.error('Gmail check failed:', error))
+    );
 
-      if (gmailResponse.ok) {
-        setGmailConnected(true);
-      }
-
-      // Fetch GA4 accounts
-      const gaResponse = await fetch(
-        "https://analyticsadmin.googleapis.com/v1alpha/accounts",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (!gaResponse.ok) {
-        throw new Error(`GA4 API error: ${gaResponse.statusText}`);
-      }
-
-      const gaData = await gaResponse.json();
-      
-      if (gaData.accounts?.length > 0) {
-        setGaConnected(true);
-
-        // Fetch GA4 properties for all accounts
-        const allProperties = [];
-        for (const account of gaData.accounts) {
-          const propertiesResponse = await fetch(
-            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
+    // Fetch GA4 accounts
+    fetchPromises.push(
+      fetch("https://analyticsadmin.googleapis.com/v1alpha/accounts", {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(async (response) => {
+        if (!response.ok) throw new Error(`GA4 API error: ${response.statusText}`);
+        const gaData = await response.json();
+        
+        if (gaData.accounts?.length > 0) {
+          setGaConnected(true);
+          // Fetch GA4 properties for all accounts
+          const propertyPromises = gaData.accounts.map((account: any) =>
+            fetch(
+              `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            ).then(r => r.json())
           );
 
-          if (propertiesResponse.ok) {
-            const propertiesData = await propertiesResponse.json();
-            if (propertiesData.properties) {
-              allProperties.push(...propertiesData.properties);
-            }
-          }
+          const propertiesData = await Promise.all(propertyPromises);
+          const allProperties = propertiesData.flatMap(data => data.properties || []);
+          
+          setGaAccounts(
+            allProperties.map((p: any) => ({
+              id: p.name,
+              name: p.displayName,
+            }))
+          );
         }
+      }).catch(error => handleApiError(error, "Google Analytics"))
+    );
 
-        setGaAccounts(
-          allProperties.map((p: any) => ({
-            id: p.name,
-            name: p.displayName,
-          }))
-        );
-      }
-
-      // Fetch Search Console sites
-      const gscResponse = await fetch(
-        "https://www.googleapis.com/webmasters/v3/sites",
-        {
-          headers: { Authorization: `Bearer ${token}` },
+    // Fetch Search Console sites
+    fetchPromises.push(
+      fetch("https://www.googleapis.com/webmasters/v3/sites", {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(async (response) => {
+        if (!response.ok) throw new Error(`Search Console API error: ${response.statusText}`);
+        const gscData = await response.json();
+        
+        if (gscData.siteEntry?.length > 0) {
+          setGscConnected(true);
+          setGscAccounts(
+            gscData.siteEntry.map((s: any) => ({
+              id: s.siteUrl,
+              name: s.siteUrl,
+            }))
+          );
         }
-      );
+      }).catch(error => handleApiError(error, "Search Console"))
+    );
 
-      if (!gscResponse.ok) {
-        throw new Error(`Search Console API error: ${gscResponse.statusText}`);
-      }
-
-      const gscData = await gscResponse.json();
-      
-      if (gscData.siteEntry?.length > 0) {
-        setGscConnected(true);
-        setGscAccounts(
-          gscData.siteEntry.map((s: any) => ({
-            id: s.siteUrl,
-            name: s.siteUrl,
-          }))
-        );
-      }
-
-    } catch (error: any) {
+    try {
+      await Promise.all(fetchPromises);
+    } catch (error) {
       console.error('Error fetching Google data:', error);
-      handleApiError(error, "Google Services");
+    } finally {
+      setIsLoading(false);
     }
   };
 
