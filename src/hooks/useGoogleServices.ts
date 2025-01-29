@@ -43,29 +43,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const handleApiError = (error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
-    let errorMessage = "An unknown error occurred";
-    let detailedError = "";
-
-    if (error.response) {
-      if (error.response.status === 403) {
-        errorMessage = `${apiName} API is not enabled.`;
-        detailedError = `Please enable the ${apiName} API in Google Cloud Console`;
-      } else if (error.response.status === 401) {
-        errorMessage = `Authentication failed for ${apiName}.`;
-        detailedError = "Please try logging in again.";
-      } else {
-        errorMessage = `${apiName} API error: ${error.response.status}`;
-        detailedError = error.response.data?.error?.message || "No additional error details available.";
-      }
-    } else if (error.request) {
-      errorMessage = `No response received from ${apiName} API.`;
-      detailedError = "Please check your internet connection.";
-    } else {
-      errorMessage = `Error accessing ${apiName}`;
-      detailedError = error.message || "An unexpected error occurred.";
-    }
-
-    setError(`${errorMessage}\n${detailedError}`);
+    const errorMessage = error.response?.data?.error?.message || error.message || "An unknown error occurred";
+    setError(`${apiName} API error: ${errorMessage}`);
     toast({
       title: "Error",
       description: errorMessage,
@@ -75,9 +54,10 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const signInWithGoogle = async (googleAccessToken: string) => {
     try {
-      console.log("Starting Google OAuth flow with token");
-      
-      // Get user info from Google first
+      console.log("Starting Google OAuth flow");
+      setAccessToken(googleAccessToken);
+
+      // Get user info from Google
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: {
           Authorization: `Bearer ${googleAccessToken}`,
@@ -85,7 +65,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       });
 
       if (!userInfoResponse.ok) {
-        console.error('Failed to fetch user info:', await userInfoResponse.text());
         throw new Error('Failed to fetch user info from Google');
       }
 
@@ -93,14 +72,10 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
-      // Store the access token first
-      setAccessToken(googleAccessToken);
-
-      // Sign in with Supabase using the Google token
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithOAuth({
+      // Sign in with Supabase
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
           queryParams: {
             access_token: googleAccessToken,
           },
@@ -108,11 +83,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       });
 
       if (signInError) {
-        console.error('Supabase sign in error:', signInError);
         throw signInError;
       }
-
-      console.log("Supabase sign in successful:", signInData);
 
       // Test Gmail connection
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
@@ -130,7 +102,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       // Fetch GA4 accounts
-      console.log("Fetching GA4 accounts...");
       const gaResponse = await fetch(
         "https://analyticsadmin.googleapis.com/v1alpha/accounts",
         {
@@ -141,59 +112,48 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       );
 
       if (!gaResponse.ok) {
-        console.error('GA4 API error:', await gaResponse.text());
         throw new Error(`GA4 API error: ${gaResponse.statusText}`);
       }
 
       const gaData = await gaResponse.json();
       console.log("GA4 Response:", gaData);
 
-      if (!gaData.accounts || gaData.accounts.length === 0) {
-        toast({
-          title: "Warning",
-          description: "No Google Analytics 4 accounts found",
-          variant: "destructive",
-        });
-      } else {
+      if (gaData.accounts?.length > 0) {
         setGaConnected(true);
         toast({
           title: "Success",
           description: "Connected to Google Analytics 4",
         });
-      }
 
-      // Fetch GA4 properties for all accounts
-      const allProperties = [];
-      for (const account of gaData.accounts) {
-        const propertiesResponse = await fetch(
-          `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
-          {
-            headers: {
-              Authorization: `Bearer ${googleAccessToken}`,
-            },
+        // Fetch GA4 properties for all accounts
+        const allProperties = [];
+        for (const account of gaData.accounts) {
+          const propertiesResponse = await fetch(
+            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
+            {
+              headers: {
+                Authorization: `Bearer ${googleAccessToken}`,
+              },
+            }
+          );
+
+          if (propertiesResponse.ok) {
+            const propertiesData = await propertiesResponse.json();
+            if (propertiesData.properties) {
+              allProperties.push(...propertiesData.properties);
+            }
           }
+        }
+
+        setGaAccounts(
+          allProperties.map((p: any) => ({
+            id: p.name,
+            name: p.displayName,
+          }))
         );
-
-        if (!propertiesResponse.ok) {
-          console.warn(`Failed to fetch properties for account ${account.name}:`, await propertiesResponse.text());
-          continue;
-        }
-
-        const propertiesData = await propertiesResponse.json();
-        if (propertiesData.properties) {
-          allProperties.push(...propertiesData.properties);
-        }
       }
-
-      setGaAccounts(
-        allProperties.map((p: any) => ({
-          id: p.name,
-          name: p.displayName,
-        }))
-      );
 
       // Fetch Search Console sites
-      console.log("Fetching Search Console sites...");
       const gscResponse = await fetch(
         "https://www.googleapis.com/webmasters/v3/sites",
         {
@@ -204,38 +164,30 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       );
 
       if (!gscResponse.ok) {
-        console.error('Search Console API error:', await gscResponse.text());
         throw new Error(`Search Console API error: ${gscResponse.statusText}`);
       }
 
       const gscData = await gscResponse.json();
       console.log("Search Console Response:", gscData);
       
-      if (!gscData.siteEntry || gscData.siteEntry.length === 0) {
-        toast({
-          title: "Warning",
-          description: "No Search Console sites found",
-          variant: "destructive",
-        });
-      } else {
+      if (gscData.siteEntry?.length > 0) {
         setGscConnected(true);
         toast({
           title: "Success",
           description: "Connected to Search Console",
         });
+        
+        setGscAccounts(
+          gscData.siteEntry.map((s: any) => ({
+            id: s.siteUrl,
+            name: s.siteUrl,
+          }))
+        );
       }
-      
-      setGscAccounts(
-        gscData.siteEntry?.map((s: any) => ({
-          id: s.siteUrl,
-          name: s.siteUrl,
-        })) || []
-      );
 
     } catch (error: any) {
       console.error('Error in signInWithGoogle:', error);
       handleApiError(error, "Google Services");
-      throw error;
     }
   };
 
@@ -246,10 +198,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     }
 
     try {
-      console.log("Fetching events for property:", propertyId);
-      
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
-      console.log("Clean property ID:", cleanPropertyId);
       
       const response = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
@@ -275,8 +224,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("GA4 API Error Response:", errorText);
         throw new Error(`Failed to fetch events: ${response.statusText}`);
       }
 
@@ -301,16 +248,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         }))
       ];
 
-      console.log("Available events:", goals);
       setConversionGoals(goals);
       
-      if (goals.length === 0) {
-        toast({
-          title: "No Events Found",
-          description: "No events were found in this GA4 property",
-          variant: "destructive",
-        });
-      } else {
+      if (goals.length > 1) {
         toast({
           title: "Events Found",
           description: `Found ${goals.length - 1} events in this GA4 property`,
@@ -329,13 +269,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       setError(null);
       
       try {
-        console.log("Google login successful, proceeding with token");
+        console.log("Google login successful, token:", response.access_token);
         await signInWithGoogle(response.access_token);
-        
-        toast({
-          title: "Connected",
-          description: "Successfully connected with Google services",
-        });
       } catch (error: any) {
         console.error("Login error:", error);
         handleApiError(error, "Google Services");
