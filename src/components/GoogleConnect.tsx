@@ -1,17 +1,14 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
+import { AlertCircle } from "lucide-react";
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { supabase } from "@/integrations/supabase/client";
 import { useGoogleServices } from "@/hooks/useGoogleServices";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
-import { PropertySelector } from "@/components/PropertySelector";
-import { ConversionGoalSelector } from "@/components/ConversionGoalSelector";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
+import { GoogleAuthCheck } from "@/components/google/GoogleAuthCheck";
 
 interface GoogleConnectProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -19,14 +16,9 @@ interface GoogleConnectProps {
 }
 
 export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: GoogleConnectProps) {
-  const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
-  const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
-  const [selectedGoal, setSelectedGoal] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [authChecking, setAuthChecking] = useState(true);
-  const { toast } = useToast();
 
   const {
     gaAccounts,
@@ -46,111 +38,9 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     onConnectionChange?.(gaConnected || gscConnected);
   }, [gaConnected, gscConnected, onConnectionChange]);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const checkAuthAndCreateProfile = async () => {
-      try {
-        setAuthChecking(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!mounted) return;
-        
-        if (!session?.user?.id) {
-          console.log('No authenticated user found - waiting for auth state to be ready');
-          return;
-        }
-
-        if (userEmail) {
-          const { data: existingProfile, error: fetchError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', userEmail)
-            .single();
-
-          if (fetchError && fetchError.code !== 'PGRST116') {
-            console.error('Error checking profile:', fetchError);
-            return;
-          }
-
-          if (!existingProfile) {
-            const { error: insertError } = await supabase
-              .from('profiles')
-              .insert({
-                id: session.user.id,
-                email: userEmail
-              });
-
-            if (insertError) {
-              console.error('Error creating profile:', insertError);
-              toast({
-                title: "Error",
-                description: "Failed to create user profile",
-                variant: "destructive",
-              });
-            } else {
-              toast({
-                title: "Success",
-                description: "Profile created successfully",
-              });
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error in profile creation:', error);
-        toast({
-          title: "Error",
-          description: "Failed to create user profile",
-          variant: "destructive",
-        });
-      } finally {
-        if (mounted) {
-          setAuthChecking(false);
-        }
-      }
-    };
-
-    // Only try to create profile if we have a userEmail
-    if (userEmail) {
-      checkAuthAndCreateProfile();
-    } else {
-      setAuthChecking(false);
-    }
-
-    return () => {
-      mounted = false;
-    };
-  }, [userEmail, toast]);
-
-  const handleGaAccountChange = async (value: string) => {
-    try {
-      setSelectedGaAccount(value);
-      setSelectedGoal(""); // Reset goal when changing account
-      setAnalysisError(null);
-      setReport(null);
-      
-      if (value) {
-        console.log("Fetching conversion goals for GA4 property:", value);
-        await fetchConversionGoals(value);
-      }
-    } catch (error) {
-      console.error("Error handling GA account change:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch conversion goals. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAnalyze = async () => {
-    if (!selectedGaAccount || !accessToken) {
-      console.log("Missing required data:", { selectedGaAccount, hasAccessToken: !!accessToken });
-      toast({
-        title: "Error",
-        description: "Please select a Google Analytics property first.",
-        variant: "destructive",
-      });
+  const handleAnalyze = async (ga4Property: string, gscProperty: string, mainConversionGoal: string) => {
+    if (!ga4Property || !accessToken) {
+      console.log("Missing required data:", { ga4Property, hasAccessToken: !!accessToken });
       return;
     }
 
@@ -158,18 +48,18 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     setAnalysisError(null);
     try {
       console.log("Starting analysis with:", {
-        ga4Property: selectedGaAccount,
-        gscProperty: selectedGscAccount,
+        ga4Property,
+        gscProperty,
         hasAccessToken: !!accessToken,
-        mainConversionGoal: selectedGoal,
+        mainConversionGoal,
       });
 
       const result = await supabase.functions.invoke('analyze-ga4-data', {
         body: {
-          ga4Property: selectedGaAccount,
-          gscProperty: selectedGscAccount,
-          accessToken: accessToken,
-          mainConversionGoal: selectedGoal || undefined,
+          ga4Property,
+          gscProperty,
+          accessToken,
+          mainConversionGoal: mainConversionGoal || undefined,
         },
       });
 
@@ -184,121 +74,59 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
 
       setReport(result.data.report);
       onAnalysisComplete?.(result.data);
-      toast({
-        title: "Success",
-        description: "Analysis completed successfully",
-      });
     } catch (error) {
       console.error('Analysis error:', error);
       setAnalysisError(error instanceof Error ? error.message : 'Failed to analyze data');
-      toast({
-        title: "Error",
-        description: "Failed to analyze data. Please try again.",
-        variant: "destructive",
-      });
       setReport(null);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  if (authChecking) {
-    return (
-      <Card className="max-w-xl mx-auto">
-        <CardContent className="space-y-4 pt-6">
-          <div className="flex items-center justify-center p-4">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="ml-2">Checking authentication status...</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <Card className="max-w-xl mx-auto">
-        <CardContent className="space-y-4 pt-6">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription className="whitespace-pre-line">
-                {error}
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <div className="max-w-sm mx-auto">
-            <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
-          </div>
-
-          <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
-
-          {gaAccounts.length > 0 && (
-            <div className="max-w-md mx-auto">
-              <PropertySelector
-                label="Select Google Analytics 4 Property"
-                accounts={gaAccounts}
-                value={selectedGaAccount}
-                onValueChange={handleGaAccountChange}
-                placeholder="Select GA4 property"
-              />
-            </div>
-          )}
-
-          {conversionGoals.length > 0 && (
-            <div className="max-w-md mx-auto">
-              <ConversionGoalSelector
-                goals={conversionGoals}
-                value={selectedGoal}
-                onValueChange={setSelectedGoal}
-              />
-            </div>
-          )}
-
-          {gaAccounts.length > 0 && gscAccounts.length > 0 && (
-            <Separator className="my-4" />
-          )}
-
-          {gscAccounts.length > 0 && (
-            <div className="max-w-md mx-auto">
-              <PropertySelector
-                label="Select Search Console Property"
-                accounts={gscAccounts}
-                value={selectedGscAccount}
-                onValueChange={setSelectedGscAccount}
-                placeholder="Select Search Console property"
-              />
-            </div>
-          )}
-
-          {selectedGaAccount && (
+    <GoogleAuthCheck userEmail={userEmail}>
+      <div className="space-y-6">
+        <Card className="max-w-xl mx-auto">
+          <CardContent className="space-y-4 pt-6">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription className="whitespace-pre-line">
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="max-w-sm mx-auto">
-              <Button 
-                onClick={handleAnalyze}
-                disabled={isAnalyzing}
-                className="w-full"
-              >
-                {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Analyze Data
-              </Button>
+              <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
             </div>
-          )}
 
-          {analysisError && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Analysis Error</AlertTitle>
-              <AlertDescription>{analysisError}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+            <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
 
-      {(isAnalyzing || report) && (
-        <AnalysisResults report={report} isLoading={isAnalyzing} />
-      )}
-    </div>
+            <GooglePropertyForm
+              gaAccounts={gaAccounts}
+              gscAccounts={gscAccounts}
+              conversionGoals={conversionGoals}
+              isAnalyzing={isAnalyzing}
+              onAnalyze={handleAnalyze}
+              fetchConversionGoals={fetchConversionGoals}
+            />
+
+            {analysisError && (
+              <Alert variant="destructive" className="mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Analysis Error</AlertTitle>
+                <AlertDescription>{analysisError}</AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+
+        {(isAnalyzing || report) && (
+          <AnalysisResults report={report} isLoading={isAnalyzing} />
+        )}
+      </div>
+    </GoogleAuthCheck>
   );
 }
