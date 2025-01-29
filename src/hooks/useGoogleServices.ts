@@ -13,6 +13,12 @@ interface ConversionGoal {
   name: string;
 }
 
+interface GoogleOAuthData {
+  access_token: string;
+  email: string;
+  timestamp: string;
+}
+
 interface UseGoogleServicesReturn {
   gaAccounts: Account[];
   gscAccounts: Account[];
@@ -53,11 +59,14 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         .eq('id', session.user.id)
         .single();
 
-      if (profile?.google_oauth_data?.access_token) {
-        console.log('Found existing Google OAuth data');
-        setAccessToken(profile.google_oauth_data.access_token);
-        setUserEmail(profile.email);
-        await initializeGoogleServices(profile.google_oauth_data.access_token);
+      if (profile?.google_oauth_data) {
+        const oauthData = profile.google_oauth_data as GoogleOAuthData;
+        if (oauthData.access_token) {
+          console.log('Found existing Google OAuth data');
+          setAccessToken(oauthData.access_token);
+          setUserEmail(profile.email);
+          await initializeGoogleServices(oauthData.access_token);
+        }
       }
     };
 
@@ -183,14 +192,16 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       // Save OAuth data to profile
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.id) {
+        const oauthData: GoogleOAuthData = {
+          access_token: googleAccessToken,
+          email: userInfo.email,
+          timestamp: new Date().toISOString()
+        };
+
         await supabase
           .from('profiles')
           .update({
-            google_oauth_data: {
-              access_token: googleAccessToken,
-              email: userInfo.email,
-              timestamp: new Date().toISOString()
-            }
+            google_oauth_data: oauthData
           })
           .eq('id', session.user.id);
       }
