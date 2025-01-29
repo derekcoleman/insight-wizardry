@@ -6,11 +6,10 @@ import { AnalysisInsights } from "./AnalysisInsights";
 import { AnalysisCard } from "./analysis/AnalysisCard";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { useToast } from "./ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { ExportButtons } from "./analysis/ExportButtons";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 
 interface AnalysisResultsProps {
   report: {
@@ -36,16 +35,6 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  // Use React Query to manage authentication state
-  const { data: session } = useQuery({
-    queryKey: ["session"],
-    queryFn: async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      return session;
-    },
-  });
 
   useEffect(() => {
     const generateInsights = async () => {
@@ -74,6 +63,8 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
         setInsights(data.insights);
 
         // Save to search history if user is authenticated
+        const { data: { session } } = await supabase.auth.getSession();
+        
         if (session?.user?.id) {
           // First get the current search history
           const { data: profileData, error: fetchError } = await supabase
@@ -117,7 +108,7 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
     };
 
     generateInsights();
-  }, [report, isLoading, providedInsights, channelName, session]);
+  }, [report, isLoading, providedInsights, channelName]);
 
   const handleCreateDoc = async () => {
     if (!report) return;
@@ -255,13 +246,14 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
   };
 
   const handleSaveProject = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
     if (!session?.user?.id) {
       toast({
-        title: "Authentication Required",
-        description: "Please sign in to save this project.",
+        title: "Connect Google Services",
+        description: "Please connect your Google account to save this project.",
         variant: "destructive",
       });
-      navigate('/auth');
       return;
     }
 

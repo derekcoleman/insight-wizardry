@@ -9,6 +9,7 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { GoogleAuthCheck } from "@/components/google/GoogleAuthCheck";
+import { useToast } from "@/hooks/use-toast";
 
 interface GoogleConnectProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -19,6 +20,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const {
     gaAccounts,
@@ -87,50 +89,49 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     }
   };
 
+  // Remove the GoogleAuthCheck wrapper since we're handling auth directly
   return (
-    <GoogleAuthCheck userEmail={userEmail}>
-      <div className="space-y-6">
-        <Card className="max-w-xl mx-auto">
-          <CardContent className="space-y-4 pt-6">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription className="whitespace-pre-line">
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="max-w-sm mx-auto">
-              <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
-            </div>
+    <div className="space-y-6">
+      <Card className="max-w-xl mx-auto">
+        <CardContent className="space-y-4 pt-6">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription className="whitespace-pre-line">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="max-w-sm mx-auto">
+            <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
+          </div>
 
-            <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
+          <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
 
-            <GooglePropertyForm
-              gaAccounts={gaAccounts}
-              gscAccounts={gscAccounts}
-              conversionGoals={conversionGoals}
-              isAnalyzing={isAnalyzing}
-              onAnalyze={handleAnalyze}
-              fetchConversionGoals={fetchConversionGoals}
-            />
+          <GooglePropertyForm
+            gaAccounts={gaAccounts}
+            gscAccounts={gscAccounts}
+            conversionGoals={conversionGoals}
+            isAnalyzing={isAnalyzing}
+            onAnalyze={handleAnalyze}
+            fetchConversionGoals={fetchConversionGoals}
+          />
 
-            {analysisError && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Analysis Error</AlertTitle>
-                <AlertDescription>{analysisError}</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+          {analysisError && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Analysis Error</AlertTitle>
+              <AlertDescription>{analysisError}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
-        {(isAnalyzing || report) && (
-          <AnalysisResults report={report} isLoading={isAnalyzing} />
-        )}
-      </div>
-    </GoogleAuthCheck>
+      {(isAnalyzing || report) && (
+        <AnalysisResults report={report} isLoading={isAnalyzing} />
+      )}
+    </div>
   );
 }
