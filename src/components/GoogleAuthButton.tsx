@@ -18,7 +18,7 @@ export function GoogleAuthButton({ onClick, isLoading }: GoogleAuthButtonProps) 
       ) : (
         <Mail className="h-4 w-4 mr-2" />
       )}
-      Connect Gmail Account
+      Connect Google Services
     </Button>
   );
 }

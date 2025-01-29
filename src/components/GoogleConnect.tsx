@@ -51,7 +51,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
         try {
           const { data: session } = await supabase.auth.getSession();
           if (!session?.session?.user?.id) {
-            console.error('No authenticated user found');
+            console.log('No authenticated user found - waiting for auth state to be ready');
             return;
           }
 
