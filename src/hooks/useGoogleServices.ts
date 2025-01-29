@@ -29,23 +29,27 @@ export function useGoogleServices() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Load stored token on mount
+  // Load stored token on mount and verify it
   useEffect(() => {
-    const storedToken = localStorage.getItem(GOOGLE_TOKEN_KEY);
-    const tokenExpiry = localStorage.getItem(GOOGLE_TOKEN_EXPIRY_KEY);
-    
-    if (storedToken && tokenExpiry) {
-      const expiryTime = parseInt(tokenExpiry);
-      if (expiryTime > Date.now()) {
-        console.log("Found valid stored Google token");
-        setAccessToken(storedToken);
-        initializeWithToken(storedToken);
-      } else {
-        console.log("Stored token expired, clearing");
-        localStorage.removeItem(GOOGLE_TOKEN_KEY);
-        localStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY);
+    const verifyStoredToken = async () => {
+      const storedToken = localStorage.getItem(GOOGLE_TOKEN_KEY);
+      const tokenExpiry = localStorage.getItem(GOOGLE_TOKEN_EXPIRY_KEY);
+      
+      if (storedToken && tokenExpiry) {
+        const expiryTime = parseInt(tokenExpiry);
+        if (expiryTime > Date.now()) {
+          console.log("Found valid stored Google token");
+          setAccessToken(storedToken);
+          await initializeWithToken(storedToken);
+        } else {
+          console.log("Stored token expired, clearing");
+          localStorage.removeItem(GOOGLE_TOKEN_KEY);
+          localStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY);
+        }
       }
-    }
+    };
+
+    verifyStoredToken();
   }, []);
 
   const storeToken = (token: string) => {
@@ -74,7 +78,7 @@ export function useGoogleServices() {
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
-      // Update profile in Supabase
+      // Update profile in Supabase with Google OAuth data
       const { data: session } = await supabase.auth.getSession();
       if (session?.session?.user?.id) {
         const { error: updateError } = await supabase
@@ -83,12 +87,14 @@ export function useGoogleServices() {
             google_oauth_data: {
               email: userInfo.email,
               access_token: token,
+              connected: true
             }
           })
           .eq('id', session.session.user.id);
 
         if (updateError) {
           console.error('Error updating profile:', updateError);
+          throw new Error('Failed to update profile with Google data');
         }
       }
 
@@ -163,6 +169,33 @@ export function useGoogleServices() {
     }
   };
 
+  const login = useGoogleLogin({
+    onSuccess: async (response) => {
+      console.log("Google login successful, token:", response.access_token);
+      storeToken(response.access_token);
+      await initializeWithToken(response.access_token);
+    },
+    onError: (errorResponse) => {
+      console.error("Google login error:", errorResponse);
+      const errorMessage = errorResponse.error_description || errorResponse.error || "Failed to authenticate with Google";
+      setError(errorMessage);
+      toast({
+        title: "Authentication Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+    scope: [
+      "https://www.googleapis.com/auth/analytics.readonly",
+      "https://www.googleapis.com/auth/webmasters.readonly",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ].join(" "),
+    flow: "implicit",
+    prompt: "consent",
+  });
+
   const fetchConversionGoals = async (propertyId: string) => {
     if (!accessToken) {
       console.log("No access token available for fetching events");
@@ -234,33 +267,6 @@ export function useGoogleServices() {
       setConversionGoals([]);
     }
   };
-
-  const login = useGoogleLogin({
-    onSuccess: async (response) => {
-      console.log("Google login successful, token:", response.access_token);
-      storeToken(response.access_token);
-      await initializeWithToken(response.access_token);
-    },
-    onError: (errorResponse) => {
-      console.error("Google login error:", errorResponse);
-      const errorMessage = errorResponse.error_description || errorResponse.error || "Failed to authenticate with Google";
-      setError(errorMessage);
-      toast({
-        title: "Authentication Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    },
-    scope: [
-      "https://www.googleapis.com/auth/analytics.readonly",
-      "https://www.googleapis.com/auth/webmasters.readonly",
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile"
-    ].join(" "),
-    flow: "implicit",
-    prompt: "consent",
-  });
 
   return {
     gaAccounts,
