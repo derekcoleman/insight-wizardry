@@ -16,7 +16,6 @@ export type Database = {
           gsc_property: string | null
           id: string
           monthly_analysis: Json | null
-          project_id: string | null
           quarterly_analysis: Json | null
           status: string
           user_id: string | null
@@ -29,7 +28,6 @@ export type Database = {
           gsc_property?: string | null
           id?: string
           monthly_analysis?: Json | null
-          project_id?: string | null
           quarterly_analysis?: Json | null
           status?: string
           user_id?: string | null
@@ -42,22 +40,13 @@ export type Database = {
           gsc_property?: string | null
           id?: string
           monthly_analysis?: Json | null
-          project_id?: string | null
           quarterly_analysis?: Json | null
           status?: string
           user_id?: string | null
           weekly_analysis?: Json | null
           yoy_analysis?: Json | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "analytics_reports_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       api_configurations: {
         Row: {

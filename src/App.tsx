@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AppLayout } from "./components/layout/AppLayout";
 import Index from "./pages/Index";
@@ -11,8 +11,6 @@ import Terms from "./pages/Terms";
 import SeoStrategy from "./pages/SeoStrategy";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
-import Projects from "./pages/Projects";
-import ProjectReport from "./pages/ProjectReport";
 
 const queryClient = new QueryClient();
 
@@ -31,9 +29,7 @@ const App = () => {
               <Toaster />
               <Sonner />
               <Routes>
-                <Route path="/" element={<Navigate to="/projects" replace />} />
-                <Route path="/projects" element={<Projects />} />
-                <Route path="/projects/:projectId/report" element={<ProjectReport />} />
+                <Route path="/" element={<Index />} />
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/seo-strategy" element={<SeoStrategy />} />

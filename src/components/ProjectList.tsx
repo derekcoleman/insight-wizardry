@@ -16,7 +16,6 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNavigate } from "react-router-dom";
 
 interface Project {
   id: string;
@@ -38,8 +37,8 @@ export function ProjectList() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [activeTab, setActiveTab] = useState("details");
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -104,7 +103,7 @@ export function ProjectList() {
       });
 
       setSelectedProject(project.id);
-      navigate(`/projects/${project.id}/report`);
+      setActiveTab("connect");
     } catch (error) {
       toast({
         title: "Error creating project",
@@ -116,8 +115,8 @@ export function ProjectList() {
 
   const handleAnalysisComplete = async (projectId: string, data: any) => {
     try {
+      // Save the analysis results to the project
       const { error } = await supabase.from("analytics_reports").insert({
-        project_id: projectId,
         user_id: session?.user?.id,
         ga4_property: data.ga4Property,
         gsc_property: data.gscProperty,
@@ -134,7 +133,11 @@ export function ProjectList() {
         description: "The report has been saved to your project.",
       });
 
-      navigate(`/projects/${projectId}/report`);
+      setOpen(false);
+      setName("");
+      setUrl("");
+      setActiveTab("details");
+      refetchProjects();
     } catch (error) {
       toast({
         title: "Error saving analysis",
@@ -164,35 +167,62 @@ export function ProjectList() {
             <DialogHeader>
               <DialogTitle>Create New Project</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCreateProject} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">
-                  Project Name
-                </label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="My Website"
-                  required
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details">Project Details</TabsTrigger>
+                <TabsTrigger value="connect" disabled={!selectedProject}>
+                  Connect Services
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="details">
+                <form onSubmit={handleCreateProject} className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="text-sm font-medium">
+                      Project Name
+                    </label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="My Website"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="url" className="text-sm font-medium">
+                      Website URL
+                    </label>
+                    <Input
+                      id="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://example.com"
+                      type="url"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Create Project
+                  </Button>
+                </form>
+              </TabsContent>
+              <TabsContent value="connect">
+                <GoogleConnect 
+                  onConnectionChange={(connected) => {
+                    if (connected) {
+                      toast({
+                        title: "Connection successful",
+                        description: "Google services have been connected to your project.",
+                      });
+                    }
+                  }}
+                  onAnalysisComplete={(data) => {
+                    if (selectedProject) {
+                      handleAnalysisComplete(selectedProject, data);
+                    }
+                  }}
                 />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="url" className="text-sm font-medium">
-                  Website URL
-                </label>
-                <Input
-                  id="url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  type="url"
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Create Project
-              </Button>
-            </form>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
