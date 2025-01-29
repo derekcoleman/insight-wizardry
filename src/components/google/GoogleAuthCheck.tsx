@@ -11,24 +11,41 @@ interface GoogleAuthCheckProps {
 
 export function GoogleAuthCheck({ userEmail, children }: GoogleAuthCheckProps) {
   const [authChecking, setAuthChecking] = useState(true);
+  const [session, setSession] = useState<any>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Auth state changed:", { event: _event, session });
+      setSession(session);
+    });
+
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial session check:", { session });
+      setSession(session);
+    });
+
+    // Cleanup subscription
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
     const checkAuthAndCreateProfile = async () => {
       try {
-        setAuthChecking(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!mounted) return;
-        
         if (!session?.user?.id) {
           console.log('No authenticated user found - waiting for auth state to be ready');
+          if (mounted) setAuthChecking(false);
           return;
         }
 
         if (userEmail) {
+          console.log('Checking profile for user:', userEmail);
           const { data: existingProfile, error: fetchError } = await supabase
             .from('profiles')
             .select('*')
@@ -41,6 +58,7 @@ export function GoogleAuthCheck({ userEmail, children }: GoogleAuthCheckProps) {
           }
 
           if (!existingProfile) {
+            console.log('Creating new profile for user:', userEmail);
             const { error: insertError } = await supabase
               .from('profiles')
               .insert({
@@ -86,7 +104,7 @@ export function GoogleAuthCheck({ userEmail, children }: GoogleAuthCheckProps) {
     return () => {
       mounted = false;
     };
-  }, [userEmail, toast]);
+  }, [userEmail, toast, session]);
 
   if (authChecking) {
     return (
