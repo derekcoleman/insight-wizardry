@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Folder, Link, Database } from "lucide-react";
+import { Plus, Folder, Link, Database, Check, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
+import { GoogleConnect } from "@/components/GoogleConnect";
 
 interface Project {
   id: string;
@@ -22,8 +24,16 @@ interface Project {
   user_id: string;
 }
 
+interface Connection {
+  id: string;
+  service_type: string;
+  status: string | null;
+  last_refreshed_at: string | null;
+}
+
 export function ProjectList() {
   const [open, setOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const { toast } = useToast();
@@ -37,7 +47,7 @@ export function ProjectList() {
     },
   });
 
-  const { data: projects, refetch } = useQuery({
+  const { data: projects, refetch: refetchProjects } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -47,6 +57,20 @@ export function ProjectList() {
 
       if (error) throw error;
       return data as Project[];
+    },
+  });
+
+  const { data: connections } = useQuery({
+    queryKey: ["connections", selectedProject],
+    enabled: !!selectedProject,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_connections")
+        .select("*")
+        .eq("project_id", selectedProject);
+
+      if (error) throw error;
+      return data as Connection[];
     },
   });
 
@@ -79,7 +103,7 @@ export function ProjectList() {
       setOpen(false);
       setName("");
       setUrl("");
-      refetch();
+      refetchProjects();
     } catch (error) {
       toast({
         title: "Error creating project",
@@ -87,6 +111,11 @@ export function ProjectList() {
         variant: "destructive",
       });
     }
+  };
+
+  const getConnectionStatus = (projectId: string, serviceType: string) => {
+    if (!connections) return null;
+    return connections.find(c => c.service_type === serviceType);
   };
 
   return (
@@ -157,11 +186,58 @@ export function ProjectList() {
               </div>
               <Folder className="h-5 w-5 text-muted-foreground" />
             </div>
-            <div className="mt-4 flex gap-2">
-              <Button variant="outline" size="sm" className="w-full">
-                <Database className="mr-2 h-4 w-4" />
-                Connections
-              </Button>
+            
+            <div className="mt-4 space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {['ga4', 'gsc', 'meta', 'google-ads'].map(service => {
+                  const connection = getConnectionStatus(project.id, service);
+                  return (
+                    <Badge 
+                      key={service}
+                      variant={connection?.status === 'active' ? 'default' : 'secondary'}
+                      className="flex items-center gap-1"
+                    >
+                      {connection?.status === 'active' ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <AlertCircle className="h-3 w-3" />
+                      )}
+                      {service.toUpperCase()}
+                    </Badge>
+                  );
+                })}
+              </div>
+              
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => setSelectedProject(project.id)}
+                  >
+                    <Database className="mr-2 h-4 w-4" />
+                    Manage Connections
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle>Connect APIs - {project.name}</DialogTitle>
+                  </DialogHeader>
+                  <div className="mt-4">
+                    <GoogleConnect 
+                      onConnectionChange={(connected) => {
+                        if (connected) {
+                          toast({
+                            title: "Connection successful",
+                            description: "Google services have been connected to your project.",
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </Card>
         ))}
