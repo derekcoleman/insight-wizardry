@@ -25,6 +25,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
   const { toast } = useToast();
 
   const {
@@ -46,15 +47,21 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   }, [gaConnected, gscConnected, onConnectionChange]);
 
   useEffect(() => {
-    const createUserProfile = async () => {
-      if (userEmail) {
-        try {
-          const { data: session } = await supabase.auth.getSession();
-          if (!session?.session?.user?.id) {
-            console.log('No authenticated user found - waiting for auth state to be ready');
-            return;
-          }
+    let mounted = true;
 
+    const checkAuthAndCreateProfile = async () => {
+      try {
+        setAuthChecking(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (!session?.user?.id) {
+          console.log('No authenticated user found - waiting for auth state to be ready');
+          return;
+        }
+
+        if (userEmail) {
           const { data: existingProfile, error: fetchError } = await supabase
             .from('profiles')
             .select('*')
@@ -70,7 +77,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
             const { error: insertError } = await supabase
               .from('profiles')
               .insert({
-                id: session.session.user.id,
+                id: session.user.id,
                 email: userEmail
               });
 
@@ -88,18 +95,31 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
               });
             }
           }
-        } catch (error) {
-          console.error('Error in profile creation:', error);
-          toast({
-            title: "Error",
-            description: "Failed to create user profile",
-            variant: "destructive",
-          });
+        }
+      } catch (error) {
+        console.error('Error in profile creation:', error);
+        toast({
+          title: "Error",
+          description: "Failed to create user profile",
+          variant: "destructive",
+        });
+      } finally {
+        if (mounted) {
+          setAuthChecking(false);
         }
       }
     };
 
-    createUserProfile();
+    // Only try to create profile if we have a userEmail
+    if (userEmail) {
+      checkAuthAndCreateProfile();
+    } else {
+      setAuthChecking(false);
+    }
+
+    return () => {
+      mounted = false;
+    };
   }, [userEmail, toast]);
 
   const handleGaAccountChange = async (value: string) => {
@@ -181,6 +201,19 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
       setIsAnalyzing(false);
     }
   };
+
+  if (authChecking) {
+    return (
+      <Card className="max-w-xl mx-auto">
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex items-center justify-center p-4">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span className="ml-2">Checking authentication status...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
