@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
-import { Home, LineChart, PanelLeft, UserRound, Settings2 } from "lucide-react";
+import { Home, LineChart, PanelLeft, UserRound, Settings2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -14,6 +14,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
+import { useToast } from "@/components/ui/use-toast";
 
 const items = [
   {
@@ -31,6 +32,7 @@ const items = [
 function NavHeader() {
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,13 +54,22 @@ function NavHeader() {
             
           if (profileError) {
             console.error("Error fetching profile:", profileError);
+            toast({
+              title: "Error",
+              description: "Could not fetch user profile",
+              variant: "destructive",
+            });
           } else if (profileData) {
-            console.log("Profile data:", profileData);
             setUserProfile(profileData);
           }
         }
       } catch (error) {
         console.error("Error fetching session:", error);
+        toast({
+          title: "Error",
+          description: "Could not fetch user session",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -87,17 +98,25 @@ function NavHeader() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [toast]);
 
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
       setUserEmail(null);
       setUserProfile(null);
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out",
+      });
       navigate('/');
-      window.location.reload();
     } catch (error) {
       console.error("Error signing out:", error);
+      toast({
+        title: "Error",
+        description: "Could not sign out",
+        variant: "destructive",
+      });
     }
   };
   
@@ -124,8 +143,10 @@ function NavHeader() {
             </Link>
           </div>
 
-          {!isLoading && userEmail && (
-            <div className="flex items-center">
+          <div className="flex items-center gap-4">
+            {isLoading ? (
+              <div className="h-10 w-10 rounded-full bg-white/10 animate-pulse" />
+            ) : userEmail ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full">
@@ -136,16 +157,23 @@ function NavHeader() {
                           alt={userProfile.google_oauth_data.name || userEmail} 
                         />
                       ) : (
-                        <AvatarFallback>
-                          <UserRound className="h-6 w-6" />
+                        <AvatarFallback className="bg-white/10 text-white">
+                          {userEmail.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       )}
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>
-                    {userProfile?.google_oauth_data?.name || userEmail}
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {userProfile?.google_oauth_data?.name || 'User'}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {userEmail}
+                      </p>
+                    </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
@@ -158,12 +186,21 @@ function NavHeader() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
                     Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
-          )}
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/auth')}
+                className="text-white hover:bg-white/10"
+              >
+                Sign in
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </nav>
