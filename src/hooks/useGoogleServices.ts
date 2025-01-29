@@ -73,7 +73,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const signInWithGoogle = async (googleAccessToken: string) => {
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithOAuth({
+      const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           queryParams: {
@@ -87,14 +87,11 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         throw authError;
       }
 
-      if (authData.user) {
-        toast({
-          title: "Success",
-          description: "Successfully signed in with Google",
-        });
-      }
+      toast({
+        title: "Redirecting",
+        description: "You will be redirected to complete Google sign in",
+      });
 
-      return authData;
     } catch (error) {
       console.error('Error in signInWithGoogle:', error);
       throw error;
