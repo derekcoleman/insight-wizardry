@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Folder, Link, Database, Check, AlertCircle } from "lucide-react";
+import { Plus, Folder, Link, Database } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,9 +13,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GrowthChannelTabs } from "@/components/GrowthChannelTabs";
 
 interface Project {
   id: string;
@@ -30,6 +31,19 @@ interface Connection {
   service_type: string;
   status: string | null;
   last_refreshed_at: string | null;
+}
+
+interface AnalysisData {
+  report: {
+    weekly_analysis: any;
+    monthly_analysis: any;
+    quarterly_analysis: any;
+    ytd_analysis: any;
+    last28_yoy_analysis: any;
+  };
+  ga4Property?: string;
+  gscProperty?: string;
+  mainConversionGoal?: string;
 }
 
 export function ProjectList() {
@@ -104,6 +118,7 @@ export function ProjectList() {
 
       setSelectedProject(project.id);
       setActiveTab("connect");
+      refetchProjects();
     } catch (error) {
       toast({
         title: "Error creating project",
@@ -113,10 +128,11 @@ export function ProjectList() {
     }
   };
 
-  const handleAnalysisComplete = async (projectId: string, data: any) => {
+  const handleAnalysisComplete = async (projectId: string, data: AnalysisData) => {
     try {
       // Save the analysis results to the project
       const { error } = await supabase.from("analytics_reports").insert({
+        project_id: projectId,
         user_id: session?.user?.id,
         ga4_property: data.ga4Property,
         gsc_property: data.gscProperty,
@@ -206,21 +222,25 @@ export function ProjectList() {
                 </form>
               </TabsContent>
               <TabsContent value="connect">
-                <GoogleConnect 
-                  onConnectionChange={(connected) => {
-                    if (connected) {
-                      toast({
-                        title: "Connection successful",
-                        description: "Google services have been connected to your project.",
-                      });
-                    }
-                  }}
-                  onAnalysisComplete={(data) => {
-                    if (selectedProject) {
-                      handleAnalysisComplete(selectedProject, data);
-                    }
-                  }}
-                />
+                {selectedProject && (
+                  <div className="space-y-4">
+                    <GoogleConnect
+                      onConnectionChange={(connected) => {
+                        if (connected) {
+                          toast({
+                            title: "Connection successful",
+                            description: "Google services have been connected to your project.",
+                          });
+                        }
+                      }}
+                      onAnalysisComplete={(data) => {
+                        if (selectedProject) {
+                          handleAnalysisComplete(selectedProject, data);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </DialogContent>
@@ -255,14 +275,8 @@ export function ProjectList() {
                   return (
                     <Badge 
                       key={service}
-                      variant={connection?.status === 'active' ? 'success' : 'secondary'}
-                      className="flex items-center gap-1"
+                      variant={connection?.status === 'active' ? 'default' : 'secondary'}
                     >
-                      {connection?.status === 'active' ? (
-                        <Check className="h-3 w-3" />
-                      ) : (
-                        <AlertCircle className="h-3 w-3" />
-                      )}
                       {service.toUpperCase()}
                     </Badge>
                   );
