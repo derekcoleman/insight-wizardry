@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,73 @@ interface GoogleOAuthData {
   email: string;
 }
 
+const fetchConversionGoalsFromGA = async (propertyId: string, accessToken: string, handleApiError: (error: any, apiName: string) => void, toast: any) => {
+  try {
+    const cleanPropertyId = propertyId.replace(/^properties\//, '');
+    
+    const response = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateRanges: [{
+            startDate: '30daysAgo',
+            endDate: 'today',
+          }],
+          dimensions: [
+            { name: 'eventName' },
+          ],
+          metrics: [
+            { name: 'eventCount' },
+          ],
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch events: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("Events data response:", data);
+
+    const uniqueEvents = new Set<string>();
+    data.rows?.forEach((row: any) => {
+      const eventName = row.dimensionValues?.[0]?.value;
+      if (eventName) {
+        uniqueEvents.add(eventName);
+      }
+    });
+
+    const eventsList = Array.from(uniqueEvents).sort();
+    
+    const goals = [
+      { id: 'Total Events', name: 'Total Events' },
+      ...eventsList.map(event => ({
+        id: event,
+        name: event
+      }))
+    ];
+
+    if (goals.length > 1) {
+      toast({
+        title: "Events Found",
+        description: `Found ${goals.length - 1} events in this GA4 property`,
+      });
+    }
+
+    return goals;
+  } catch (error: any) {
+    console.error("Error fetching events:", error);
+    handleApiError(error, "Google Analytics");
+    return [];
+  }
+};
+
 export function useGoogleServices() {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
@@ -34,37 +101,7 @@ export function useGoogleServices() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Load stored OAuth data on mount
-  useEffect(() => {
-    const loadStoredOAuthData = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('google_oauth_data')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profile?.google_oauth_data) {
-            // First cast to unknown, then to GoogleOAuthData to satisfy TypeScript
-            const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
-            if (oauthData.access_token) {
-              setAccessToken(oauthData.access_token);
-              setUserEmail(oauthData.email);
-              await signInWithGoogle(oauthData.access_token);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading stored OAuth data:', error);
-      }
-    };
-
-    loadStoredOAuthData();
-  }, []);
-
-  const handleApiError = (error: any, apiName: string) => {
+  const handleApiError = useCallback((error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
     const errorMessage = error.response?.data?.error?.message || error.message || "An unknown error occurred";
     setError(`${apiName} API error: ${errorMessage}`);
@@ -73,9 +110,9 @@ export function useGoogleServices() {
       description: errorMessage,
       variant: "destructive",
     });
-  };
+  }, [toast]);
 
-  const signInWithGoogle = async (googleAccessToken: string) => {
+  const signInWithGoogle = useCallback(async (googleAccessToken: string) => {
     try {
       console.log("Starting Google OAuth flow");
       setAccessToken(googleAccessToken);
@@ -220,79 +257,45 @@ export function useGoogleServices() {
       handleApiError(error, "Google Services");
       setIsLoading(false);
     }
-  };
+  }, [toast, navigate, handleApiError]);
 
-  const fetchConversionGoals = async (propertyId: string) => {
+  const fetchConversionGoals = useCallback(async (propertyId: string) => {
     if (!accessToken) {
       console.log("No access token available for fetching events");
       return;
     }
+    const goals = await fetchConversionGoalsFromGA(propertyId, accessToken, handleApiError, toast);
+    setConversionGoals(goals);
+  }, [accessToken, handleApiError, toast]);
 
-    try {
-      const cleanPropertyId = propertyId.replace(/^properties\//, '');
-      
-      const response = await fetch(
-        `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            dateRanges: [{
-              startDate: '30daysAgo',
-              endDate: 'today',
-            }],
-            dimensions: [
-              { name: 'eventName' },
-            ],
-            metrics: [
-              { name: 'eventCount' },
-            ],
-          }),
+  // Load stored OAuth data on mount
+  useEffect(() => {
+    const loadStoredOAuthData = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('google_oauth_data')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profile?.google_oauth_data) {
+            const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
+            if (oauthData.access_token) {
+              setAccessToken(oauthData.access_token);
+              setUserEmail(oauthData.email);
+              await signInWithGoogle(oauthData.access_token);
+            }
+          }
         }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch events: ${response.statusText}`);
+      } catch (error) {
+        console.error('Error loading stored OAuth data:', error);
       }
+    };
 
-      const data = await response.json();
-      console.log("Events data response:", data);
-
-      const uniqueEvents = new Set<string>();
-      data.rows?.forEach((row: any) => {
-        const eventName = row.dimensionValues?.[0]?.value;
-        if (eventName) {
-          uniqueEvents.add(eventName);
-        }
-      });
-
-      const eventsList = Array.from(uniqueEvents).sort();
-      
-      const goals = [
-        { id: 'Total Events', name: 'Total Events' },
-        ...eventsList.map(event => ({
-          id: event,
-          name: event
-        }))
-      ];
-
-      setConversionGoals(goals);
-      
-      if (goals.length > 1) {
-        toast({
-          title: "Events Found",
-          description: `Found ${goals.length - 1} events in this GA4 property`,
-        });
-      }
-    } catch (error: any) {
-      console.error("Error fetching events:", error);
-      handleApiError(error, "Google Analytics");
-      setConversionGoals([]);
-    }
-  };
+    loadStoredOAuthData();
+  }, [signInWithGoogle]);
 
   const login = useGoogleLogin({
     onSuccess: async (response) => {
