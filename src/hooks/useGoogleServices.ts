@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Json } from "@/integrations/supabase/types";
 
 interface Account {
   id: string;
@@ -44,7 +45,8 @@ export function useGoogleServices() {
             .single();
 
           if (profile?.google_oauth_data) {
-            const oauthData = profile.google_oauth_data as GoogleOAuthData;
+            // First cast to unknown, then to GoogleOAuthData to satisfy TypeScript
+            const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
             if (oauthData.access_token) {
               setAccessToken(oauthData.access_token);
               setUserEmail(oauthData.email);
@@ -94,13 +96,15 @@ export function useGoogleServices() {
       // Store OAuth data in Supabase
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.id) {
+        const oauthData: Record<string, Json> = {
+          access_token: googleAccessToken,
+          email: userInfo.email
+        };
+
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
-            google_oauth_data: {
-              access_token: googleAccessToken,
-              email: userInfo.email
-            } as GoogleOAuthData
+            google_oauth_data: oauthData
           })
           .eq('id', session.user.id);
 
