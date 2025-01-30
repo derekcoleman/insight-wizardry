@@ -64,12 +64,12 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   // Effect to restore OAuth data from profile
   useEffect(() => {
     if (profile?.google_oauth_data) {
-      const oauthData = profile.google_oauth_data as GoogleOAuthData;
-      setAccessToken(oauthData.access_token);
-      setUserEmail(oauthData.email);
-      
-      // Fetch accounts if we have a stored token
-      if (oauthData.access_token) {
+      const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
+      if (oauthData?.access_token && oauthData?.email) {
+        setAccessToken(oauthData.access_token);
+        setUserEmail(oauthData.email);
+        
+        // Fetch accounts if we have a stored token
         fetchGoogleAccounts(oauthData.access_token);
       }
     }

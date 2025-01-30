@@ -10,6 +10,6 @@ export interface Profile {
   email: string | null;
   created_at: string;
   updated_at: string;
-  google_oauth_data: GoogleOAuthData | null;
+  google_oauth_data: Json | null;
   search_history: Json[] | null;
 }
