@@ -9,6 +9,7 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 
 interface AnalysisData {
   report: {
@@ -33,6 +34,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { oauthData, updateOAuthData } = useGoogleAuth();
 
   const {
     gaAccounts,
@@ -47,14 +49,25 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     fetchConversionGoals,
     accessToken,
     userEmail
-  } = useGoogleServices();
+  } = useGoogleServices({
+    initialToken: oauthData?.access_token,
+    initialEmail: oauthData?.email,
+  });
 
   useEffect(() => {
     if (gaConnected || gscConnected || gmailConnected) {
       console.log("Connection status changed:", { gaConnected, gscConnected, gmailConnected });
       onConnectionChange?.(true);
+
+      // Store OAuth data when connection is successful
+      if (accessToken && userEmail && !oauthData) {
+        updateOAuthData({
+          access_token: accessToken,
+          email: userEmail,
+        });
+      }
     }
-  }, [gaConnected, gscConnected, gmailConnected, onConnectionChange]);
+  }, [gaConnected, gscConnected, gmailConnected, onConnectionChange, accessToken, userEmail, oauthData, updateOAuthData]);
 
   const handleAnalyze = async (ga4Property: string, gscProperty: string, mainConversionGoal: string) => {
     if (!ga4Property || !accessToken) {
@@ -145,7 +158,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
           )}
 
           {analysisError && (
-            <Alert variant="destructive" className="mt-4">
+            <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Analysis Error</AlertTitle>
               <AlertDescription>{analysisError}</AlertDescription>

@@ -13,22 +13,12 @@ interface ConversionGoal {
   name: string;
 }
 
-interface UseGoogleServicesReturn {
-  gaAccounts: Account[];
-  gscAccounts: Account[];
-  conversionGoals: ConversionGoal[];
-  isLoading: boolean;
-  error: string | null;
-  gaConnected: boolean;
-  gscConnected: boolean;
-  gmailConnected: boolean;
-  handleLogin: () => void;
-  fetchConversionGoals: (propertyId: string) => Promise<void>;
-  accessToken: string | null;
-  userEmail: string | null;
+interface UseGoogleServicesProps {
+  initialToken?: string;
+  initialEmail?: string;
 }
 
-export function useGoogleServices(): UseGoogleServicesReturn {
+export function useGoogleServices({ initialToken, initialEmail }: UseGoogleServicesProps = {}) {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
@@ -37,8 +27,8 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(false);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(initialToken || null);
+  const [userEmail, setUserEmail] = useState<string | null>(initialEmail || null);
   const { toast } = useToast();
 
   const handleApiError = (error: any, apiName: string) => {
@@ -72,7 +62,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
 
-      // Sign in with Supabase using custom credentials
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
