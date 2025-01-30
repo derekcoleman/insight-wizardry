@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-interface GoogleOAuthData {
+export interface GoogleOAuthData {
   access_token: string;
   email: string;
 }
@@ -29,11 +29,20 @@ export function useGoogleAuth() {
     },
   });
 
-  useEffect(() => {
-    if (profile?.google_oauth_data) {
-      setOauthData(profile.google_oauth_data as GoogleOAuthData);
+  // Type guard to check if the data matches GoogleOAuthData structure
+  const isGoogleOAuthData = (data: any): data is GoogleOAuthData => {
+    return data && 
+           typeof data.access_token === 'string' && 
+           typeof data.email === 'string';
+  };
+
+  // Effect to handle profile data changes
+  if (profile?.google_oauth_data && !oauthData) {
+    const data = profile.google_oauth_data;
+    if (isGoogleOAuthData(data)) {
+      setOauthData(data);
     }
-  }, [profile]);
+  }
 
   const updateOAuthData = async (data: GoogleOAuthData) => {
     try {
@@ -44,7 +53,12 @@ export function useGoogleAuth() {
 
       const { error } = await supabase
         .from("profiles")
-        .update({ google_oauth_data: data })
+        .update({ 
+          google_oauth_data: {
+            access_token: data.access_token,
+            email: data.email
+          }
+        })
         .eq("id", session.user.id);
 
       if (error) throw error;
