@@ -3,6 +3,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { Profile, GoogleOAuthData } from "@/types/profile";
 
 interface Account {
   id: string;
@@ -56,20 +57,20 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Profile;
     },
   });
 
   // Effect to restore OAuth data from profile
   useEffect(() => {
     if (profile?.google_oauth_data) {
-      const { access_token, email } = profile.google_oauth_data;
-      setAccessToken(access_token);
-      setUserEmail(email);
+      const oauthData = profile.google_oauth_data as GoogleOAuthData;
+      setAccessToken(oauthData.access_token);
+      setUserEmail(oauthData.email);
       
       // Fetch accounts if we have a stored token
-      if (access_token) {
-        fetchGoogleAccounts(access_token);
+      if (oauthData.access_token) {
+        fetchGoogleAccounts(oauthData.access_token);
       }
     }
   }, [profile]);
