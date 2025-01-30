@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-interface GoogleOAuthData {
+export interface GoogleOAuthData {
   access_token: string;
   email: string;
 }
@@ -40,8 +40,10 @@ export function useGoogleAuth() {
   useEffect(() => {
     if (profile?.google_oauth_data) {
       const oauthData = profile.google_oauth_data as GoogleOAuthData;
-      setAccessToken(oauthData.access_token);
-      setUserEmail(oauthData.email);
+      if (oauthData.access_token && oauthData.email) {
+        setAccessToken(oauthData.access_token);
+        setUserEmail(oauthData.email);
+      }
     }
   }, [profile]);
 
@@ -55,7 +57,7 @@ export function useGoogleAuth() {
           google_oauth_data: {
             access_token: token,
             email: email,
-          },
+          } as GoogleOAuthData,
         })
         .eq("id", session.user.id);
 

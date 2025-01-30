@@ -12,6 +12,11 @@ interface ConversionGoal {
   name: string;
 }
 
+interface GoogleLoginResult {
+  token: string;
+  email: string;
+}
+
 export function useGoogleServices(existingToken?: string | null) {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
@@ -23,7 +28,7 @@ export function useGoogleServices(existingToken?: string | null) {
   const [gmailConnected, setGmailConnected] = useState(false);
   const { toast } = useToast();
 
-  const fetchGoogleData = async (token: string) => {
+  const fetchGoogleData = async (token: string): Promise<GoogleLoginResult> => {
     try {
       // Get user info from Google
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -145,7 +150,7 @@ export function useGoogleServices(existingToken?: string | null) {
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (): Promise<GoogleLoginResult | null> => {
     if (existingToken) {
       try {
         return await fetchGoogleData(existingToken);

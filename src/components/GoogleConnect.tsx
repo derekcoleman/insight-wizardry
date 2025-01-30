@@ -58,9 +58,9 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
 
   const handleGoogleLogin = async () => {
     try {
-      const { token, email } = await handleLogin();
-      if (token && email) {
-        await storeGoogleAuth(token, email);
+      const result = await handleLogin();
+      if (result && result.token && result.email) {
+        await storeGoogleAuth(result.token, result.email);
       }
     } catch (error) {
       console.error("Google login error:", error);
