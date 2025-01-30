@@ -13,9 +13,9 @@ interface ConversionGoal {
   name: string;
 }
 
-interface UseGoogleServicesProps {
-  initialToken?: string;
-  initialEmail?: string;
+interface GoogleOAuthData {
+  access_token: string;
+  email: string;
 }
 
 export function useGoogleServices() {
@@ -43,10 +43,13 @@ export function useGoogleServices() {
             .eq('id', session.user.id)
             .single();
 
-          if (profile?.google_oauth_data?.access_token) {
-            setAccessToken(profile.google_oauth_data.access_token);
-            setUserEmail(profile.google_oauth_data.email);
-            await signInWithGoogle(profile.google_oauth_data.access_token);
+          if (profile?.google_oauth_data) {
+            const oauthData = profile.google_oauth_data as GoogleOAuthData;
+            if (oauthData.access_token) {
+              setAccessToken(oauthData.access_token);
+              setUserEmail(oauthData.email);
+              await signInWithGoogle(oauthData.access_token);
+            }
           }
         }
       } catch (error) {
@@ -87,6 +90,22 @@ export function useGoogleServices() {
       const userInfo = await userInfoResponse.json();
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
+
+      // Store OAuth data in Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            google_oauth_data: {
+              access_token: googleAccessToken,
+              email: userInfo.email
+            } as GoogleOAuthData
+          })
+          .eq('id', session.user.id);
+
+        if (updateError) throw updateError;
+      }
 
       // Test Gmail connection
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
