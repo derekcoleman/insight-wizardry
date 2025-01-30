@@ -52,16 +52,14 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     });
   };
 
-  const signInWithGoogle = async (googleAccessToken: string) => {
+  const initializeWithToken = async (token: string) => {
     try {
-      console.log("Starting Google OAuth flow");
-      setAccessToken(googleAccessToken);
+      setAccessToken(token);
+      console.log("Initializing with token:", token);
 
       // Get user info from Google
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!userInfoResponse.ok) {
@@ -69,29 +67,27 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       const userInfo = await userInfoResponse.json();
-      console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
+      
+      // Update profile in Supabase with Google OAuth data
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          google_oauth_data: {
+            access_token: token,
+            email: userInfo.email,
+            last_connected: new Date().toISOString()
+          }
+        })
+        .eq('email', userInfo.email);
 
-      // Sign in with Supabase using custom credentials
-      const { error: signInError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          queryParams: {
-            prompt: 'consent',
-            access_type: 'offline',
-          },
-        },
-      });
-
-      if (signInError) {
-        throw signInError;
+      if (updateError) {
+        console.error('Error updating profile:', updateError);
       }
 
       // Test Gmail connection
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (gmailResponse.ok) {
@@ -106,9 +102,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const gaResponse = await fetch(
         "https://analyticsadmin.googleapis.com/v1alpha/accounts",
         {
-          headers: {
-            Authorization: `Bearer ${googleAccessToken}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -132,9 +126,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           const propertiesResponse = await fetch(
             `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
             {
-              headers: {
-                Authorization: `Bearer ${googleAccessToken}`,
-              },
+              headers: { Authorization: `Bearer ${token}` },
             }
           );
 
@@ -158,9 +150,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const gscResponse = await fetch(
         "https://www.googleapis.com/webmasters/v3/sites",
         {
-          headers: {
-            Authorization: `Bearer ${googleAccessToken}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -187,7 +177,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
     } catch (error: any) {
-      console.error('Error in signInWithGoogle:', error);
+      console.error('Error in initializeWithToken:', error);
       handleApiError(error, "Google Services");
     }
   };
@@ -271,7 +261,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       
       try {
         console.log("Google login successful, token:", response.access_token);
-        await signInWithGoogle(response.access_token);
+        await initializeWithToken(response.access_token);
       } catch (error: any) {
         console.error("Login error:", error);
         handleApiError(error, "Google Services");
@@ -297,7 +287,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
     flow: "implicit",
-    prompt: "consent",
   });
 
   return {
