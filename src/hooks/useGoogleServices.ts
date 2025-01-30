@@ -222,6 +222,78 @@ export function useGoogleServices() {
     }
   };
 
+  const fetchConversionGoals = async (propertyId: string) => {
+    if (!accessToken) {
+      console.log("No access token available for fetching events");
+      return;
+    }
+
+    try {
+      const cleanPropertyId = propertyId.replace(/^properties\//, '');
+      
+      const response = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dateRanges: [{
+              startDate: '30daysAgo',
+              endDate: 'today',
+            }],
+            dimensions: [
+              { name: 'eventName' },
+            ],
+            metrics: [
+              { name: 'eventCount' },
+            ],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch events: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Events data response:", data);
+
+      const uniqueEvents = new Set<string>();
+      data.rows?.forEach((row: any) => {
+        const eventName = row.dimensionValues?.[0]?.value;
+        if (eventName) {
+          uniqueEvents.add(eventName);
+        }
+      });
+
+      const eventsList = Array.from(uniqueEvents).sort();
+      
+      const goals = [
+        { id: 'Total Events', name: 'Total Events' },
+        ...eventsList.map(event => ({
+          id: event,
+          name: event
+        }))
+      ];
+
+      setConversionGoals(goals);
+      
+      if (goals.length > 1) {
+        toast({
+          title: "Events Found",
+          description: `Found ${goals.length - 1} events in this GA4 property`,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error fetching events:", error);
+      handleApiError(error, "Google Analytics");
+      setConversionGoals([]);
+    }
+  };
+
   const login = useGoogleLogin({
     onSuccess: async (response) => {
       setIsLoading(true);
