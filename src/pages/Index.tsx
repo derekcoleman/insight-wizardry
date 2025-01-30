@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { ProjectList } from "@/components/ProjectList";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface AnalysisData {
   report: {
@@ -19,6 +20,7 @@ interface AnalysisData {
 const Index = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const navigate = useNavigate();
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -32,6 +34,7 @@ const Index = () => {
   const handleAnalysisComplete = (data: AnalysisData) => {
     setAnalysisData(data);
     setIsConnected(true);
+    navigate('/projects');
   };
 
   return (
