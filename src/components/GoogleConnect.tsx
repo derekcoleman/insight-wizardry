@@ -9,7 +9,6 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
-import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 
 interface AnalysisData {
   report: {
@@ -34,7 +33,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { accessToken, userEmail, storeGoogleAuth } = useGoogleAuth();
 
   const {
     gaAccounts,
@@ -47,7 +45,9 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     gmailConnected,
     handleLogin,
     fetchConversionGoals,
-  } = useGoogleServices(accessToken);
+    accessToken,
+    userEmail
+  } = useGoogleServices();
 
   useEffect(() => {
     if (gaConnected || gscConnected || gmailConnected) {
@@ -55,22 +55,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
       onConnectionChange?.(true);
     }
   }, [gaConnected, gscConnected, gmailConnected, onConnectionChange]);
-
-  const handleGoogleLogin = async () => {
-    try {
-      const result = await handleLogin();
-      if (result && result.token && result.email) {
-        await storeGoogleAuth(result.token, result.email);
-      }
-    } catch (error) {
-      console.error("Google login error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to connect with Google",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleAnalyze = async (ga4Property: string, gscProperty: string, mainConversionGoal: string) => {
     if (!ga4Property || !accessToken) {
@@ -137,9 +121,9 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
             </Alert>
           )}
           
-          {!accessToken && (
+          {!gaConnected && !gscConnected && !gmailConnected && (
             <div className="max-w-sm mx-auto">
-              <GoogleAuthButton onClick={handleGoogleLogin} isLoading={isLoading} />
+              <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
             </div>
           )}
 
@@ -149,7 +133,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
             gmailConnected={gmailConnected}
           />
 
-          {accessToken && (
+          {(gaConnected || gscConnected) && (
             <GooglePropertyForm
               gaAccounts={gaAccounts}
               gscAccounts={gscAccounts}

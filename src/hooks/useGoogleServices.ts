@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Account {
   id: string;
@@ -12,12 +13,22 @@ interface ConversionGoal {
   name: string;
 }
 
-interface GoogleLoginResult {
-  token: string;
-  email: string;
+interface UseGoogleServicesReturn {
+  gaAccounts: Account[];
+  gscAccounts: Account[];
+  conversionGoals: ConversionGoal[];
+  isLoading: boolean;
+  error: string | null;
+  gaConnected: boolean;
+  gscConnected: boolean;
+  gmailConnected: boolean;
+  handleLogin: () => void;
+  fetchConversionGoals: (propertyId: string) => Promise<void>;
+  accessToken: string | null;
+  userEmail: string | null;
 }
 
-export function useGoogleServices(existingToken?: string | null) {
+export function useGoogleServices(): UseGoogleServicesReturn {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
@@ -26,14 +37,30 @@ export function useGoogleServices(existingToken?: string | null) {
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const fetchGoogleData = async (token: string): Promise<GoogleLoginResult> => {
+  const handleApiError = (error: any, apiName: string) => {
+    console.error(`${apiName} API Error:`, error);
+    const errorMessage = error.response?.data?.error?.message || error.message || "An unknown error occurred";
+    setError(`${apiName} API error: ${errorMessage}`);
+    toast({
+      title: "Error",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  };
+
+  const signInWithGoogle = async (googleAccessToken: string) => {
     try {
+      console.log("Starting Google OAuth flow");
+      setAccessToken(googleAccessToken);
+
       // Get user info from Google
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${googleAccessToken}`,
         },
       });
 
@@ -43,11 +70,27 @@ export function useGoogleServices(existingToken?: string | null) {
 
       const userInfo = await userInfoResponse.json();
       console.log("Received user info:", { email: userInfo.email });
+      setUserEmail(userInfo.email);
+
+      // Sign in with Supabase using custom credentials
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            prompt: 'consent',
+            access_type: 'offline',
+          },
+        },
+      });
+
+      if (signInError) {
+        throw signInError;
+      }
 
       // Test Gmail connection
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${googleAccessToken}`,
         },
       });
 
@@ -64,7 +107,7 @@ export function useGoogleServices(existingToken?: string | null) {
         "https://analyticsadmin.googleapis.com/v1alpha/accounts",
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${googleAccessToken}`,
           },
         }
       );
@@ -90,7 +133,7 @@ export function useGoogleServices(existingToken?: string | null) {
             `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
             {
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${googleAccessToken}`,
               },
             }
           );
@@ -116,7 +159,7 @@ export function useGoogleServices(existingToken?: string | null) {
         "https://www.googleapis.com/webmasters/v3/sites",
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${googleAccessToken}`,
           },
         }
       );
@@ -143,69 +186,14 @@ export function useGoogleServices(existingToken?: string | null) {
         );
       }
 
-      return { token, email: userInfo.email };
     } catch (error: any) {
-      console.error('Error fetching Google data:', error);
-      throw error;
+      console.error('Error in signInWithGoogle:', error);
+      handleApiError(error, "Google Services");
     }
-  };
-
-  const handleLogin = async (): Promise<GoogleLoginResult | null> => {
-    if (existingToken) {
-      try {
-        return await fetchGoogleData(existingToken);
-      } catch (error: any) {
-        console.error("Error using existing token:", error);
-        setError(error.message);
-        return null;
-      }
-    }
-
-    return new Promise((resolve, reject) => {
-      const login = useGoogleLogin({
-        onSuccess: async (response) => {
-          setIsLoading(true);
-          setError(null);
-          
-          try {
-            const result = await fetchGoogleData(response.access_token);
-            resolve(result);
-          } catch (error: any) {
-            console.error("Login error:", error);
-            setError(error.message);
-            reject(error);
-          } finally {
-            setIsLoading(false);
-          }
-        },
-        onError: (errorResponse) => {
-          console.error("Google login error:", errorResponse);
-          const errorMessage = errorResponse.error_description || errorResponse.error || "Failed to authenticate with Google";
-          setError(errorMessage);
-          toast({
-            title: "Authentication Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
-          reject(errorResponse);
-        },
-        scope: [
-          "https://www.googleapis.com/auth/analytics.readonly",
-          "https://www.googleapis.com/auth/webmasters.readonly",
-          "https://www.googleapis.com/auth/gmail.readonly",
-          "https://www.googleapis.com/auth/userinfo.email",
-          "https://www.googleapis.com/auth/userinfo.profile"
-        ].join(" "),
-        flow: "implicit",
-        prompt: "consent",
-      });
-
-      login();
-    });
   };
 
   const fetchConversionGoals = async (propertyId: string) => {
-    if (!existingToken) {
+    if (!accessToken) {
       console.log("No access token available for fetching events");
       return;
     }
@@ -218,7 +206,7 @@ export function useGoogleServices(existingToken?: string | null) {
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${existingToken}`,
+            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -271,10 +259,46 @@ export function useGoogleServices(existingToken?: string | null) {
       }
     } catch (error: any) {
       console.error("Error fetching events:", error);
-      setError(error.message);
+      handleApiError(error, "Google Analytics");
       setConversionGoals([]);
     }
   };
+
+  const login = useGoogleLogin({
+    onSuccess: async (response) => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        console.log("Google login successful, token:", response.access_token);
+        await signInWithGoogle(response.access_token);
+      } catch (error: any) {
+        console.error("Login error:", error);
+        handleApiError(error, "Google Services");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: (errorResponse) => {
+      console.error("Google login error:", errorResponse);
+      const errorMessage = errorResponse.error_description || errorResponse.error || "Failed to authenticate with Google";
+      setError(errorMessage);
+      toast({
+        title: "Authentication Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+    scope: [
+      "https://www.googleapis.com/auth/analytics.readonly",
+      "https://www.googleapis.com/auth/webmasters.readonly",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ].join(" "),
+    flow: "implicit",
+    prompt: "consent",
+  });
 
   return {
     gaAccounts,
@@ -285,7 +309,9 @@ export function useGoogleServices(existingToken?: string | null) {
     gaConnected,
     gscConnected,
     gmailConnected,
-    handleLogin,
+    handleLogin: () => login(),
     fetchConversionGoals,
+    accessToken,
+    userEmail,
   };
 }
