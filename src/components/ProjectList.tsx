@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Folder, Link, Database, Check, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ export function ProjectList() {
   const [url, setUrl] = useState("");
   const [activeTab, setActiveTab] = useState("details");
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -49,9 +51,17 @@ export function ProjectList() {
     },
   });
 
+  useEffect(() => {
+    if (!session) {
+      navigate("/auth");
+    }
+  }, [session, navigate]);
+
   const { data: projects, refetch: refetchProjects } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
+      
       const { data, error } = await supabase
         .from("projects")
         .select("*")
@@ -60,6 +70,7 @@ export function ProjectList() {
       if (error) throw error;
       return data as Project[];
     },
+    enabled: !!session?.user?.id,
   });
 
   const { data: connections } = useQuery({
@@ -151,6 +162,10 @@ export function ProjectList() {
     if (!connections) return null;
     return connections.find(c => c.service_type === serviceType);
   };
+
+  if (!session) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">
