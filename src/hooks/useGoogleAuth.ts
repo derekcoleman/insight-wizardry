@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Json } from "@/integrations/supabase/types";
 
 export interface GoogleOAuthData {
   access_token: string;
@@ -39,8 +40,9 @@ export function useGoogleAuth() {
 
   useEffect(() => {
     if (profile?.google_oauth_data) {
-      const oauthData = profile.google_oauth_data as GoogleOAuthData;
-      if (oauthData.access_token && oauthData.email) {
+      // First cast to unknown, then to our expected type
+      const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
+      if (oauthData && typeof oauthData === 'object' && 'access_token' in oauthData && 'email' in oauthData) {
         setAccessToken(oauthData.access_token);
         setUserEmail(oauthData.email);
       }
@@ -57,7 +59,7 @@ export function useGoogleAuth() {
           google_oauth_data: {
             access_token: token,
             email: email,
-          } as GoogleOAuthData,
+          } as unknown as Json, // Cast to Json type for Supabase
         })
         .eq("id", session.user.id);
 
