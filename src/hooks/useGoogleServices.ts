@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Json } from "@/integrations/supabase/types";
 import { useNavigate } from "react-router-dom";
 
 interface Account {
@@ -15,12 +14,7 @@ interface ConversionGoal {
   name: string;
 }
 
-interface GoogleOAuthData {
-  access_token: string;
-  email: string;
-}
-
-// Move this function outside the hook to prevent recreation on each render
+// Move fetchConversionGoalsFromGA outside the hook
 const fetchConversionGoalsFromGA = async (
   propertyId: string, 
   accessToken: string, 
@@ -148,7 +142,7 @@ export function useGoogleServices() {
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.id) {
-        const oauthData: Record<string, Json> = {
+        const oauthData = {
           access_token: googleAccessToken,
           email: userInfo.email
         };
@@ -268,7 +262,6 @@ export function useGoogleServices() {
     }
   }, [toast, navigate, handleApiError]);
 
-  // Load stored OAuth data on mount
   useEffect(() => {
     const loadStoredOAuthData = async () => {
       try {
@@ -281,7 +274,7 @@ export function useGoogleServices() {
             .single();
 
           if (profile?.google_oauth_data) {
-            const oauthData = profile.google_oauth_data as unknown as GoogleOAuthData;
+            const oauthData = profile.google_oauth_data as { access_token: string; email: string };
             if (oauthData.access_token) {
               setAccessToken(oauthData.access_token);
               setUserEmail(oauthData.email);
@@ -297,7 +290,6 @@ export function useGoogleServices() {
     loadStoredOAuthData();
   }, [signInWithGoogle]);
 
-  // Define login configuration outside of the hook's body
   const loginConfig = {
     onSuccess: async (response: any) => {
       setIsLoading(true);
@@ -329,7 +321,7 @@ export function useGoogleServices() {
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
-    flow: "implicit",
+    flow: "implicit" as const // Fix: explicitly type as "implicit"
   };
 
   const login = useGoogleLogin(loginConfig);
