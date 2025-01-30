@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,18 +35,29 @@ export function useGoogleServices() {
       setGmailConnected(gmailResponse.ok);
 
       // Sign in to Supabase with Google OAuth
-      const { error: signInError } = await supabase.auth.signInWithOAuth({
+      const { data: { session }, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           queryParams: {
-            access_token: token,
+            access_type: 'offline',
             prompt: 'consent'
-          }
+          },
+          scopes: [
+            'https://www.googleapis.com/auth/analytics.readonly',
+            'https://www.googleapis.com/auth/webmasters.readonly',
+            'https://www.googleapis.com/auth/gmail.readonly',
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile'
+          ].join(' ')
         }
       });
 
       if (signInError) {
         throw signInError;
+      }
+
+      if (session) {
+        setAccessToken(token);
       }
 
     } catch (error: any) {
@@ -64,8 +75,7 @@ export function useGoogleServices() {
 
   const login = useGoogleLogin({
     onSuccess: async (response) => {
-      console.log("Google login successful");
-      setAccessToken(response.access_token);
+      console.log("Google login successful", response);
       await initializeWithToken(response.access_token);
     },
     onError: (errorResponse) => {
@@ -85,7 +95,7 @@ export function useGoogleServices() {
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
-    flow: "implicit",
+    flow: "implicit"
   });
 
   return {
