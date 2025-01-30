@@ -20,7 +20,13 @@ interface GoogleOAuthData {
   email: string;
 }
 
-const fetchConversionGoalsFromGA = async (propertyId: string, accessToken: string, handleApiError: (error: any, apiName: string) => void, toast: any) => {
+// Move this function outside the hook to prevent recreation on each render
+const fetchConversionGoalsFromGA = async (
+  propertyId: string, 
+  accessToken: string, 
+  handleApiError: (error: any, apiName: string) => void, 
+  toast: any
+) => {
   try {
     const cleanPropertyId = propertyId.replace(/^properties\//, '');
     
@@ -112,12 +118,20 @@ export function useGoogleServices() {
     });
   }, [toast]);
 
+  const fetchConversionGoals = useCallback(async (propertyId: string) => {
+    if (!accessToken) {
+      console.log("No access token available for fetching events");
+      return;
+    }
+    const goals = await fetchConversionGoalsFromGA(propertyId, accessToken, handleApiError, toast);
+    setConversionGoals(goals);
+  }, [accessToken, handleApiError, toast]);
+
   const signInWithGoogle = useCallback(async (googleAccessToken: string) => {
     try {
       console.log("Starting Google OAuth flow");
       setAccessToken(googleAccessToken);
 
-      // Get user info from Google
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: {
           Authorization: `Bearer ${googleAccessToken}`,
@@ -132,7 +146,6 @@ export function useGoogleServices() {
       console.log("Received user info:", userInfo);
       setUserEmail(userInfo.email);
 
-      // Store OAuth data in Supabase
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.id) {
         const oauthData: Record<string, Json> = {
@@ -258,15 +271,6 @@ export function useGoogleServices() {
       setIsLoading(false);
     }
   }, [toast, navigate, handleApiError]);
-
-  const fetchConversionGoals = useCallback(async (propertyId: string) => {
-    if (!accessToken) {
-      console.log("No access token available for fetching events");
-      return;
-    }
-    const goals = await fetchConversionGoalsFromGA(propertyId, accessToken, handleApiError, toast);
-    setConversionGoals(goals);
-  }, [accessToken, handleApiError, toast]);
 
   // Load stored OAuth data on mount
   useEffect(() => {
