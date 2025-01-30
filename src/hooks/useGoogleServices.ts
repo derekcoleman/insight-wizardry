@@ -3,6 +3,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Json } from "@/integrations/supabase/types";
+import { useNavigate } from "react-router-dom";
 
 interface Account {
   id: string;
@@ -31,6 +32,7 @@ export function useGoogleServices() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Load stored OAuth data on mount
   useEffect(() => {
@@ -90,7 +92,7 @@ export function useGoogleServices() {
       }
 
       const userInfo = await userInfoResponse.json();
-      console.log("Received user info:", { email: userInfo.email });
+      console.log("Received user info:", userInfo);
       setUserEmail(userInfo.email);
 
       // Store OAuth data in Supabase
@@ -210,81 +212,13 @@ export function useGoogleServices() {
         );
       }
 
+      // Navigate to projects page after successful connection
+      navigate('/projects');
+
     } catch (error: any) {
       console.error('Error in signInWithGoogle:', error);
       handleApiError(error, "Google Services");
-    }
-  };
-
-  const fetchConversionGoals = async (propertyId: string) => {
-    if (!accessToken) {
-      console.log("No access token available for fetching events");
-      return;
-    }
-
-    try {
-      const cleanPropertyId = propertyId.replace(/^properties\//, '');
-      
-      const response = await fetch(
-        `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            dateRanges: [{
-              startDate: '30daysAgo',
-              endDate: 'today',
-            }],
-            dimensions: [
-              { name: 'eventName' },
-            ],
-            metrics: [
-              { name: 'eventCount' },
-            ],
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch events: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("Events data response:", data);
-
-      const uniqueEvents = new Set<string>();
-      data.rows?.forEach((row: any) => {
-        const eventName = row.dimensionValues?.[0]?.value;
-        if (eventName) {
-          uniqueEvents.add(eventName);
-        }
-      });
-
-      const eventsList = Array.from(uniqueEvents).sort();
-      
-      const goals = [
-        { id: 'Total Events', name: 'Total Events' },
-        ...eventsList.map(event => ({
-          id: event,
-          name: event
-        }))
-      ];
-
-      setConversionGoals(goals);
-      
-      if (goals.length > 1) {
-        toast({
-          title: "Events Found",
-          description: `Found ${goals.length - 1} events in this GA4 property`,
-        });
-      }
-    } catch (error: any) {
-      console.error("Error fetching events:", error);
-      handleApiError(error, "Google Analytics");
-      setConversionGoals([]);
+      setIsLoading(false);
     }
   };
 
@@ -321,7 +255,6 @@ export function useGoogleServices() {
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
     flow: "implicit",
-    prompt: "consent",
   });
 
   return {
