@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,6 @@ interface ConversionGoal {
   name: string;
 }
 
-// Move fetchConversionGoalsFromGA outside the hook for better organization
 const fetchConversionGoalsFromGA = async (
   propertyId: string, 
   accessToken: string, 
@@ -132,43 +131,31 @@ export function useGoogleServices() {
       console.log("Received user info:", userInfo);
       setUserEmail(userInfo.email);
 
-      // Get ID token from Google
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/tokeninfo', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      });
-
-      if (!tokenResponse.ok) {
-        throw new Error('Failed to validate Google token');
-      }
-
-      const tokenInfo = await tokenResponse.json();
-
-      // Sign in with Supabase using Google token
-      const { data: authData, error: authError } = await supabase.auth.signInWithOAuth({
+      // Sign in with Supabase using Google OAuth
+      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           queryParams: {
             access_token: googleAccessToken,
-            id_token: tokenInfo.id_token,
           },
         },
       });
 
-      if (authError) {
-        throw authError;
-      }
+      if (signInError) throw signInError;
 
-      console.log("Supabase auth successful:", authData);
+      // Get the session after OAuth sign-in
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
 
-      // Update profile with Google OAuth data
-      if (authData?.user) {
+      if (session?.user) {
+        console.log("Supabase auth successful:", session);
+
+        // Update profile with Google OAuth data
         const { error: updateError } = await supabase
           .from('profiles')
           .upsert({
-            id: authData.user.id,
+            id: session.user.id,
             email: userInfo.email,
             google_oauth_data: {
               access_token: googleAccessToken,
