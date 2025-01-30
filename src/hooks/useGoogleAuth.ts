@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -12,18 +12,24 @@ export function useGoogleAuth() {
   const [oauthData, setOauthData] = useState<GoogleOAuthData | null>(null);
   const { toast } = useToast();
 
-  const { data: profile } = useQuery({
-    queryKey: ["profile"],
+  const { data: session } = useQuery({
+    queryKey: ["session"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) return null;
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    },
+  });
 
+  const { data: profile } = useQuery({
+    queryKey: ["profile", session?.user?.id],
+    enabled: !!session?.user?.id,
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("google_oauth_data")
-        .eq("id", session.user.id)
+        .select("*")
+        .eq("id", session?.user?.id)
         .single();
-
       if (error) throw error;
       return data;
     },
@@ -36,17 +42,17 @@ export function useGoogleAuth() {
            typeof data.email === 'string';
   };
 
-  // Effect to handle profile data changes
-  if (profile?.google_oauth_data && !oauthData) {
-    const data = profile.google_oauth_data;
-    if (isGoogleOAuthData(data)) {
-      setOauthData(data);
+  useEffect(() => {
+    if (profile?.google_oauth_data && !oauthData) {
+      const data = profile.google_oauth_data;
+      if (isGoogleOAuthData(data)) {
+        setOauthData(data);
+      }
     }
-  }
+  }, [profile, oauthData]);
 
   const updateOAuthData = async (data: GoogleOAuthData) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) {
         throw new Error("No authenticated user");
       }
@@ -64,15 +70,16 @@ export function useGoogleAuth() {
       if (error) throw error;
 
       setOauthData(data);
+      
       toast({
         title: "Success",
-        description: "Google authentication data updated",
+        description: "Google OAuth data updated successfully",
       });
     } catch (error: any) {
       console.error("Error updating OAuth data:", error);
       toast({
         title: "Error",
-        description: "Failed to update Google authentication data",
+        description: error.message || "Failed to update OAuth data",
         variant: "destructive",
       });
     }
