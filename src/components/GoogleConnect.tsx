@@ -10,6 +10,7 @@ import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
 import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { GoogleOAuthData } from "@/types/google";
 
 interface AnalysisData {
   report: {
@@ -53,7 +54,11 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     initialToken: oauthData?.access_token,
     initialEmail: oauthData?.email,
     onAuthSuccess: (token: string, email: string) => {
-      storeOAuthData({ access_token: token, email });
+      const googleData: GoogleOAuthData = {
+        access_token: token,
+        email: email
+      };
+      storeOAuthData(googleData);
     }
   });
 
@@ -153,7 +158,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
           )}
 
           {analysisError && (
-            <Alert variant="destructive" className="mt-4">
+            <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Analysis Error</AlertTitle>
               <AlertDescription>{analysisError}</AlertDescription>

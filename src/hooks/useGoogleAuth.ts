@@ -1,11 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
-interface GoogleOAuthData {
-  access_token: string;
-  email: string;
-}
+import { GoogleOAuthData } from "@/types/google";
 
 export function useGoogleAuth() {
   const [oauthData, setOauthData] = useState<GoogleOAuthData | null>(null);
@@ -24,7 +20,11 @@ export function useGoogleAuth() {
           .single();
 
         if (profile?.google_oauth_data) {
-          setOauthData(profile.google_oauth_data as GoogleOAuthData);
+          // Cast to unknown first, then to GoogleOAuthData to satisfy TypeScript
+          const typedOAuthData = profile.google_oauth_data as unknown as GoogleOAuthData;
+          if (typedOAuthData.access_token && typedOAuthData.email) {
+            setOauthData(typedOAuthData);
+          }
         }
       } catch (error) {
         console.error('Error loading OAuth data:', error);
@@ -44,7 +44,7 @@ export function useGoogleAuth() {
       const { error } = await supabase
         .from('profiles')
         .update({
-          google_oauth_data: data as any // Cast to any to satisfy Supabase's Json type
+          google_oauth_data: data as unknown as Json
         })
         .eq('id', session.user.id);
 
