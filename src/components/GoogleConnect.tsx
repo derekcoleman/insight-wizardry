@@ -7,9 +7,10 @@ import { ConnectionStatus } from "@/components/ConnectionStatus";
 
 interface GoogleConnectProps {
   onConnectionChange?: (connected: boolean) => void;
+  onAnalysisComplete?: (data: any) => void | Promise<void>;
 }
 
-export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
+export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: GoogleConnectProps) {
   const {
     isLoading,
     error,
