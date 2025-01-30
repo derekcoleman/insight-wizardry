@@ -163,7 +163,6 @@ export function useGoogleServices() {
         if (updateError) throw updateError;
       }
 
-      // Test Gmail connection
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
         headers: {
           Authorization: `Bearer ${googleAccessToken}`,
@@ -178,7 +177,6 @@ export function useGoogleServices() {
         });
       }
 
-      // Fetch GA4 accounts
       const gaResponse = await fetch(
         "https://analyticsadmin.googleapis.com/v1alpha/accounts",
         {
@@ -202,7 +200,6 @@ export function useGoogleServices() {
           description: "Connected to Google Analytics 4",
         });
 
-        // Fetch GA4 properties for all accounts
         const allProperties = [];
         for (const account of gaData.accounts) {
           const propertiesResponse = await fetch(
@@ -230,7 +227,6 @@ export function useGoogleServices() {
         );
       }
 
-      // Fetch Search Console sites
       const gscResponse = await fetch(
         "https://www.googleapis.com/webmasters/v3/sites",
         {
@@ -262,12 +258,12 @@ export function useGoogleServices() {
         );
       }
 
-      // Navigate to projects page after successful connection
       navigate('/projects');
 
     } catch (error: any) {
       console.error('Error in signInWithGoogle:', error);
       handleApiError(error, "Google Services");
+    } finally {
       setIsLoading(false);
     }
   }, [toast, navigate, handleApiError]);
@@ -301,11 +297,11 @@ export function useGoogleServices() {
     loadStoredOAuthData();
   }, [signInWithGoogle]);
 
-  const login = useGoogleLogin({
-    onSuccess: async (response) => {
+  // Define login configuration outside of the hook's body
+  const loginConfig = {
+    onSuccess: async (response: any) => {
       setIsLoading(true);
       setError(null);
-      
       try {
         console.log("Google login successful, token:", response.access_token);
         await signInWithGoogle(response.access_token);
@@ -316,7 +312,7 @@ export function useGoogleServices() {
         setIsLoading(false);
       }
     },
-    onError: (errorResponse) => {
+    onError: (errorResponse: any) => {
       console.error("Google login error:", errorResponse);
       const errorMessage = errorResponse.error_description || errorResponse.error || "Failed to authenticate with Google";
       setError(errorMessage);
@@ -334,7 +330,9 @@ export function useGoogleServices() {
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
     flow: "implicit",
-  });
+  };
+
+  const login = useGoogleLogin(loginConfig);
 
   return {
     gaAccounts,
