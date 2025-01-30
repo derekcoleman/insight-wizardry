@@ -132,11 +132,29 @@ export function useGoogleServices() {
       console.log("Received user info:", userInfo);
       setUserEmail(userInfo.email);
 
+      // Get ID token from Google
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/tokeninfo', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
+      if (!tokenResponse.ok) {
+        throw new Error('Failed to validate Google token');
+      }
+
+      const tokenInfo = await tokenResponse.json();
+
       // Sign in with Supabase using Google token
-      const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
+      const { data: authData, error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        token: googleAccessToken,
-        nonce: 'NONCE', // Replace with a secure nonce in production
+        options: {
+          queryParams: {
+            access_token: googleAccessToken,
+            id_token: tokenInfo.id_token,
+          },
+        },
       });
 
       if (authError) {
@@ -146,7 +164,7 @@ export function useGoogleServices() {
       console.log("Supabase auth successful:", authData);
 
       // Update profile with Google OAuth data
-      if (authData.user) {
+      if (authData?.user) {
         const { error: updateError } = await supabase
           .from('profiles')
           .upsert({
