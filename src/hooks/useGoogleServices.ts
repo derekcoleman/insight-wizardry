@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,12 +11,6 @@ interface Account {
 interface ConversionGoal {
   id: string;
   name: string;
-}
-
-interface UseGoogleServicesProps {
-  initialToken?: string;
-  initialEmail?: string;
-  onAuthSuccess?: (token: string, email: string) => void;
 }
 
 interface UseGoogleServicesReturn {
@@ -34,11 +28,7 @@ interface UseGoogleServicesReturn {
   userEmail: string | null;
 }
 
-export function useGoogleServices({ 
-  initialToken, 
-  initialEmail,
-  onAuthSuccess 
-}: UseGoogleServicesProps = {}): UseGoogleServicesReturn {
+export function useGoogleServices(): UseGoogleServicesReturn {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
@@ -47,17 +37,9 @@ export function useGoogleServices({
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(false);
-  const [accessToken, setAccessToken] = useState<string | null>(initialToken || null);
-  const [userEmail, setUserEmail] = useState<string | null>(initialEmail || null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
-
-  // Effect to initialize with stored token
-  useEffect(() => {
-    if (initialToken && initialEmail) {
-      console.log("Initializing with stored token");
-      signInWithGoogle(initialToken);
-    }
-  }, [initialToken, initialEmail]);
 
   const handleApiError = (error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
@@ -89,6 +71,21 @@ export function useGoogleServices({
       const userInfo = await userInfoResponse.json();
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
+
+      // Sign in with Supabase using custom credentials
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            prompt: 'consent',
+            access_type: 'offline',
+          },
+        },
+      });
+
+      if (signInError) {
+        throw signInError;
+      }
 
       // Test Gmail connection
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
@@ -188,9 +185,6 @@ export function useGoogleServices({
           }))
         );
       }
-
-      // Call onAuthSuccess callback with the token and email
-      onAuthSuccess?.(googleAccessToken, userInfo.email);
 
     } catch (error: any) {
       console.error('Error in signInWithGoogle:', error);
