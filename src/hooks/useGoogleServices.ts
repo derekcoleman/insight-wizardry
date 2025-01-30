@@ -35,7 +35,7 @@ export function useGoogleServices() {
       setGmailConnected(gmailResponse.ok);
 
       // Sign in to Supabase with Google OAuth
-      const { data: { session }, error: signInError } = await supabase.auth.signInWithOAuth({
+      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           queryParams: {
@@ -56,9 +56,11 @@ export function useGoogleServices() {
         throw signInError;
       }
 
-      if (session) {
-        setAccessToken(token);
+      if (data?.url) {
+        window.location.href = data.url;
       }
+
+      setAccessToken(token);
 
     } catch (error: any) {
       console.error('Error in initializeWithToken:', error);
