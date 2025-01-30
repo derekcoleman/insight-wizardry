@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,7 @@ interface UseGoogleServicesProps {
   initialEmail?: string;
 }
 
-export function useGoogleServices({ initialToken, initialEmail }: UseGoogleServicesProps = {}) {
+export function useGoogleServices() {
   const [gaAccounts, setGaAccounts] = useState<Account[]>([]);
   const [gscAccounts, setGscAccounts] = useState<Account[]>([]);
   const [conversionGoals, setConversionGoals] = useState<ConversionGoal[]>([]);
@@ -27,9 +27,35 @@ export function useGoogleServices({ initialToken, initialEmail }: UseGoogleServi
   const [gaConnected, setGaConnected] = useState(false);
   const [gscConnected, setGscConnected] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(false);
-  const [accessToken, setAccessToken] = useState<string | null>(initialToken || null);
-  const [userEmail, setUserEmail] = useState<string | null>(initialEmail || null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Load stored OAuth data on mount
+  useEffect(() => {
+    const loadStoredOAuthData = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('google_oauth_data')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profile?.google_oauth_data?.access_token) {
+            setAccessToken(profile.google_oauth_data.access_token);
+            setUserEmail(profile.google_oauth_data.email);
+            await signInWithGoogle(profile.google_oauth_data.access_token);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading stored OAuth data:', error);
+      }
+    };
+
+    loadStoredOAuthData();
+  }, []);
 
   const handleApiError = (error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
@@ -61,20 +87,6 @@ export function useGoogleServices({ initialToken, initialEmail }: UseGoogleServi
       const userInfo = await userInfoResponse.json();
       console.log("Received user info:", { email: userInfo.email });
       setUserEmail(userInfo.email);
-
-      const { error: signInError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          queryParams: {
-            prompt: 'consent',
-            access_type: 'offline',
-          },
-        },
-      });
-
-      if (signInError) {
-        throw signInError;
-      }
 
       // Test Gmail connection
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {

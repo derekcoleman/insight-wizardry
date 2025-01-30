@@ -9,7 +9,7 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
-import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { useNavigate } from "react-router-dom";
 
 interface AnalysisData {
   report: {
@@ -34,7 +34,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { oauthData, updateOAuthData } = useGoogleAuth();
+  const navigate = useNavigate();
 
   const {
     gaAccounts,
@@ -49,25 +49,44 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     fetchConversionGoals,
     accessToken,
     userEmail
-  } = useGoogleServices({
-    initialToken: oauthData?.access_token,
-    initialEmail: oauthData?.email,
-  });
+  } = useGoogleServices();
+
+  useEffect(() => {
+    const checkAndStoreSession = async () => {
+      if (accessToken && userEmail) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          try {
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({
+                google_oauth_data: {
+                  access_token: accessToken,
+                  email: userEmail
+                }
+              })
+              .eq('id', session.user.id);
+
+            if (updateError) throw updateError;
+
+            // Navigate to projects page after successful login
+            navigate('/projects');
+          } catch (error) {
+            console.error('Error storing Google OAuth data:', error);
+          }
+        }
+      }
+    };
+
+    checkAndStoreSession();
+  }, [accessToken, userEmail, navigate]);
 
   useEffect(() => {
     if (gaConnected || gscConnected || gmailConnected) {
       console.log("Connection status changed:", { gaConnected, gscConnected, gmailConnected });
       onConnectionChange?.(true);
-
-      // Store OAuth data when connection is successful
-      if (accessToken && userEmail && !oauthData) {
-        updateOAuthData({
-          access_token: accessToken,
-          email: userEmail,
-        });
-      }
     }
-  }, [gaConnected, gscConnected, gmailConnected, onConnectionChange, accessToken, userEmail, oauthData, updateOAuthData]);
+  }, [gaConnected, gscConnected, gmailConnected, onConnectionChange]);
 
   const handleAnalyze = async (ga4Property: string, gscProperty: string, mainConversionGoal: string) => {
     if (!ga4Property || !accessToken) {
