@@ -132,41 +132,19 @@ export function useGoogleServices() {
       setUserEmail(userInfo.email);
 
       // Sign in with Supabase using Google OAuth
-      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          redirectTo: window.location.origin,
           queryParams: {
             access_token: googleAccessToken,
+            prompt: 'consent',
+            access_type: 'offline'
           },
         },
       });
 
       if (signInError) throw signInError;
-
-      // Get the session after OAuth sign-in
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) throw sessionError;
-
-      if (session?.user) {
-        console.log("Supabase auth successful:", session);
-
-        // Update profile with Google OAuth data
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: session.user.id,
-            email: userInfo.email,
-            google_oauth_data: {
-              access_token: googleAccessToken,
-              email: userInfo.email,
-              name: userInfo.name,
-              picture: userInfo.picture
-            }
-          });
-
-        if (updateError) throw updateError;
-      }
 
       // Check Gmail access
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
