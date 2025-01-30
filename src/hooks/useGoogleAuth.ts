@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleOAuthData } from "@/types/google";
+import { Json } from "@/integrations/supabase/types";
 
 export function useGoogleAuth() {
   const [oauthData, setOauthData] = useState<GoogleOAuthData | null>(null);
@@ -24,6 +25,7 @@ export function useGoogleAuth() {
           const typedOAuthData = profile.google_oauth_data as unknown as GoogleOAuthData;
           if (typedOAuthData.access_token && typedOAuthData.email) {
             setOauthData(typedOAuthData);
+            console.log("Loaded stored OAuth data for:", typedOAuthData.email);
           }
         }
       } catch (error) {
@@ -51,6 +53,7 @@ export function useGoogleAuth() {
       if (error) throw error;
 
       setOauthData(data);
+      console.log("Stored OAuth data for:", data.email);
       toast({
         title: "Success",
         description: "Google account connected successfully",
