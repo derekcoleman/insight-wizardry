@@ -9,6 +9,7 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 
 interface AnalysisData {
   report: {
@@ -33,6 +34,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { oauthData, storeOAuthData } = useGoogleAuth();
 
   const {
     gaAccounts,
@@ -47,7 +49,13 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     fetchConversionGoals,
     accessToken,
     userEmail
-  } = useGoogleServices();
+  } = useGoogleServices({
+    initialToken: oauthData?.access_token,
+    initialEmail: oauthData?.email,
+    onAuthSuccess: (token: string, email: string) => {
+      storeOAuthData({ access_token: token, email });
+    }
+  });
 
   useEffect(() => {
     if (gaConnected || gscConnected || gmailConnected) {
