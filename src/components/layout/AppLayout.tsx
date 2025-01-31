@@ -21,15 +21,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
-import { useQuery } from "@tanstack/react-query";
-import { Database } from "@/integrations/supabase/types";
-import { GoogleOAuthData } from "@/types/google";
-
-type Profile = Database['public']['Tables']['profiles']['Row'] & {
-  google_oauth_data?: GoogleOAuthData;
-};
 
 const items = [
   {
@@ -47,46 +40,76 @@ const items = [
 function NavHeader() {
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: session, isLoading: isSessionLoading } = useQuery({
-    queryKey: ["session"],
-    queryFn: async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      return session;
-    },
-  });
+  useEffect(() => {
+    const getProfile = async () => {
+      try {
+        setIsLoading(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user?.email) {
+          setUserEmail(session.user.email);
+          
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+          } else if (profileData) {
+            console.log("Profile data:", profileData);
+            setUserProfile(profileData);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching session:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const { data: profile, isLoading: isProfileLoading } = useQuery({
-    queryKey: ["profile", session?.user?.id],
-    enabled: !!session?.user?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session?.user?.id)
-        .single();
-      if (error) throw error;
-      return data as Profile;
-    },
-  });
+    getProfile();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (profileData) {
+          setUserProfile(profileData);
+        }
+      } else {
+        setUserEmail(null);
+        setUserProfile(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
+      setUserEmail(null);
+      setUserProfile(null);
       navigate('/');
       window.location.reload();
     } catch (error) {
       console.error("Error signing out:", error);
-      toast({
-        title: "Error",
-        description: "Failed to sign out",
-        variant: "destructive",
-      });
     }
   };
-
+  
   return (
     <nav className="bg-[#221F26] shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -110,16 +133,16 @@ function NavHeader() {
             </Link>
           </div>
 
-          {!isSessionLoading && !isProfileLoading && session?.user && (
+          {!isLoading && userEmail && (
             <div className="flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full">
                     <Avatar className="h-10 w-10">
-                      {profile?.google_oauth_data?.picture ? (
+                      {userProfile?.google_oauth_data?.picture ? (
                         <AvatarImage 
-                          src={profile.google_oauth_data.picture} 
-                          alt={profile.google_oauth_data.name || session.user.email || ''} 
+                          src={userProfile.google_oauth_data.picture} 
+                          alt={userProfile.google_oauth_data.name || userEmail} 
                         />
                       ) : (
                         <AvatarFallback>
@@ -131,7 +154,7 @@ function NavHeader() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>
-                    {profile?.google_oauth_data?.name || session.user.email}
+                    {userProfile?.google_oauth_data?.name || userEmail}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/profile')}>

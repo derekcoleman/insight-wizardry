@@ -40,7 +40,7 @@ export function ProjectList() {
   const [activeTab, setActiveTab] = useState("details");
   const { toast } = useToast();
 
-  const { data: session, isLoading: isSessionLoading } = useQuery({
+  const { data: session } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -50,13 +50,11 @@ export function ProjectList() {
   });
 
   const { data: projects, refetch: refetchProjects } = useQuery({
-    queryKey: ["projects", session?.user?.id],
-    enabled: !!session?.user?.id,
+    queryKey: ["projects"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
         .select("*")
-        .eq("user_id", session?.user?.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -91,15 +89,11 @@ export function ProjectList() {
     }
 
     try {
-      const { data: project, error } = await supabase
-        .from("projects")
-        .insert({
-          name,
-          url,
-          user_id: session.user.id,
-        })
-        .select()
-        .single();
+      const { data: project, error } = await supabase.from("projects").insert({
+        name,
+        url,
+        user_id: session.user.id,
+      }).select().single();
 
       if (error) throw error;
 
@@ -110,7 +104,6 @@ export function ProjectList() {
 
       setSelectedProject(project.id);
       setActiveTab("connect");
-      refetchProjects();
     } catch (error) {
       toast({
         title: "Error creating project",
@@ -234,104 +227,90 @@ export function ProjectList() {
         </Dialog>
       </div>
 
-      {isSessionLoading ? (
-        <Card className="p-6">
-          <div className="text-center text-muted-foreground">
-            <p>Loading projects...</p>
-          </div>
-        </Card>
-      ) : !session ? (
-        <Card className="p-6">
-          <div className="text-center text-muted-foreground">
-            <p>Please sign in to view and create projects.</p>
-          </div>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {projects?.map((project) => (
-            <Card key={project.id} className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <h3 className="font-semibold">{project.name}</h3>
-                  {project.url && (
-                    <a
-                      href={project.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-muted-foreground hover:underline flex items-center"
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {projects?.map((project) => (
+          <Card key={project.id} className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <h3 className="font-semibold">{project.name}</h3>
+                {project.url && (
+                  <a
+                    href={project.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-muted-foreground hover:underline flex items-center"
+                  >
+                    <Link className="mr-1 h-3 w-3" />
+                    {project.url}
+                  </a>
+                )}
+              </div>
+              <Folder className="h-5 w-5 text-muted-foreground" />
+            </div>
+            
+            <div className="mt-4 space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {['ga4', 'gsc', 'meta', 'google-ads'].map(service => {
+                  const connection = getConnectionStatus(project.id, service);
+                  return (
+                    <Badge 
+                      key={service}
+                      variant={connection?.status === 'active' ? 'success' : 'secondary'}
+                      className="flex items-center gap-1"
                     >
-                      <Link className="mr-1 h-3 w-3" />
-                      {project.url}
-                    </a>
-                  )}
-                </div>
-                <Folder className="h-5 w-5 text-muted-foreground" />
+                      {connection?.status === 'active' ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <AlertCircle className="h-3 w-3" />
+                      )}
+                      {service.toUpperCase()}
+                    </Badge>
+                  );
+                })}
               </div>
               
-              <div className="mt-4 space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  {['ga4', 'gsc', 'meta', 'google-ads'].map(service => {
-                    const connection = getConnectionStatus(project.id, service);
-                    return (
-                      <Badge 
-                        key={service}
-                        variant={connection?.status === 'active' ? 'success' : 'secondary'}
-                        className="flex items-center gap-1"
-                      >
-                        {connection?.status === 'active' ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <AlertCircle className="h-3 w-3" />
-                        )}
-                        {service.toUpperCase()}
-                      </Badge>
-                    );
-                  })}
-                </div>
-                
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => setSelectedProject(project.id)}
-                    >
-                      <Database className="mr-2 h-4 w-4" />
-                      Manage Connections
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                      <DialogTitle>Connect APIs - {project.name}</DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4">
-                      <GoogleConnect 
-                        onConnectionChange={(connected) => {
-                          if (connected) {
-                            toast({
-                              title: "Connection successful",
-                              description: "Google services have been connected to your project.",
-                            });
-                          }
-                        }}
-                        onAnalysisComplete={(data) => handleAnalysisComplete(project.id, data)}
-                      />
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </Card>
-          ))}
-          {projects?.length === 0 && (
-            <Card className="col-span-full p-6">
-              <div className="text-center text-muted-foreground">
-                <p>No projects yet. Create your first project to get started!</p>
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => setSelectedProject(project.id)}
+                  >
+                    <Database className="mr-2 h-4 w-4" />
+                    Manage Connections
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle>Connect APIs - {project.name}</DialogTitle>
+                  </DialogHeader>
+                  <div className="mt-4">
+                    <GoogleConnect 
+                      onConnectionChange={(connected) => {
+                        if (connected) {
+                          toast({
+                            title: "Connection successful",
+                            description: "Google services have been connected to your project.",
+                          });
+                        }
+                      }}
+                      onAnalysisComplete={(data) => handleAnalysisComplete(project.id, data)}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </Card>
+        ))}
+        {projects?.length === 0 && (
+          <Card className="col-span-full p-6">
+            <div className="text-center text-muted-foreground">
+              <p>No projects yet. Create your first project to get started!</p>
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

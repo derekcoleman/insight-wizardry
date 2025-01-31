@@ -111,7 +111,6 @@ export function AnalysisResults({ report, isLoading, insights: providedInsights,
           const { error: updateError } = await supabase
             .from('profiles')
             .update({
-              id: session.user.id,
               search_history: updatedHistory
             })
             .eq('id', session.user.id);

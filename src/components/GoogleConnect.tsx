@@ -9,7 +9,6 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { GooglePropertyForm } from "@/components/google/GooglePropertyForm";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 
 interface AnalysisData {
   report: {
@@ -34,7 +33,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const {
     gaAccounts,
@@ -50,45 +48,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     accessToken,
     userEmail
   } = useGoogleServices();
-
-  useEffect(() => {
-    const checkAndStoreSession = async () => {
-      if (!accessToken || !userEmail) return;
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) return;
-
-      try {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            google_oauth_data: {
-              access_token: accessToken,
-              email: userEmail
-            }
-          })
-          .eq('id', session.user.id);
-
-        if (updateError) throw updateError;
-
-        toast({
-          title: "Success",
-          description: "Successfully signed in with Google",
-        });
-
-        navigate('/projects', { replace: true });
-      } catch (error) {
-        console.error('Error storing Google OAuth data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to store Google OAuth data",
-          variant: "destructive",
-        });
-      }
-    };
-
-    checkAndStoreSession();
-  }, [accessToken, userEmail, navigate, toast]);
 
   useEffect(() => {
     if (gaConnected || gscConnected || gmailConnected) {
@@ -186,7 +145,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
           )}
 
           {analysisError && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="mt-4">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Analysis Error</AlertTitle>
               <AlertDescription>{analysisError}</AlertDescription>
