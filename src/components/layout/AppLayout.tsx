@@ -24,6 +24,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { Database } from "@/integrations/supabase/types";
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 const items = [
   {
@@ -62,7 +65,7 @@ function NavHeader() {
         .eq('id', session?.user?.id)
         .single();
       if (error) throw error;
-      return data;
+      return data as Profile;
     },
   });
 
@@ -113,7 +116,7 @@ function NavHeader() {
                       {profile?.google_oauth_data?.picture ? (
                         <AvatarImage 
                           src={profile.google_oauth_data.picture} 
-                          alt={profile.google_oauth_data.name || session.user.email} 
+                          alt={profile.google_oauth_data.name || session.user.email || ''} 
                         />
                       ) : (
                         <AvatarFallback>
