@@ -40,7 +40,7 @@ export function ProjectList() {
   const [activeTab, setActiveTab] = useState("details");
   const { toast } = useToast();
 
-  const { data: session } = useQuery({
+  const { data: session, isLoading: isSessionLoading } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -51,6 +51,7 @@ export function ProjectList() {
 
   const { data: projects, refetch: refetchProjects } = useQuery({
     queryKey: ["projects"],
+    enabled: !!session?.user?.id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
@@ -104,6 +105,7 @@ export function ProjectList() {
 
       setSelectedProject(project.id);
       setActiveTab("connect");
+      refetchProjects();
     } catch (error) {
       toast({
         title: "Error creating project",
