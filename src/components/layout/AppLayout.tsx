@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { Database } from "@/integrations/supabase/types";
@@ -83,7 +83,7 @@ function NavHeader() {
       });
     }
   };
-  
+
   return (
     <nav className="bg-[#221F26] shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
