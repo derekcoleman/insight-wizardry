@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
 
 interface Account {
   id: string;
@@ -42,37 +41,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Query to get the user's profile and stored OAuth data
-  const { data: profile } = useQuery({
-    queryKey: ["profile"],
-    queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) return null;
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", session.user.id)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Effect to restore OAuth state from profile
-  useEffect(() => {
-    if (profile?.google_oauth_data) {
-      const oauthData = profile.google_oauth_data as any;
-      console.log("Restoring OAuth state from profile:", oauthData);
-      if (oauthData.access_token) {
-        setAccessToken(oauthData.access_token);
-        setUserEmail(oauthData.email);
-        loadGoogleServices(oauthData.access_token);
-      }
-    }
-  }, [profile]);
-
   const handleApiError = (error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
     const errorMessage = error.response?.data?.error?.message || error.message || "An unknown error occurred";
@@ -84,25 +52,63 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     });
   };
 
-  const loadGoogleServices = async (token: string) => {
+  const signInWithGoogle = async (googleAccessToken: string) => {
     try {
-      setIsLoading(true);
-      setError(null);
+      console.log("Starting Google OAuth flow");
+      setAccessToken(googleAccessToken);
+
+      // Get user info from Google
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          Authorization: `Bearer ${googleAccessToken}`,
+        },
+      });
+
+      if (!userInfoResponse.ok) {
+        throw new Error('Failed to fetch user info from Google');
+      }
+
+      const userInfo = await userInfoResponse.json();
+      console.log("Received user info:", { email: userInfo.email });
+      setUserEmail(userInfo.email);
+
+      // Sign in with Supabase using custom credentials
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            prompt: 'consent',
+            access_type: 'offline',
+          },
+        },
+      });
+
+      if (signInError) {
+        throw signInError;
+      }
 
       // Test Gmail connection
       const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${googleAccessToken}`,
+        },
       });
 
       if (gmailResponse.ok) {
         setGmailConnected(true);
+        toast({
+          title: "Success",
+          description: "Connected to Gmail",
+        });
       }
 
       // Fetch GA4 accounts
       const gaResponse = await fetch(
         "https://analyticsadmin.googleapis.com/v1alpha/accounts",
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${googleAccessToken}`,
+          },
         }
       );
 
@@ -115,6 +121,10 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       if (gaData.accounts?.length > 0) {
         setGaConnected(true);
+        toast({
+          title: "Success",
+          description: "Connected to Google Analytics 4",
+        });
 
         // Fetch GA4 properties for all accounts
         const allProperties = [];
@@ -122,7 +132,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           const propertiesResponse = await fetch(
             `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
             {
-              headers: { Authorization: `Bearer ${token}` },
+              headers: {
+                Authorization: `Bearer ${googleAccessToken}`,
+              },
             }
           );
 
@@ -146,7 +158,9 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const gscResponse = await fetch(
         "https://www.googleapis.com/webmasters/v3/sites",
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${googleAccessToken}`,
+          },
         }
       );
 
@@ -159,6 +173,10 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       
       if (gscData.siteEntry?.length > 0) {
         setGscConnected(true);
+        toast({
+          title: "Success",
+          description: "Connected to Search Console",
+        });
         
         setGscAccounts(
           gscData.siteEntry.map((s: any) => ({
@@ -167,59 +185,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           }))
         );
       }
-
-    } catch (error: any) {
-      console.error('Error loading Google services:', error);
-      handleApiError(error, "Google Services");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signInWithGoogle = async (googleAccessToken: string) => {
-    try {
-      console.log("Starting Google OAuth flow");
-      setAccessToken(googleAccessToken);
-
-      // Get user info from Google
-      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
-      });
-
-      if (!userInfoResponse.ok) {
-        throw new Error('Failed to fetch user info from Google');
-      }
-
-      const userInfo = await userInfoResponse.json();
-      console.log("Received user info:", userInfo);
-      setUserEmail(userInfo.email);
-
-      // Store OAuth data in profile
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        console.log("Updating profile with OAuth data");
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            google_oauth_data: {
-              access_token: googleAccessToken,
-              email: userInfo.email,
-              picture: userInfo.picture,
-              name: userInfo.name
-            }
-          })
-          .eq('id', session.user.id);
-
-        if (updateError) {
-          console.error('Error updating profile:', updateError);
-          throw updateError;
-        }
-      }
-
-      // Load Google services with the token
-      await loadGoogleServices(googleAccessToken);
 
     } catch (error: any) {
       console.error('Error in signInWithGoogle:', error);
@@ -332,6 +297,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       "https://www.googleapis.com/auth/userinfo.profile"
     ].join(" "),
     flow: "implicit",
+    prompt: "consent",
   });
 
   return {
