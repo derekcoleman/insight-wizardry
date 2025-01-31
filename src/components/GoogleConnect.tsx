@@ -74,6 +74,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
               description: "Successfully signed in with Google",
             });
 
+            // Navigate to projects page after successful authentication
             navigate('/projects');
           } catch (error) {
             console.error('Error storing Google OAuth data:', error);
