@@ -53,38 +53,38 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
 
   useEffect(() => {
     const checkAndStoreSession = async () => {
-      if (accessToken && userEmail) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          try {
-            const { error: updateError } = await supabase
-              .from('profiles')
-              .update({
-                google_oauth_data: {
-                  access_token: accessToken,
-                  email: userEmail
-                }
-              })
-              .eq('id', session.user.id);
+      if (!accessToken || !userEmail) return;
 
-            if (updateError) throw updateError;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) return;
 
-            toast({
-              title: "Success",
-              description: "Successfully signed in with Google",
-            });
+      try {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            google_oauth_data: {
+              access_token: accessToken,
+              email: userEmail
+            }
+          })
+          .eq('id', session.user.id);
 
-            // Navigate to projects page after successful authentication
-            navigate('/projects');
-          } catch (error) {
-            console.error('Error storing Google OAuth data:', error);
-            toast({
-              title: "Error",
-              description: "Failed to store Google OAuth data",
-              variant: "destructive",
-            });
-          }
-        }
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Success",
+          description: "Successfully signed in with Google",
+        });
+
+        // Navigate to projects page after successful authentication
+        navigate('/projects', { replace: true });
+      } catch (error) {
+        console.error('Error storing Google OAuth data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to store Google OAuth data",
+          variant: "destructive",
+        });
       }
     };
 
