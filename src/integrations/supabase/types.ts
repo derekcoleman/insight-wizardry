@@ -6,13 +6,6 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface GoogleOAuthData {
-  picture?: string;
-  name?: string;
-  email: string;
-  access_token: string;
-}
-
 export type Database = {
   public: {
     Tables: {
@@ -88,7 +81,7 @@ export type Database = {
         Row: {
           created_at: string
           email: string | null
-          google_oauth_data: GoogleOAuthData | null
+          google_oauth_data: Json | null
           id: string
           search_history: Json[] | null
           updated_at: string
@@ -96,7 +89,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email?: string | null
-          google_oauth_data?: GoogleOAuthData | null
+          google_oauth_data?: Json | null
           id: string
           search_history?: Json[] | null
           updated_at?: string
@@ -104,7 +97,7 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string | null
-          google_oauth_data?: GoogleOAuthData | null
+          google_oauth_data?: Json | null
           id?: string
           search_history?: Json[] | null
           updated_at?: string
@@ -134,7 +127,7 @@ export type Database = {
           selected_property?: string | null
           service_type: string
           status?: string | null
-          updated_at: string
+          updated_at?: string
         }
         Update: {
           connection_data?: Json
