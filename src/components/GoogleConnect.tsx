@@ -69,17 +69,26 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
 
             if (updateError) throw updateError;
 
-            // Navigate to projects page after successful login
+            toast({
+              title: "Success",
+              description: "Successfully signed in with Google",
+            });
+
             navigate('/projects');
           } catch (error) {
             console.error('Error storing Google OAuth data:', error);
+            toast({
+              title: "Error",
+              description: "Failed to store Google OAuth data",
+              variant: "destructive",
+            });
           }
         }
       }
     };
 
     checkAndStoreSession();
-  }, [accessToken, userEmail, navigate]);
+  }, [accessToken, userEmail, navigate, toast]);
 
   useEffect(() => {
     if (gaConnected || gscConnected || gmailConnected) {
