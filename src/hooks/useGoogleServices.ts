@@ -64,6 +64,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
   useEffect(() => {
     if (profile?.google_oauth_data) {
       const oauthData = profile.google_oauth_data as any;
+      console.log("Restoring OAuth state from profile:", oauthData);
       if (oauthData.access_token) {
         setAccessToken(oauthData.access_token);
         setUserEmail(oauthData.email);
@@ -192,12 +193,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       }
 
       const userInfo = await userInfoResponse.json();
-      console.log("Received user info:", { email: userInfo.email });
+      console.log("Received user info:", userInfo);
       setUserEmail(userInfo.email);
 
       // Store OAuth data in profile
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.id) {
+        console.log("Updating profile with OAuth data");
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
@@ -212,6 +214,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
         if (updateError) {
           console.error('Error updating profile:', updateError);
+          throw updateError;
         }
       }
 
