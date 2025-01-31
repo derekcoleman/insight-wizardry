@@ -60,6 +60,7 @@ export function useGoogleAuth() {
       const { error } = await supabase
         .from("profiles")
         .update({ 
+          id: session.user.id,
           google_oauth_data: {
             access_token: data.access_token,
             email: data.email

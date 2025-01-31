@@ -150,6 +150,7 @@ export function useGoogleServices() {
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
+            id: session.user.id,
             google_oauth_data: oauthData
           })
           .eq('id', session.user.id);
