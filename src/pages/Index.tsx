@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GrowthChannelTabs } from "@/components/GrowthChannelTabs";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { Card } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { ProjectList } from "@/components/ProjectList";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 interface AnalysisData {
   report: {
@@ -53,6 +54,14 @@ const Index = () => {
                 <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
                   Connect your Google account to analyze and optimize your digital marketing performance across all channels.
                 </p>
+                <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
+                  <Button
+                    onClick={() => navigate('/auth')}
+                    className="rounded-md shadow"
+                  >
+                    Get Started
+                  </Button>
+                </div>
               </div>
               
               {!isConnected ? (
