@@ -25,8 +25,11 @@ import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { Database } from "@/integrations/supabase/types";
+import { GoogleOAuthData } from "@/types/google";
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
+type Profile = Database['public']['Tables']['profiles']['Row'] & {
+  google_oauth_data?: GoogleOAuthData;
+};
 
 const items = [
   {
