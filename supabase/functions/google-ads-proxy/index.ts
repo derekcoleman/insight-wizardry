@@ -16,12 +16,10 @@ serve(async (req) => {
   try {
     const { accessToken } = await req.json();
     const developerToken = Deno.env.get('GOOGLE_ADS_DEVELOPER_TOKEN');
-    const loginCustomerId = Deno.env.get('GOOGLE_ADS_LOGIN_CUSTOMER_ID');
     
     console.log("Starting Google Ads proxy request with:", {
       hasAccessToken: !!accessToken,
       hasDeveloperToken: !!developerToken,
-      hasLoginCustomerId: !!loginCustomerId,
       accessTokenPrefix: accessToken ? accessToken.substring(0, 10) + '...' : null,
       developerTokenPrefix: developerToken ? developerToken.substring(0, 10) + '...' : null,
     });
@@ -36,14 +34,44 @@ serve(async (req) => {
       throw new Error('Access token is required');
     }
 
-    if (!loginCustomerId) {
-      console.error("Login customer ID not found in environment");
-      throw new Error('Login customer ID not configured');
+    console.log("Fetching Google Ads accounts...");
+
+    // First, get the login customer ID using the correct endpoint
+    const loginCustomerResponse = await fetch(
+      'https://googleads.googleapis.com/v15/customers:listAccessibleCustomers',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'developer-token': developerToken,
+        },
+      }
+    );
+
+    if (!loginCustomerResponse.ok) {
+      const errorText = await loginCustomerResponse.text();
+      console.error("Failed to get login customer ID:", errorText);
+      throw new Error(`Failed to get login customer ID: ${errorText}`);
     }
 
+    const { resourceNames } = await loginCustomerResponse.json();
+    
+    if (!resourceNames || resourceNames.length === 0) {
+      console.warn("No accessible customers found");
+      return new Response(
+        JSON.stringify({ accounts: [] }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    // Extract the first customer ID to use for searching
+    const loginCustomerId = resourceNames[0].split('/')[1];
     console.log("Using login customer ID:", loginCustomerId);
 
-    // Use searchStream with the configured login customer ID
+    // Now use searchStream with the login customer ID and correct endpoint format
     const response = await fetch(
       `https://googleads.googleapis.com/v15/customers/${loginCustomerId}/googleAds:searchStream`,
       {
@@ -127,4 +155,3 @@ serve(async (req) => {
     );
   }
 });
-
