@@ -294,7 +294,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         // Fetch Google Ads accounts through our Edge Function
         try {
           console.log("Fetching Google Ads accounts through Edge Function...");
-          console.log("Access token available:", !!response.access_token);
           
           const { data: adsData, error: adsError } = await supabase.functions.invoke('google-ads-proxy', {
             body: { accessToken: response.access_token }
@@ -305,17 +304,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             throw new Error(adsError.message || "Failed to fetch Google Ads accounts");
           }
 
-          console.log("Google Ads Edge Function Response:", adsData);
-
           if (!adsData?.accounts || adsData.accounts.length === 0) {
-            console.log("No Google Ads accounts found");
             toast({
               title: "Warning",
               description: "No Google Ads accounts found",
               variant: "destructive",
             });
           } else {
-            console.log("Setting Google Ads accounts:", adsData.accounts);
             setAdsConnected(true);
             toast({
               title: "Success",
