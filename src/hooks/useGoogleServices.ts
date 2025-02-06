@@ -304,13 +304,17 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             throw new Error(adsError.message || "Failed to fetch Google Ads accounts");
           }
 
+          console.log("Google Ads Edge Function Response:", adsData);
+
           if (!adsData?.accounts || adsData.accounts.length === 0) {
+            console.log("No Google Ads accounts found");
             toast({
               title: "Warning",
               description: "No Google Ads accounts found",
               variant: "destructive",
             });
           } else {
+            console.log("Setting Google Ads accounts:", adsData.accounts);
             setAdsConnected(true);
             toast({
               title: "Success",

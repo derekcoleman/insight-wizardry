@@ -16,11 +16,15 @@ serve(async (req) => {
     const { accessToken } = await req.json();
     const developerToken = Deno.env.get('GOOGLE_ADS_DEVELOPER_TOKEN');
     
+    console.log("Starting Google Ads API request with token");
+    
     if (!developerToken) {
-      throw new Error('Developer token not configured');
+      console.error("Developer token not configured");
+      throw new Error('Google Ads developer token not configured. Please set GOOGLE_ADS_DEVELOPER_TOKEN in Supabase.');
     }
 
     if (!accessToken) {
+      console.error("No access token provided");
       throw new Error('Access token is required');
     }
 
@@ -33,14 +37,17 @@ serve(async (req) => {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'developer-token': developerToken,
+          'Content-Type': 'application/json',
         },
       }
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Google Ads API Error:", errorText);
-      throw new Error(`Google Ads API error: ${response.statusText}`);
+      console.error("Google Ads API Error Response:", errorText);
+      console.error("Response status:", response.status);
+      console.error("Response headers:", Object.fromEntries(response.headers.entries()));
+      throw new Error(`Google Ads API error (${response.status}): ${errorText}`);
     }
 
     const data = await response.json();
@@ -56,7 +63,7 @@ serve(async (req) => {
       };
     }) || [];
 
-    console.log("Returning accounts:", accounts);
+    console.log("Returning formatted accounts:", accounts);
 
     return new Response(
       JSON.stringify({ accounts }),
@@ -68,7 +75,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in google-ads-proxy function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
