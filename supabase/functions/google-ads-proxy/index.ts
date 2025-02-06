@@ -36,43 +36,39 @@ serve(async (req) => {
 
     console.log("Fetching Google Ads accounts...");
 
-    const response = await fetch(
-      'https://googleads.googleapis.com/v14/customers/search',
+    // First, get the accessible customer IDs
+    const listResponse = await fetch(
+      'https://googleads.googleapis.com/v14/customers:listAccessibleCustomers',
       {
-        method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'developer-token': developerToken,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
       }
     );
 
-    const responseText = await response.text();
-    console.log("Raw Google Ads API Response:", responseText);
+    const listResponseText = await listResponse.text();
+    console.log("List Accessible Customers Response:", listResponseText);
 
-    if (!response.ok) {
-      console.error("Google Ads API Error Response:", {
-        status: response.status,
-        statusText: response.statusText,
-        body: responseText,
+    if (!listResponse.ok) {
+      console.error("Google Ads API List Error Response:", {
+        status: listResponse.status,
+        statusText: listResponse.statusText,
+        body: listResponseText,
       });
-      throw new Error(`Google Ads API error (${response.status}): ${responseText}`);
+      throw new Error(`Google Ads API error (${listResponse.status}): ${listResponseText}`);
     }
 
-    let data;
+    let listData;
     try {
-      data = JSON.parse(responseText);
+      listData = JSON.parse(listResponseText);
     } catch (e) {
-      console.error("Failed to parse Google Ads API response:", e);
+      console.error("Failed to parse customer list response:", e);
       throw new Error('Invalid response from Google Ads API');
     }
 
-    console.log("Parsed Google Ads API Response:", data);
-
-    if (!data.results) {
-      console.warn("No accounts found in Google Ads API response");
+    if (!listData.resourceNames || listData.resourceNames.length === 0) {
+      console.warn("No accessible customers found");
       return new Response(
         JSON.stringify({ accounts: [] }),
         {
@@ -82,12 +78,50 @@ serve(async (req) => {
       );
     }
 
-    const accounts = data.results.map((result: any) => ({
-      id: result.customer.id,
-      name: result.customer.descriptiveName || `Account ${result.customer.id}`,
-    }));
+    // Extract customer IDs from resource names
+    const customerIds = listData.resourceNames.map((resourceName: string) => 
+      resourceName.split('/')[1]
+    );
 
-    console.log("Returning accounts:", accounts);
+    console.log("Found customer IDs:", customerIds);
+
+    // For each customer ID, get the account details
+    const accountPromises = customerIds.map(async (customerId: string) => {
+      try {
+        const detailsResponse = await fetch(
+          `https://googleads.googleapis.com/v14/customers/${customerId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'developer-token': developerToken,
+            },
+          }
+        );
+
+        if (!detailsResponse.ok) {
+          console.warn(`Failed to fetch details for customer ${customerId}:`, await detailsResponse.text());
+          return {
+            id: customerId,
+            name: `Account ${customerId}`,
+          };
+        }
+
+        const details = await detailsResponse.json();
+        return {
+          id: customerId,
+          name: details.descriptiveName || `Account ${customerId}`,
+        };
+      } catch (error) {
+        console.warn(`Error fetching details for customer ${customerId}:`, error);
+        return {
+          id: customerId,
+          name: `Account ${customerId}`,
+        };
+      }
+    });
+
+    const accounts = await Promise.all(accountPromises);
+    console.log("Retrieved account details:", accounts);
 
     return new Response(
       JSON.stringify({ accounts }),
