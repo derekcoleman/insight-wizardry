@@ -17,6 +17,8 @@ serve(async (req) => {
     const developerToken = Deno.env.get('GOOGLE_ADS_DEVELOPER_TOKEN');
     
     console.log("Starting Google Ads API request");
+    console.log("Access token received:", !!accessToken);
+    console.log("Developer token configured:", !!developerToken);
     
     if (!developerToken) {
       console.error("Developer token not configured");
@@ -30,8 +32,13 @@ serve(async (req) => {
 
     console.log("Fetching Google Ads accounts with developer token...");
 
-    // Testing with error logging
-    console.log("Making request with headers:", {
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'developer-token': developerToken,
+      'Content-Type': 'application/json',
+    };
+
+    console.log("Request headers:", {
       'Authorization': `Bearer ${accessToken.substring(0, 10)}...`,
       'developer-token': `${developerToken.substring(0, 5)}...`,
     });
@@ -39,35 +46,30 @@ serve(async (req) => {
     // Fetch the customer accounts using the Google Ads API
     const response = await fetch(
       'https://googleads.googleapis.com/v14/customers:listAccessibleCustomers',
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'developer-token': developerToken,
-          'Content-Type': 'application/json',
-          'login-customer-id': '', // Optional: Add if needed for specific account
-        },
-      }
+      { headers }
     );
+
+    console.log("Response status:", response.status);
+    console.log("Response headers:", Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Google Ads API Error Response:", errorText);
-      console.error("Response status:", response.status);
-      console.error("Response headers:", Object.fromEntries(response.headers.entries()));
       
-      // Parse the error response if it's JSON
-      let detailedError;
+      let errorDetails;
       try {
-        detailedError = JSON.parse(errorText);
+        errorDetails = JSON.parse(errorText);
+        console.error("Parsed error details:", errorDetails);
       } catch {
-        detailedError = errorText;
+        errorDetails = { message: errorText };
+        console.error("Raw error text:", errorText);
       }
       
-      throw new Error(`Google Ads API error (${response.status}): ${JSON.stringify(detailedError)}`);
+      throw new Error(`Google Ads API error (${response.status}): ${JSON.stringify(errorDetails)}`);
     }
 
     const data = await response.json();
-    console.log("Google Ads API Response:", data);
+    console.log("Google Ads API Success Response:", data);
 
     // Format the response to match our existing interface
     const accounts = data.resourceNames?.map((resourceName: string) => {
@@ -91,7 +93,6 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in google-ads-proxy function:', error);
     
-    // Return a more detailed error response
     return new Response(
       JSON.stringify({ 
         error: error.message,
