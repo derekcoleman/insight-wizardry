@@ -37,7 +37,7 @@ serve(async (req) => {
     console.log("Fetching Google Ads accounts...");
 
     const response = await fetch(
-      'https://googleads.googleapis.com/v14/customers:searchStream',
+      'https://googleads.googleapis.com/v15/customers:searchStream',
       {
         method: 'POST',
         headers: {
