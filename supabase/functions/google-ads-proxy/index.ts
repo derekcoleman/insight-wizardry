@@ -37,13 +37,15 @@ serve(async (req) => {
     console.log("Fetching Google Ads accounts...");
 
     const response = await fetch(
-      'https://googleads.googleapis.com/v14/customers:listAccessibleCustomers',
+      'https://googleads.googleapis.com/v14/customers/search',
       {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'developer-token': developerToken,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({}),
       }
     );
 
@@ -69,7 +71,7 @@ serve(async (req) => {
 
     console.log("Parsed Google Ads API Response:", data);
 
-    if (!data.resourceNames) {
+    if (!data.results) {
       console.warn("No accounts found in Google Ads API response");
       return new Response(
         JSON.stringify({ accounts: [] }),
@@ -80,13 +82,10 @@ serve(async (req) => {
       );
     }
 
-    const accounts = data.resourceNames.map((resourceName: string) => {
-      const customerId = resourceName.split('/')[1];
-      return {
-        id: customerId,
-        name: `Account ${customerId}`,
-      };
-    });
+    const accounts = data.results.map((result: any) => ({
+      id: result.customer.id,
+      name: result.customer.descriptiveName || `Account ${result.customer.id}`,
+    }));
 
     console.log("Returning accounts:", accounts);
 
