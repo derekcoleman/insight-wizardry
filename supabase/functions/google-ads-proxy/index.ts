@@ -36,39 +36,51 @@ serve(async (req) => {
 
     console.log("Fetching Google Ads accounts...");
 
-    // First, get the accessible customer IDs
-    const listResponse = await fetch(
-      'https://googleads.googleapis.com/v14/customers:listAccessibleCustomers',
+    const response = await fetch(
+      'https://googleads.googleapis.com/v14/customers:searchStream',
       {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'developer-token': developerToken,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          query: `
+            SELECT
+              customer_client.descriptive_name,
+              customer_client.id
+            FROM customer_client
+            WHERE customer_client.status = "ENABLED"
+          `
+        }),
       }
     );
 
-    const listResponseText = await listResponse.text();
-    console.log("List Accessible Customers Response:", listResponseText);
+    const responseText = await response.text();
+    console.log("Google Ads API Response:", responseText);
 
-    if (!listResponse.ok) {
-      console.error("Google Ads API List Error Response:", {
-        status: listResponse.status,
-        statusText: listResponse.statusText,
-        body: listResponseText,
+    if (!response.ok) {
+      console.error("Google Ads API Error Response:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText,
       });
-      throw new Error(`Google Ads API error (${listResponse.status}): ${listResponseText}`);
+      throw new Error(`Google Ads API error (${response.status}): ${responseText}`);
     }
 
-    let listData;
+    let data;
     try {
-      listData = JSON.parse(listResponseText);
+      data = JSON.parse(responseText);
     } catch (e) {
-      console.error("Failed to parse customer list response:", e);
+      console.error("Failed to parse Google Ads API response:", e);
       throw new Error('Invalid response from Google Ads API');
     }
 
-    if (!listData.resourceNames || listData.resourceNames.length === 0) {
-      console.warn("No accessible customers found");
+    console.log("Parsed Google Ads API Response:", data);
+
+    if (!data.results) {
+      console.warn("No accounts found in Google Ads API response");
       return new Response(
         JSON.stringify({ accounts: [] }),
         {
@@ -78,50 +90,12 @@ serve(async (req) => {
       );
     }
 
-    // Extract customer IDs from resource names
-    const customerIds = listData.resourceNames.map((resourceName: string) => 
-      resourceName.split('/')[1]
-    );
+    const accounts = data.results.map((result: any) => ({
+      id: result.customerClient.id,
+      name: result.customerClient.descriptiveName || `Account ${result.customerClient.id}`,
+    }));
 
-    console.log("Found customer IDs:", customerIds);
-
-    // For each customer ID, get the account details
-    const accountPromises = customerIds.map(async (customerId: string) => {
-      try {
-        const detailsResponse = await fetch(
-          `https://googleads.googleapis.com/v14/customers/${customerId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'developer-token': developerToken,
-            },
-          }
-        );
-
-        if (!detailsResponse.ok) {
-          console.warn(`Failed to fetch details for customer ${customerId}:`, await detailsResponse.text());
-          return {
-            id: customerId,
-            name: `Account ${customerId}`,
-          };
-        }
-
-        const details = await detailsResponse.json();
-        return {
-          id: customerId,
-          name: details.descriptiveName || `Account ${customerId}`,
-        };
-      } catch (error) {
-        console.warn(`Error fetching details for customer ${customerId}:`, error);
-        return {
-          id: customerId,
-          name: `Account ${customerId}`,
-        };
-      }
-    });
-
-    const accounts = await Promise.all(accountPromises);
-    console.log("Retrieved account details:", accounts);
+    console.log("Returning accounts:", accounts);
 
     return new Response(
       JSON.stringify({ accounts }),
