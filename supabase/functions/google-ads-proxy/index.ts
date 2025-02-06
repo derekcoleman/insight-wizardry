@@ -37,7 +37,7 @@ serve(async (req) => {
     console.log("Fetching Google Ads accounts...");
 
     try {
-      // First, get the list of accessible customers
+      // First, get the list of accessible customers using GET method
       const loginCustomerResponse = await fetch(
         'https://googleads.googleapis.com/v15/customers:listAccessibleCustomers',
         {
@@ -45,7 +45,6 @@ serve(async (req) => {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'developer-token': developerToken,
-            'login-customer-id': '_',  // Required placeholder for API
           },
         }
       );
@@ -179,3 +178,4 @@ serve(async (req) => {
     );
   }
 });
+
