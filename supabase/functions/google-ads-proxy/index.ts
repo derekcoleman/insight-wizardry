@@ -36,8 +36,44 @@ serve(async (req) => {
 
     console.log("Fetching Google Ads accounts...");
 
+    // First, get the login customer ID
+    const loginCustomerResponse = await fetch(
+      'https://googleads.googleapis.com/v15/customers:listAccessibleCustomers',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'developer-token': developerToken,
+        },
+      }
+    );
+
+    if (!loginCustomerResponse.ok) {
+      const errorText = await loginCustomerResponse.text();
+      console.error("Failed to get login customer ID:", errorText);
+      throw new Error(`Failed to get login customer ID: ${errorText}`);
+    }
+
+    const { resourceNames } = await loginCustomerResponse.json();
+    
+    if (!resourceNames || resourceNames.length === 0) {
+      console.warn("No accessible customers found");
+      return new Response(
+        JSON.stringify({ accounts: [] }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    // Extract the first customer ID to use for searching
+    const loginCustomerId = resourceNames[0].split('/')[1];
+    console.log("Using login customer ID:", loginCustomerId);
+
+    // Now use searchStream with the login customer ID
     const response = await fetch(
-      'https://googleads.googleapis.com/v15/customers:searchStream',
+      `https://googleads.googleapis.com/v15/customers/${loginCustomerId}/googleAds:searchStream`,
       {
         method: 'POST',
         headers: {
