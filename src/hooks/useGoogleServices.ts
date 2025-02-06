@@ -294,6 +294,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         // Fetch Google Ads accounts through our Edge Function
         try {
           console.log("Fetching Google Ads accounts through Edge Function...");
+          console.log("Access token available:", !!response.access_token);
           
           const { data: adsData, error: adsError } = await supabase.functions.invoke('google-ads-proxy', {
             body: { accessToken: response.access_token }
