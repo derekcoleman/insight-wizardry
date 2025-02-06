@@ -36,7 +36,7 @@ serve(async (req) => {
 
     console.log("Fetching Google Ads accounts...");
 
-    // First, get the login customer ID
+    // First, get the login customer ID using the correct endpoint
     const loginCustomerResponse = await fetch(
       'https://googleads.googleapis.com/v15/customers:listAccessibleCustomers',
       {
@@ -71,7 +71,7 @@ serve(async (req) => {
     const loginCustomerId = resourceNames[0].split('/')[1];
     console.log("Using login customer ID:", loginCustomerId);
 
-    // Now use searchStream with the login customer ID
+    // Now use searchStream with the login customer ID and correct endpoint format
     const response = await fetch(
       `https://googleads.googleapis.com/v15/customers/${loginCustomerId}/googleAds:searchStream`,
       {
