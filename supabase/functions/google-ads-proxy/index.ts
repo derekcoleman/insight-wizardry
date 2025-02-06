@@ -20,6 +20,8 @@ serve(async (req) => {
     console.log("Starting Google Ads proxy request with:", {
       hasAccessToken: !!accessToken,
       hasDeveloperToken: !!developerToken,
+      accessTokenPrefix: accessToken ? accessToken.substring(0, 10) + '...' : null,
+      developerTokenPrefix: developerToken ? developerToken.substring(0, 10) + '...' : null,
     });
 
     if (!developerToken) {
@@ -98,7 +100,6 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in google-ads-proxy function:', error);
     
-    // Send a more detailed error response
     return new Response(
       JSON.stringify({ 
         error: error.message,
