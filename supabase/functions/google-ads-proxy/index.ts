@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -16,45 +17,74 @@ serve(async (req) => {
     const { accessToken } = await req.json();
     const developerToken = Deno.env.get('GOOGLE_ADS_DEVELOPER_TOKEN');
     
+    console.log("Starting Google Ads proxy request with:", {
+      hasAccessToken: !!accessToken,
+      hasDeveloperToken: !!developerToken,
+    });
+
     if (!developerToken) {
+      console.error("Developer token not found in environment");
       throw new Error('Developer token not configured');
     }
 
     if (!accessToken) {
+      console.error("Access token not provided in request");
       throw new Error('Access token is required');
     }
 
-    console.log("Fetching Google Ads accounts with developer token...");
+    console.log("Fetching Google Ads accounts...");
 
-    // Fetch the customer accounts using the Google Ads API
     const response = await fetch(
       'https://googleads.googleapis.com/v14/customers:listAccessibleCustomers',
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'developer-token': developerToken,
+          'Content-Type': 'application/json',
         },
       }
     );
 
+    const responseText = await response.text();
+    console.log("Raw Google Ads API Response:", responseText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Google Ads API Error:", errorText);
-      throw new Error(`Google Ads API error: ${response.statusText}`);
+      console.error("Google Ads API Error Response:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText,
+      });
+      throw new Error(`Google Ads API error (${response.status}): ${responseText}`);
     }
 
-    const data = await response.json();
-    console.log("Google Ads API Response:", data);
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error("Failed to parse Google Ads API response:", e);
+      throw new Error('Invalid response from Google Ads API');
+    }
 
-    // Format the response to match our existing interface
-    const accounts = data.resourceNames?.map((resourceName: string) => {
-      // Extract the customer ID from the resource name (format: customers/{customer_id})
+    console.log("Parsed Google Ads API Response:", data);
+
+    if (!data.resourceNames) {
+      console.warn("No accounts found in Google Ads API response");
+      return new Response(
+        JSON.stringify({ accounts: [] }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    const accounts = data.resourceNames.map((resourceName: string) => {
       const customerId = resourceName.split('/')[1];
       return {
         id: customerId,
-        name: `Account ${customerId}`, // For now, we'll use a simple name format
+        name: `Account ${customerId}`,
       };
-    }) || [];
+    });
 
     console.log("Returning accounts:", accounts);
 
@@ -67,8 +97,13 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in google-ads-proxy function:', error);
+    
+    // Send a more detailed error response
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.toString(),
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,

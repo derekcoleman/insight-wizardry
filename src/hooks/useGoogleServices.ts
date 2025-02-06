@@ -43,10 +43,16 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const handleApiError = (error: any, apiName: string) => {
     console.error(`${apiName} API Error:`, error);
-    let errorMessage = "An unknown error occurred";
+    let errorMessage = error?.message || "An unknown error occurred";
     let detailedError = "";
 
+    // Handle specific API errors
     if (error.response) {
+      console.error(`${apiName} API Response Error:`, {
+        status: error.response.status,
+        data: error.response.data,
+      });
+      
       if (error.response.status === 403) {
         errorMessage = `${apiName} API is not enabled.`;
         detailedError = `Please enable the ${apiName} API in Google Cloud Console`;
@@ -58,12 +64,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         detailedError = error.response.data?.error?.message || "No additional error details available.";
       }
     } else if (error.request) {
+      console.error(`${apiName} API Request Error:`, error.request);
       errorMessage = `No response received from ${apiName} API.`;
       detailedError = "Please check your internet connection.";
-    } else {
-      errorMessage = `Error accessing ${apiName}`;
-      detailedError = error.message || "An unexpected error occurred.";
     }
+
+    // Log the final error details
+    console.error(`${apiName} Final Error:`, { errorMessage, detailedError });
 
     setError(`${errorMessage}\n${detailedError}`);
     toast({
@@ -304,7 +311,14 @@ export function useGoogleServices(): UseGoogleServicesReturn {
             throw new Error(adsError.message || "Failed to fetch Google Ads accounts");
           }
 
-          if (!adsData?.accounts || adsData.accounts.length === 0) {
+          console.log("Google Ads Edge Function Response:", adsData);
+
+          if (!adsData?.accounts) {
+            console.warn("No accounts data in response:", adsData);
+            throw new Error("Invalid response format from Google Ads proxy");
+          }
+
+          if (adsData.accounts.length === 0) {
             toast({
               title: "Warning",
               description: "No Google Ads accounts found",
