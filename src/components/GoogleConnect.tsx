@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -171,10 +172,6 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
                 onValueChange={setSelectedGoal}
               />
             </div>
-          )}
-
-          {(gaAccounts.length > 0 && (gscAccounts.length > 0 || adsAccounts.length > 0)) && (
-            <Separator className="my-4" />
           )}
 
           {gscAccounts.length > 0 && (

@@ -16,8 +16,10 @@ export type Database = {
           gsc_property: string | null
           id: string
           monthly_analysis: Json | null
+          project_id: string | null
           quarterly_analysis: Json | null
           status: string
+          user_id: string | null
           weekly_analysis: Json | null
           yoy_analysis: Json | null
         }
@@ -27,8 +29,10 @@ export type Database = {
           gsc_property?: string | null
           id?: string
           monthly_analysis?: Json | null
+          project_id?: string | null
           quarterly_analysis?: Json | null
           status?: string
+          user_id?: string | null
           weekly_analysis?: Json | null
           yoy_analysis?: Json | null
         }
@@ -38,12 +42,22 @@ export type Database = {
           gsc_property?: string | null
           id?: string
           monthly_analysis?: Json | null
+          project_id?: string | null
           quarterly_analysis?: Json | null
           status?: string
+          user_id?: string | null
           weekly_analysis?: Json | null
           yoy_analysis?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "analytics_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       api_configurations: {
         Row: {
@@ -60,6 +74,110 @@ export type Database = {
           created_at?: string
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          google_oauth_data: Json | null
+          id: string
+          search_history: Json[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          google_oauth_data?: Json | null
+          id: string
+          search_history?: Json[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          google_oauth_data?: Json | null
+          id?: string
+          search_history?: Json[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      project_connections: {
+        Row: {
+          connection_data: Json
+          created_at: string
+          id: string
+          last_refreshed_at: string | null
+          project_id: string
+          selected_goal: string | null
+          selected_property: string | null
+          service_type: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          connection_data: Json
+          created_at?: string
+          id?: string
+          last_refreshed_at?: string | null
+          project_id: string
+          selected_goal?: string | null
+          selected_property?: string | null
+          service_type: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          connection_data?: Json
+          created_at?: string
+          id?: string
+          last_refreshed_at?: string | null
+          project_id?: string
+          selected_goal?: string | null
+          selected_property?: string | null
+          service_type?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_connections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          analysis_status: string | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis_status?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis_status?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string
         }
         Relationships: []
       }

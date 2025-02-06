@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -23,19 +24,39 @@ serve(async (req) => {
       throw new Error('Access token is required');
     }
 
-    console.log("Fetching Google Ads test account...");
-    
-    // When using a test developer token, we need to use a test account
-    // This is a sample test account ID - you should replace it with your test account
-    const testAccountId = '1234567890';
-    
-    // For test tokens, we'll just return the test account
-    const accounts = [{
-      id: testAccountId,
-      name: 'Test Account',
-    }];
+    console.log("Fetching Google Ads accounts with developer token...");
 
-    console.log("Returning test account data:", accounts);
+    // Fetch the customer accounts using the Google Ads API
+    const response = await fetch(
+      'https://googleads.googleapis.com/v14/customers:listAccessibleCustomers',
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'developer-token': developerToken,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Google Ads API Error:", errorText);
+      throw new Error(`Google Ads API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("Google Ads API Response:", data);
+
+    // Format the response to match our existing interface
+    const accounts = data.resourceNames?.map((resourceName: string) => {
+      // Extract the customer ID from the resource name (format: customers/{customer_id})
+      const customerId = resourceName.split('/')[1];
+      return {
+        id: customerId,
+        name: `Account ${customerId}`, // For now, we'll use a simple name format
+      };
+    }) || [];
+
+    console.log("Returning accounts:", accounts);
 
     return new Response(
       JSON.stringify({ accounts }),
