@@ -14,10 +14,30 @@ serve(async (req) => {
   }
 
   try {
-    const { accessToken } = await req.json();
+    const body = await req.text();
+    console.log("Received request body:", body);
+    
+    let accessToken;
+    try {
+      const data = JSON.parse(body);
+      accessToken = data.accessToken;
+    } catch (e) {
+      console.error("Failed to parse request body:", e);
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid request body",
+          details: "Request body must be valid JSON with an accessToken field"
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+
     const developerToken = Deno.env.get('GOOGLE_ADS_DEVELOPER_TOKEN');
     
-    console.log("Starting Google Ads proxy request with:", {
+    console.log("Request validation:", {
       hasAccessToken: !!accessToken,
       hasDeveloperToken: !!developerToken,
       accessTokenPrefix: accessToken ? accessToken.substring(0, 10) + '...' : null,
@@ -26,12 +46,30 @@ serve(async (req) => {
 
     if (!developerToken) {
       console.error("Developer token not found in environment");
-      throw new Error('Developer token not configured');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Developer token not configured',
+          details: 'The Google Ads Developer Token is not set in the environment'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
     }
 
     if (!accessToken) {
       console.error("Access token not provided in request");
-      throw new Error('Access token is required');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Access token is required',
+          details: 'No access token was provided in the request body'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
     }
 
     console.log("Fetching Google Ads accounts...");
@@ -58,10 +96,35 @@ serve(async (req) => {
       });
 
       if (!loginCustomerResponse.ok) {
-        throw new Error(`Failed to get accessible customers: ${loginResponseText}`);
+        return new Response(
+          JSON.stringify({ 
+            error: `Failed to get accessible customers: ${loginCustomerResponse.statusText}`,
+            details: loginResponseText
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: loginCustomerResponse.status,
+          }
+        );
       }
 
-      const { resourceNames } = JSON.parse(loginResponseText);
+      let resourceNames;
+      try {
+        const data = JSON.parse(loginResponseText);
+        resourceNames = data.resourceNames;
+      } catch (e) {
+        console.error("Failed to parse login response:", e);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid API response',
+            details: 'Failed to parse the Google Ads API response'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500,
+          }
+        );
+      }
       
       if (!resourceNames || resourceNames.length === 0) {
         console.warn("No accessible customers found");
@@ -110,7 +173,16 @@ serve(async (req) => {
       });
 
       if (!searchResponse.ok) {
-        throw new Error(`Failed to search customer accounts: ${searchResponseText}`);
+        return new Response(
+          JSON.stringify({ 
+            error: `Failed to search customer accounts: ${searchResponse.statusText}`,
+            details: searchResponseText
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: searchResponse.status,
+          }
+        );
       }
 
       let data;
@@ -118,7 +190,16 @@ serve(async (req) => {
         data = JSON.parse(searchResponseText);
       } catch (e) {
         console.error("Failed to parse search response:", e);
-        throw new Error('Invalid response from Google Ads API');
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid API response',
+            details: 'Failed to parse the Google Ads API search response'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500,
+          }
+        );
       }
 
       console.log("Parsed Search Response:", data);
@@ -150,32 +231,28 @@ serve(async (req) => {
       );
     } catch (apiError: any) {
       console.error("Google Ads API Error:", apiError);
-      // Return a more specific error status based on the API response
-      const status = apiError.status || 400;
       return new Response(
         JSON.stringify({ 
-          error: apiError.message,
+          error: apiError.message || 'Google Ads API error',
           details: apiError.toString(),
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status,
+          status: apiError.status || 500,
         }
       );
     }
   } catch (error: any) {
     console.error('Error in google-ads-proxy function:', error);
-    
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error.message || 'Internal server error',
         details: error.toString(),
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
     );
   }
 });
-
