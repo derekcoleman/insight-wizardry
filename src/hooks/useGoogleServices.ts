@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useToast } from "@/components/ui/use-toast";
@@ -46,7 +47,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
     let errorMessage = error?.message || "An unknown error occurred";
     let detailedError = "";
 
-    // Handle specific API errors
     if (error.response) {
       console.error(`${apiName} API Response Error:`, {
         status: error.response.status,
@@ -69,7 +69,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       detailedError = "Please check your internet connection.";
     }
 
-    // Log the final error details
     console.error(`${apiName} Final Error:`, { errorMessage, detailedError });
 
     setError(`${errorMessage}\n${detailedError}`);
@@ -301,9 +300,12 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         // Fetch Google Ads accounts through our Edge Function
         try {
           console.log("Fetching Google Ads accounts through Edge Function...");
+          console.log("Access Token:", response.access_token.substring(0, 10) + "...");
           
           const { data: adsData, error: adsError } = await supabase.functions.invoke('google-ads-proxy', {
-            body: { accessToken: response.access_token }
+            body: { 
+              accessToken: response.access_token 
+            }
           });
 
           if (adsError) {
@@ -313,7 +315,17 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
           console.log("Google Ads Edge Function Response:", adsData);
 
-          if (!adsData?.accounts) {
+          if (!adsData) {
+            console.warn("No data in response");
+            throw new Error("Invalid response from Google Ads proxy");
+          }
+
+          if (adsData.error) {
+            console.error("Google Ads API Error:", adsData.error);
+            throw new Error(adsData.error);
+          }
+
+          if (!adsData.accounts) {
             console.warn("No accounts data in response:", adsData);
             throw new Error("Invalid response format from Google Ads proxy");
           }
