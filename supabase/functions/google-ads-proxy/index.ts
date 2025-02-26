@@ -75,15 +75,25 @@ serve(async (req) => {
     console.log("Fetching Google Ads accounts...");
 
     try {
-      // First, get the list of accessible customers using GET method
+      // First, get the list of accessible customers
       const loginCustomerResponse = await fetch(
-        'https://googleads.googleapis.com/v15/customers:listAccessibleCustomers',
+        'https://googleads.googleapis.com/v15/customers/search',
         {
-          method: 'GET',
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'developer-token': developerToken,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            query: `
+              SELECT
+                customer.id,
+                customer.descriptive_name
+              FROM customer
+              WHERE customer.status = "ENABLED"
+            `,
+          }),
         }
       );
 
@@ -108,10 +118,9 @@ serve(async (req) => {
         );
       }
 
-      let resourceNames;
+      let data;
       try {
-        const data = JSON.parse(loginResponseText);
-        resourceNames = data.resourceNames;
+        data = JSON.parse(loginResponseText);
       } catch (e) {
         console.error("Failed to parse login response:", e);
         return new Response(
@@ -125,87 +134,11 @@ serve(async (req) => {
           }
         );
       }
-      
-      if (!resourceNames || resourceNames.length === 0) {
-        console.warn("No accessible customers found");
-        return new Response(
-          JSON.stringify({ accounts: [] }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          }
-        );
-      }
 
-      // Extract the first customer ID to use for searching
-      const loginCustomerId = resourceNames[0].split('/')[1];
-      console.log("Using login customer ID:", loginCustomerId);
-
-      // Now use searchStream with the login customer ID
-      const searchResponse = await fetch(
-        `https://googleads.googleapis.com/v15/customers/${loginCustomerId}/googleAds:searchStream`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'developer-token': developerToken,
-            'login-customer-id': loginCustomerId,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: `
-              SELECT
-                customer_client.descriptive_name,
-                customer_client.id
-              FROM customer_client
-              WHERE customer_client.status = "ENABLED"
-            `
-          }),
-        }
-      );
-
-      const searchResponseText = await searchResponse.text();
-      console.log("Search Response:", {
-        status: searchResponse.status,
-        statusText: searchResponse.statusText,
-        headers: Object.fromEntries(searchResponse.headers.entries()),
-        body: searchResponseText,
-      });
-
-      if (!searchResponse.ok) {
-        return new Response(
-          JSON.stringify({ 
-            error: `Failed to search customer accounts: ${searchResponse.statusText}`,
-            details: searchResponseText
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: searchResponse.status,
-          }
-        );
-      }
-
-      let data;
-      try {
-        data = JSON.parse(searchResponseText);
-      } catch (e) {
-        console.error("Failed to parse search response:", e);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Invalid API response',
-            details: 'Failed to parse the Google Ads API search response'
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 500,
-          }
-        );
-      }
-
-      console.log("Parsed Search Response:", data);
+      console.log("Parsed Response:", data);
 
       if (!data.results) {
-        console.warn("No accounts found in search response");
+        console.warn("No accounts found in response");
         return new Response(
           JSON.stringify({ accounts: [] }),
           {
@@ -216,8 +149,8 @@ serve(async (req) => {
       }
 
       const accounts = data.results.map((result: any) => ({
-        id: result.customerClient.id,
-        name: result.customerClient.descriptiveName || `Account ${result.customerClient.id}`,
+        id: result.customer.id,
+        name: result.customer.descriptiveName || `Account ${result.customer.id}`,
       }));
 
       console.log("Returning accounts:", accounts);
