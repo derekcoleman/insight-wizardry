@@ -1,1 +1,19 @@
+
 project_id = "reuyjwtdaxjjthgmfmbd"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+# Enable the Functions API
+[functions]
+[functions.google-ads-proxy]
+verify_jwt = false
