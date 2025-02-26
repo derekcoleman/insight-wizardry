@@ -85,50 +85,61 @@ serve(async (req) => {
     try {
       console.log("Making request to Google Ads API...");
       
-      // First, get the list of accessible customers
-      const loginCustomerResponse = await fetch(
-        'https://googleads.googleapis.com/v15/customers:listAccessibleCustomers',
+      // Get list of accessible customers
+      const searchResponse = await fetch(
+        'https://googleads.googleapis.com/v15/customers/search',
         {
-          method: 'GET',
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'developer-token': developerToken,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            query: `
+              SELECT 
+                customer.id,
+                customer.descriptive_name,
+                customer.currency_code,
+                customer.time_zone
+              FROM customer
+              WHERE customer.status = "ENABLED"
+            `
+          })
         }
       );
 
       // Log the full response for debugging
-      const loginResponseText = await loginCustomerResponse.text();
+      const searchResponseText = await searchResponse.text();
       console.log("Google Ads API Response:", {
-        status: loginCustomerResponse.status,
-        statusText: loginCustomerResponse.statusText,
-        headers: Object.fromEntries(loginCustomerResponse.headers.entries()),
-        body: loginResponseText,
+        status: searchResponse.status,
+        statusText: searchResponse.statusText,
+        headers: Object.fromEntries(searchResponse.headers.entries()),
+        body: searchResponseText,
       });
 
-      if (!loginCustomerResponse.ok) {
+      if (!searchResponse.ok) {
         console.error("Google Ads API error response:", {
-          status: loginCustomerResponse.status,
-          body: loginResponseText
+          status: searchResponse.status,
+          body: searchResponseText
         });
         
         return new Response(
           JSON.stringify({ 
-            error: `Failed to get accessible customers: ${loginCustomerResponse.statusText}`,
-            details: loginResponseText,
-            status: loginCustomerResponse.status
+            error: `Failed to get accessible customers: ${searchResponse.statusText}`,
+            details: searchResponseText,
+            status: searchResponse.status
           }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: loginCustomerResponse.status,
+            status: searchResponse.status,
           }
         );
       }
 
       let data;
       try {
-        data = JSON.parse(loginResponseText);
+        data = JSON.parse(searchResponseText);
         console.log("Parsed API response:", data);
       } catch (e) {
         console.error("Failed to parse API response:", e);
@@ -136,7 +147,7 @@ serve(async (req) => {
           JSON.stringify({ 
             error: 'Invalid API response',
             details: 'Failed to parse the Google Ads API response',
-            rawResponse: loginResponseText
+            rawResponse: searchResponseText
           }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -145,7 +156,7 @@ serve(async (req) => {
         );
       }
 
-      if (!data.resourceNames || !Array.isArray(data.resourceNames)) {
+      if (!data.results || !Array.isArray(data.results)) {
         console.warn("No accounts found or invalid response format:", data);
         return new Response(
           JSON.stringify({ 
@@ -160,45 +171,11 @@ serve(async (req) => {
         );
       }
 
-      const customerIds = data.resourceNames.map((resource: string) => {
-        const matches = resource.match(/customers\/(\d+)/);
-        return matches ? matches[1] : null;
-      }).filter(Boolean);
-
-      console.log("Extracted customer IDs:", customerIds);
-
-      const accounts = [];
-      for (const customerId of customerIds) {
-        try {
-          console.log(`Fetching details for customer ${customerId}...`);
-          const customerResponse = await fetch(
-            `https://googleads.googleapis.com/v15/customers/${customerId}`,
-            {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'developer-token': developerToken,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          if (customerResponse.ok) {
-            const customerData = await customerResponse.json();
-            console.log(`Customer ${customerId} details:`, customerData);
-            accounts.push({
-              id: customerId,
-              name: customerData.descriptiveName || `Account ${customerId}`,
-            });
-          } else {
-            console.warn(`Failed to fetch details for customer ${customerId}:`, 
-              await customerResponse.text()
-            );
-          }
-        } catch (error) {
-          console.warn(`Error fetching details for customer ${customerId}:`, error);
-        }
-      }
+      // Transform the results into the expected format
+      const accounts = data.results.map((result: any) => ({
+        id: result.customer.id,
+        name: result.customer.descriptiveName || `Account ${result.customer.id}`,
+      }));
 
       console.log("Final accounts list:", accounts);
 
