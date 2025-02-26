@@ -87,14 +87,13 @@ serve(async (req) => {
       
       // First, get the list of accessible customers
       const loginCustomerResponse = await fetch(
-        'https://googleads.googleapis.com/v16/customers:listAccessibleCustomers',
+        'https://googleads.googleapis.com/v15/customers:listAccessibleCustomers',
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'developer-token': developerToken,
             'Content-Type': 'application/json',
-            'login-customer-id': '_', // Required header for v16
           },
         }
       );
@@ -173,14 +172,13 @@ serve(async (req) => {
         try {
           console.log(`Fetching details for customer ${customerId}...`);
           const customerResponse = await fetch(
-            `https://googleads.googleapis.com/v16/customers/${customerId}`,
+            `https://googleads.googleapis.com/v15/customers/${customerId}`,
             {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'developer-token': developerToken,
                 'Content-Type': 'application/json',
-                'login-customer-id': customerId,
               },
             }
           );
