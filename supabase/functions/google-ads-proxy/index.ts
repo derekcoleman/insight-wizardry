@@ -77,23 +77,13 @@ serve(async (req) => {
     try {
       // First, get the list of accessible customers
       const loginCustomerResponse = await fetch(
-        'https://googleads.googleapis.com/v15/customers/search',
+        'https://googleads.googleapis.com/v16/customers:listAccessibleCustomers',
         {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'developer-token': developerToken,
-            'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            query: `
-              SELECT
-                customer.id,
-                customer.descriptive_name
-              FROM customer
-              WHERE customer.status = "ENABLED"
-            `,
-          }),
         }
       );
 
@@ -137,7 +127,7 @@ serve(async (req) => {
 
       console.log("Parsed Response:", data);
 
-      if (!data.results) {
+      if (!data.resourceNames) {
         console.warn("No accounts found in response");
         return new Response(
           JSON.stringify({ accounts: [] }),
@@ -148,10 +138,34 @@ serve(async (req) => {
         );
       }
 
-      const accounts = data.results.map((result: any) => ({
-        id: result.customer.id,
-        name: result.customer.descriptiveName || `Account ${result.customer.id}`,
-      }));
+      // Extract customer IDs and fetch details for each one
+      const customerIds = data.resourceNames.map((resource: string) => resource.split('/')[1]);
+      const accounts = [];
+
+      for (const customerId of customerIds) {
+        try {
+          const customerResponse = await fetch(
+            `https://googleads.googleapis.com/v16/customers/${customerId}`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'developer-token': developerToken,
+              },
+            }
+          );
+
+          if (customerResponse.ok) {
+            const customerData = await customerResponse.json();
+            accounts.push({
+              id: customerId,
+              name: customerData.descriptiveName || `Account ${customerId}`,
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch details for customer ${customerId}:`, error);
+        }
+      }
 
       console.log("Returning accounts:", accounts);
 
