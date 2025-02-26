@@ -83,11 +83,11 @@ serve(async (req) => {
     console.log("Fetching Google Ads accounts...");
 
     try {
-      console.log("Making request to Google Ads API...");
+      console.log("Making request to Google Ads API Beta...");
       
-      // Get list of accessible customers
+      // Get list of accessible customers using the Beta API
       const searchResponse = await fetch(
-        'https://googleads.googleapis.com/v15/customers/search',
+        'https://googleads.googleapis.com/v15/customers/-/googleAdsFields:search',
         {
           method: 'POST',
           headers: {
@@ -96,15 +96,8 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            query: `
-              SELECT 
-                customer.id,
-                customer.descriptive_name,
-                customer.currency_code,
-                customer.time_zone
-              FROM customer
-              WHERE customer.status = "ENABLED"
-            `
+            pageSize: 100,
+            query: "SELECT customer_client.id, customer_client.descriptive_name FROM customer_client WHERE customer_client.status = 'ENABLED'"
           })
         }
       );
@@ -156,7 +149,7 @@ serve(async (req) => {
         );
       }
 
-      if (!data.results || !Array.isArray(data.results)) {
+      if (!data.results) {
         console.warn("No accounts found or invalid response format:", data);
         return new Response(
           JSON.stringify({ 
@@ -173,8 +166,8 @@ serve(async (req) => {
 
       // Transform the results into the expected format
       const accounts = data.results.map((result: any) => ({
-        id: result.customer.id,
-        name: result.customer.descriptiveName || `Account ${result.customer.id}`,
+        id: result.customerClient.id,
+        name: result.customerClient.descriptiveName || `Account ${result.customerClient.id}`,
       }));
 
       console.log("Final accounts list:", accounts);
