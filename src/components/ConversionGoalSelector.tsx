@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Select,
   SelectContent,
@@ -35,6 +34,7 @@ export function ConversionGoalSelector({
   onValueChange,
 }: ConversionGoalSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Filter goals based on search query
   const filteredGoals = goals.filter((goal) =>
@@ -43,8 +43,21 @@ export function ConversionGoalSelector({
 
   // Handle search input without losing focus
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation(); // Prevent event bubbling
+    e.preventDefault();
+    e.stopPropagation();
     setSearchQuery(e.target.value);
+    // Keep focus on input
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  };
+
+  // Prevent default interactions to maintain focus
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevent arrow keys from navigating the dropdown
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.stopPropagation();
+    }
   };
 
   return (
@@ -54,13 +67,16 @@ export function ConversionGoalSelector({
         <SelectTrigger>
           <SelectValue placeholder="Select conversion goal" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent onPointerDownOutside={(e) => e.preventDefault()}>
           <div className="px-2 pb-2">
             <Input
+              ref={inputRef}
               placeholder="Search events..."
               value={searchQuery}
               onChange={handleSearchChange}
-              onClick={(e) => e.stopPropagation()} // Prevent clicking the input from closing the dropdown
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={handleInputKeyDown}
+              autoComplete="off"
               className="h-8"
             />
           </div>
