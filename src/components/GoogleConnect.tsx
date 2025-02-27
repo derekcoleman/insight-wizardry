@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AnalysisResults } from "@/components/AnalysisResults";
@@ -37,6 +38,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
     handleLogin,
     fetchConversionGoals,
     accessToken,
+    refreshAccounts,
   } = useGoogleServices();
 
   useEffect(() => {
@@ -62,6 +64,13 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
         variant: "destructive",
       });
     }
+  };
+
+  const handleRefresh = () => {
+    setSelectedGaAccount("");
+    setSelectedGscAccount("");
+    setSelectedGoal("");
+    refreshAccounts();
   };
 
   const handleAnalyze = async () => {
@@ -141,6 +150,21 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
           </div>
 
           <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
+
+          {gaConnected && (
+            <div className="flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="flex items-center gap-1"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh Properties
+              </Button>
+            </div>
+          )}
 
           {gaAccounts.length > 0 && (
             <div className="max-w-md mx-auto">

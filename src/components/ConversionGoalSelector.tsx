@@ -91,7 +91,8 @@ export function ConversionGoalSelector({
         <SelectContent 
           onPointerDownOutside={(e) => {
             // Only prevent outside clicks if they're not on the trigger
-            if (!e.target.closest('[data-radix-select-trigger]')) {
+            const target = e.target as HTMLElement;
+            if (!target.closest?.('[data-radix-select-trigger]')) {
               e.preventDefault();
             }
           }}
