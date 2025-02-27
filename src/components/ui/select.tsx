@@ -81,23 +81,23 @@ const SelectContent = React.forwardRef<
       position={position}
       {...props}
     >
-      <Command>
-        <CommandInput placeholder="Search..." className="h-9" />
-        <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup>
-          <SelectScrollUpButton />
-          <SelectPrimitive.Viewport
-            className={cn(
-              "p-1",
-              position === "popper" &&
-                "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
-            )}
-          >
+      <SelectScrollUpButton />
+      <SelectPrimitive.Viewport
+        className={cn(
+          "p-1",
+          position === "popper" &&
+            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+        )}
+      >
+        <div className="w-full">
+          <CommandInput placeholder="Search..." className="h-9 w-full" />
+          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup>
             {children}
-          </SelectPrimitive.Viewport>
-          <SelectScrollDownButton />
-        </CommandGroup>
-      </Command>
+          </CommandGroup>
+        </div>
+      </SelectPrimitive.Viewport>
+      <SelectScrollDownButton />
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
 ))
@@ -119,7 +119,7 @@ const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
 >(({ className, children, ...props }, ref) => (
-  <CommandItem
+  <SelectPrimitive.Item
     ref={ref}
     className={cn(
       "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
@@ -132,9 +132,8 @@ const SelectItem = React.forwardRef<
         <Check className="h-4 w-4" />
       </SelectPrimitive.ItemIndicator>
     </span>
-
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-  </CommandItem>
+  </SelectPrimitive.Item>
 ))
 SelectItem.displayName = SelectPrimitive.Item.displayName
 
