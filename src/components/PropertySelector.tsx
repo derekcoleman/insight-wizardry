@@ -87,16 +87,7 @@ export function PropertySelector({
         <SelectTrigger onClick={() => setIsOpen(true)}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent 
-          onPointerDownOutside={(e) => {
-            // Only prevent outside clicks if they're not on the trigger
-            const target = e.target as HTMLElement;
-            if (!target.closest?.('[data-radix-select-trigger]')) {
-              e.preventDefault();
-            }
-          }}
-          onEscapeKeyDown={() => setIsOpen(false)}
-        >
+        <SelectContent>
           <div className="px-2 pb-2">
             <Input
               ref={inputRef}
@@ -117,10 +108,6 @@ export function PropertySelector({
               <SelectItem 
                 key={account.id} 
                 value={account.id}
-                onPointerDown={(e) => {
-                  // Prevent the dropdown from closing when clicking an item
-                  e.preventDefault();
-                }}
               >
                 {account.name}
               </SelectItem>

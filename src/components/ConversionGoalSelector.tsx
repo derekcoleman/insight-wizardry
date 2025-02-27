@@ -88,16 +88,7 @@ export function ConversionGoalSelector({
         <SelectTrigger onClick={() => setIsOpen(true)}>
           <SelectValue placeholder="Select conversion goal" />
         </SelectTrigger>
-        <SelectContent 
-          onPointerDownOutside={(e) => {
-            // Only prevent outside clicks if they're not on the trigger
-            const target = e.target as HTMLElement;
-            if (!target.closest?.('[data-radix-select-trigger]')) {
-              e.preventDefault();
-            }
-          }}
-          onEscapeKeyDown={() => setIsOpen(false)}
-        >
+        <SelectContent>
           <div className="px-2 pb-2">
             <Input
               ref={inputRef}
@@ -118,10 +109,6 @@ export function ConversionGoalSelector({
               <SelectItem 
                 key={goal.id} 
                 value={goal.id}
-                onPointerDown={(e) => {
-                  // Prevent the dropdown from closing when clicking an item
-                  e.preventDefault();
-                }}
               >
                 {formatEventName(goal.name)}
               </SelectItem>
