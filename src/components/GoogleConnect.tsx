@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AnalysisResults } from "@/components/AnalysisResults";
@@ -184,6 +184,16 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
                 placeholder="Select Search Console property"
               />
             </div>
+          )}
+
+          {adsConnected === false && gaAccounts.length > 0 && (
+            <Alert className="max-w-md mx-auto">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Google Ads Not Available</AlertTitle>
+              <AlertDescription>
+                Google Ads requires additional configuration. Analysis will continue with Analytics and Search Console data only.
+              </AlertDescription>
+            </Alert>
           )}
 
           {adsAccounts.length > 0 && (

@@ -71,12 +71,22 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
     console.error(`${apiName} Final Error:`, { errorMessage, detailedError });
 
-    setError(`${errorMessage}\n${detailedError}`);
-    toast({
-      title: "Error",
-      description: errorMessage,
-      variant: "destructive",
-    });
+    if (apiName !== "Google Ads") {
+      // Only set global error for non-Ads APIs
+      setError(`${errorMessage}\n${detailedError}`);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } else {
+      // For Ads, just show a toast but don't block the app
+      console.warn("Google Ads not available - continuing without it");
+      toast({
+        title: "Notice",
+        description: "Google Ads data will not be available. You can continue with Analytics and Search Console.",
+      });
+    }
   };
 
   const fetchConversionGoals = async (propertyId: string) => {
@@ -346,6 +356,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           }
         } catch (error: any) {
           console.error("Google Ads API Error:", error);
+          // Handle Ads error differently - don't block the entire flow
           handleApiError(error, "Google Ads");
         }
 
