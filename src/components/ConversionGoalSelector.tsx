@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   Select,
@@ -40,6 +41,12 @@ export function ConversionGoalSelector({
     goal.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Handle search input without losing focus
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation(); // Prevent event bubbling
+    setSearchQuery(e.target.value);
+  };
+
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">Select Conversion Goal</label>
@@ -52,7 +59,8 @@ export function ConversionGoalSelector({
             <Input
               placeholder="Search events..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
+              onClick={(e) => e.stopPropagation()} // Prevent clicking the input from closing the dropdown
               className="h-8"
             />
           </div>

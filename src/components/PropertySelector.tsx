@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { 
   Select, 
@@ -37,6 +38,12 @@ export function PropertySelector({
     account.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Handle search input without losing focus
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation(); // Prevent event bubbling
+    setSearchQuery(e.target.value);
+  };
+
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">
@@ -54,7 +61,8 @@ export function PropertySelector({
             <Input
               placeholder="Search properties..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
+              onClick={(e) => e.stopPropagation()} // Prevent clicking the input from closing the dropdown
               className="h-8"
             />
           </div>
