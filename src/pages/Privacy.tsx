@@ -1,3 +1,4 @@
+
 import React from "react";
 
 const Privacy = () => {
@@ -37,6 +38,13 @@ const Privacy = () => {
           <li>Respond to your comments and questions</li>
           <li>Analyze and improve our services</li>
         </ul>
+      </section>
+
+      <section className="mb-8 bg-green-50 p-4 rounded-lg border border-green-200">
+        <h2 className="text-2xl font-semibold mb-4">We Do Not Sell Your Data</h2>
+        <p className="mb-4">
+          <strong>Standup Notez does not sell your personal information to third parties.</strong> We take your privacy seriously and are committed to maintaining the confidentiality of your information. Your data is only used for the purposes outlined in this Privacy Policy.
+        </p>
       </section>
 
       <section className="mb-8">
