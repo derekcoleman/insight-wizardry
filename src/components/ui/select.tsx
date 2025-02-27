@@ -2,7 +2,6 @@
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { Check, ChevronDown, ChevronUp } from "lucide-react"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 
 const Select = SelectPrimitive.Root
@@ -89,13 +88,7 @@ const SelectContent = React.forwardRef<
             "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
         )}
       >
-        <div className="w-full">
-          <CommandInput placeholder="Search..." className="h-9 w-full" />
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup>
-            {children}
-          </CommandGroup>
-        </div>
+        {children}
       </SelectPrimitive.Viewport>
       <SelectScrollDownButton />
     </SelectPrimitive.Content>
@@ -132,6 +125,7 @@ const SelectItem = React.forwardRef<
         <Check className="h-4 w-4" />
       </SelectPrimitive.ItemIndicator>
     </span>
+
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
 ))
