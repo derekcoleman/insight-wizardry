@@ -152,7 +152,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
             adsConnected={adsConnected}
           />
 
-          {gaAccounts.length > 0 && (
+          {Array.isArray(gaAccounts) && gaAccounts.length > 0 && (
             <div className="max-w-md mx-auto">
               <PropertySelector
                 label="Select Google Analytics 4 Property"
@@ -164,7 +164,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
             </div>
           )}
 
-          {conversionGoals.length > 0 && (
+          {Array.isArray(conversionGoals) && conversionGoals.length > 0 && (
             <div className="max-w-md mx-auto">
               <ConversionGoalSelector
                 goals={conversionGoals}
@@ -174,7 +174,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
             </div>
           )}
 
-          {gscAccounts.length > 0 && (
+          {Array.isArray(gscAccounts) && gscAccounts.length > 0 && (
             <div className="max-w-md mx-auto">
               <PropertySelector
                 label="Select Search Console Property"
@@ -186,7 +186,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
             </div>
           )}
 
-          {adsConnected === false && gaAccounts.length > 0 && (
+          {adsConnected === false && gaAccounts && gaAccounts.length > 0 && (
             <Alert className="max-w-md mx-auto">
               <Info className="h-4 w-4" />
               <AlertTitle>Google Ads Not Available</AlertTitle>
@@ -196,7 +196,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
             </Alert>
           )}
 
-          {adsAccounts.length > 0 && (
+          {Array.isArray(adsAccounts) && adsAccounts.length > 0 && (
             <div className="max-w-md mx-auto">
               <PropertySelector
                 label="Select Google Ads Account"
