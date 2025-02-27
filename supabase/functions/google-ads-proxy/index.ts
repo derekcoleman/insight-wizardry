@@ -83,93 +83,79 @@ serve(async (req) => {
     console.log("Fetching Google Ads accounts...");
 
     try {
-      // Let's first use the Management API to get customer IDs
-      console.log("Getting accessible customers from Google Management API...");
-      const managementResponse = await fetch(
-        'https://adwords.google.com/api/adwords/mcm/v201809/ManagedCustomerService',
+      // Get initial account information from Google OAuth userinfo
+      const userinfoResponse = await fetch(
+        'https://www.googleapis.com/oauth2/v1/userinfo',
         {
-          method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'developerToken': developerToken,
-            'Content-Type': 'application/soap+xml; charset=UTF-8',
-          },
-          body: `<?xml version="1.0" encoding="UTF-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="https://adwords.google.com/api/adwords/mcm/v201809">
-   <soapenv:Header>
-      <ns1:RequestHeader>
-         <ns1:clientCustomerId>0</ns1:clientCustomerId>
-         <ns1:developerToken>${developerToken}</ns1:developerToken>
-      </ns1:RequestHeader>
-   </soapenv:Header>
-   <soapenv:Body>
-      <ns1:get>
-         <ns1:serviceSelector>
-            <ns1:fields>CustomerId</ns1:fields>
-            <ns1:fields>Name</ns1:fields>
-         </ns1:serviceSelector>
-      </ns1:get>
-   </soapenv:Body>
-</soapenv:Envelope>`
+          }
         }
       );
 
-      const managementResponseText = await managementResponse.text();
-      console.log("Management API Response:", {
-        status: managementResponse.status,
-        statusText: managementResponse.statusText,
-        body: managementResponseText.substring(0, 500) + '...' // Truncate for logging
-      });
+      if (!userinfoResponse.ok) {
+        throw new Error(`Failed to get user info: ${userinfoResponse.statusText}`);
+      }
 
-      // Fallback approach - mock data for demonstration
-      // In a real-world scenario, we would parse the XML response
-      console.log("Using fallback approach with Google AdSense Management API");
-      
-      const adsenseResponse = await fetch(
-        'https://www.googleapis.com/adsense/v2/accounts',
+      const userInfo = await userinfoResponse.json();
+      console.log("User info:", userInfo);
+
+      // Use Google Ads Query Language (GAQL) with the new API
+      const adsResponse = await fetch(
+        'https://googleads.googleapis.com/v15/customers:listAccessibleCustomers',
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+            'developer-token': developerToken,
+            'login-customer-id': '0', // Use 0 to get all accessible accounts
           }
         }
       );
 
-      const adsenseResponseText = await adsenseResponse.text();
-      console.log("AdSense API Response:", {
-        status: adsenseResponse.status,
-        statusText: adsenseResponse.statusText,
-        body: adsenseResponseText
+      const adsResponseText = await adsResponse.text();
+      console.log("Google Ads API Response:", {
+        status: adsResponse.status,
+        statusText: adsResponse.statusText,
+        headers: Object.fromEntries(adsResponse.headers.entries()),
+        body: adsResponseText
       });
 
+      if (!adsResponse.ok) {
+        throw new Error(`Google Ads API error: ${adsResponse.statusText}`);
+      }
+
       let accounts = [];
-      
-      // Try to parse AdSense accounts if available
       try {
-        if (adsenseResponse.ok) {
-          const adsenseData = JSON.parse(adsenseResponseText);
-          if (adsenseData.accounts && adsenseData.accounts.length > 0) {
-            accounts = adsenseData.accounts.map((account: any) => ({
-              id: account.name.split('/').pop() || account.name,
-              name: account.displayName || `AdSense Account ${account.name}`
-            }));
-          }
+        const adsData = JSON.parse(adsResponseText);
+        console.log("Parsed Google Ads response:", adsData);
+
+        if (adsData.resourceNames && Array.isArray(adsData.resourceNames)) {
+          accounts = adsData.resourceNames.map((resourceName: string) => {
+            const accountId = resourceName.split('/').pop();
+            return {
+              id: accountId,
+              name: `Google Ads Account ${accountId}`
+            };
+          });
         }
       } catch (e) {
-        console.error("Failed to parse AdSense response:", e);
+        console.error("Failed to parse Google Ads response:", e);
+        throw new Error("Invalid response format from Google Ads API");
       }
-      
-      // If we couldn't get any accounts, provide a mock account
-      // This allows the user interface to proceed
+
       if (accounts.length === 0) {
-        console.log("No accounts found from APIs, providing mock account");
-        accounts = [
-          { 
-            id: "123456789", 
-            name: "Demo Google Ads Account" 
+        console.warn("No Google Ads accounts found");
+        return new Response(
+          JSON.stringify({ 
+            accounts: [],
+            warning: 'No Google Ads accounts found for this user'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
           }
-        ];
+        );
       }
 
       console.log("Final accounts list:", accounts);
@@ -188,25 +174,16 @@ serve(async (req) => {
         details: apiError
       });
       
-      // Provide a fallback response with a mock account
-      // This ensures the UI can continue to function
-      console.log("Providing fallback response with mock account");
-      const fallbackAccounts = [
-        { 
-          id: "123456789", 
-          name: "Demo Google Ads Account" 
-        }
-      ];
-      
       return new Response(
         JSON.stringify({ 
-          accounts: fallbackAccounts,
-          warning: "Using mock data due to API error",
-          error: apiError.message
+          error: 'Google Ads API error',
+          message: apiError.message,
+          details: apiError.toString(),
+          stack: apiError.stack
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200, // Return 200 even on error to let the UI proceed
+          status: apiError.status || 500,
         }
       );
     }
@@ -217,24 +194,16 @@ serve(async (req) => {
       details: error
     });
     
-    // Provide a fallback response with a mock account
-    console.log("Providing fallback response due to unexpected error");
-    const fallbackAccounts = [
-      { 
-        id: "123456789", 
-        name: "Demo Google Ads Account" 
-      }
-    ];
-    
     return new Response(
       JSON.stringify({ 
-        accounts: fallbackAccounts,
-        warning: "Using mock data due to unexpected error",
-        error: error.message
+        error: 'Internal server error',
+        message: error.message,
+        details: error.toString(),
+        stack: error.stack
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Return 200 to let the UI proceed
+        status: 500,
       }
     );
   }
