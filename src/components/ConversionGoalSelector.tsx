@@ -1,10 +1,5 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 interface ConversionGoal {
   id: string;
@@ -30,21 +25,21 @@ export function ConversionGoalSelector({
   value,
   onValueChange,
 }: ConversionGoalSelectorProps) {
+  // Format event names for display
+  const formattedGoals = goals.map(goal => ({
+    id: goal.id,
+    name: formatEventName(goal.name)
+  }));
+
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">Select Conversion Goal</label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Select conversion goal" />
-        </SelectTrigger>
-        <SelectContent>
-          {goals.map((goal) => (
-            <SelectItem key={goal.id} value={goal.id}>
-              {formatEventName(goal.name)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SearchableSelect
+        options={formattedGoals}
+        value={value}
+        onValueChange={onValueChange}
+        placeholder="Select conversion goal"
+      />
     </div>
   );
 }

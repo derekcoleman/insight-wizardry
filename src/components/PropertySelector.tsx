@@ -1,4 +1,5 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 interface Account {
   id: string;
@@ -25,21 +26,12 @@ export function PropertySelector({
       <label className="text-sm font-medium">
         {label}
       </label>
-      <Select
+      <SearchableSelect
+        options={accounts}
         value={value}
         onValueChange={onValueChange}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {accounts.map((account) => (
-            <SelectItem key={account.id} value={account.id}>
-              {account.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        placeholder={placeholder}
+      />
     </div>
   );
 }
