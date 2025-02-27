@@ -13,6 +13,7 @@ interface ConversionGoalSelectorProps {
 }
 
 const formatEventName = (eventName: string): string => {
+  if (!eventName) return "";
   if (eventName === 'Total Events') return eventName;
   return eventName
     .split('_')
@@ -21,14 +22,17 @@ const formatEventName = (eventName: string): string => {
 };
 
 export function ConversionGoalSelector({
-  goals,
+  goals = [],
   value,
   onValueChange,
 }: ConversionGoalSelectorProps) {
+  // Ensure goals is always an array
+  const safeGoals = Array.isArray(goals) ? goals : [];
+  
   // Format event names for display
-  const formattedGoals = goals.map(goal => ({
-    id: goal.id,
-    name: formatEventName(goal.name)
+  const formattedGoals = safeGoals.map(goal => ({
+    id: goal.id || "",
+    name: formatEventName(goal.name || "")
   }));
 
   return (

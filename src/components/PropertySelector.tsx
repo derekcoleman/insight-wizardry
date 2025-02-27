@@ -16,18 +16,21 @@ interface PropertySelectorProps {
 
 export function PropertySelector({
   label,
-  accounts,
+  accounts = [],
   value,
   onValueChange,
   placeholder,
 }: PropertySelectorProps) {
+  // Ensure accounts is always an array
+  const safeAccounts = Array.isArray(accounts) ? accounts : [];
+  
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">
         {label}
       </label>
       <SearchableSelect
-        options={accounts}
+        options={safeAccounts}
         value={value}
         onValueChange={onValueChange}
         placeholder={placeholder}

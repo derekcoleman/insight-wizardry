@@ -27,7 +27,7 @@ interface SearchableSelectProps {
 }
 
 export function SearchableSelect({
-  options,
+  options = [],
   value,
   onValueChange,
   placeholder,
@@ -38,12 +38,15 @@ export function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [selectedLabel, setSelectedLabel] = useState("");
+  
+  // Ensure options is always an array
+  const safeOptions = Array.isArray(options) ? options : [];
 
   // Update selected label when value or options change
   useEffect(() => {
-    const selected = options.find((option) => option.id === value);
+    const selected = safeOptions.find((option) => option.id === value);
     setSelectedLabel(selected ? selected.name : "");
-  }, [value, options]);
+  }, [value, safeOptions]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -79,7 +82,7 @@ export function SearchableSelect({
           </div>
           <CommandEmpty>{emptyMessage}</CommandEmpty>
           <CommandGroup className="max-h-64 overflow-y-auto">
-            {options.map((option) => (
+            {safeOptions.map((option) => (
               <CommandItem
                 key={option.id}
                 value={option.name}
