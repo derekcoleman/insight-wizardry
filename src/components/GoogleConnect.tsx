@@ -67,13 +67,15 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
   };
 
   const handleRefresh = () => {
-    // Reset the selections
     setSelectedGaAccount("");
     setSelectedGscAccount("");
     setSelectedGoal("");
-    
-    // Use refreshAccounts to fetch fresh data without requiring a new login
-    refreshAccounts();
+    // Force a re-login to get a fresh token and new data
+    handleLogin();
+    toast({
+      title: "Refreshing",
+      description: "Fetching the latest properties from Google...",
+    });
   };
 
   const handleAnalyze = async () => {
