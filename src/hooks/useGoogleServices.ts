@@ -179,11 +179,16 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       try {
         console.log("Fetching GA4 accounts...");
+        // Add cache-busting query parameter
+        const cacheBuster = new Date().getTime();
         const gaResponse = await fetch(
-          "https://analyticsadmin.googleapis.com/v1alpha/accounts",
+          `https://analyticsadmin.googleapis.com/v1alpha/accounts?cacheBuster=${cacheBuster}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
             },
           }
         );
@@ -204,10 +209,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         
         for (const account of gaData.accounts) {
           const propertiesResponse = await fetch(
-            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}`,
+            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}&cacheBuster=${cacheBuster}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
               },
             }
           );
@@ -239,23 +247,30 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           });
         }
         
-        setGaAccounts(
-          allProperties.map((p: any) => ({
+        // Sort properties alphabetically by name
+        const sortedProperties = allProperties
+          .map((p: any) => ({
             id: p.name,
             name: p.displayName,
           }))
-        );
+          .sort((a: Account, b: Account) => a.name.localeCompare(b.name));
+        
+        setGaAccounts(sortedProperties);
       } catch (error: any) {
         handleApiError(error, "Google Analytics");
       }
 
       try {
         console.log("Fetching Search Console sites...");
+        const cacheBuster = new Date().getTime();
         const gscResponse = await fetch(
-          "https://www.googleapis.com/webmasters/v3/sites",
+          `https://www.googleapis.com/webmasters/v3/sites?cacheBuster=${cacheBuster}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
             },
           }
         );
@@ -281,12 +296,13 @@ export function useGoogleServices(): UseGoogleServicesReturn {
           });
         }
         
-        setGscAccounts(
-          gscData.siteEntry?.map((s: any) => ({
-            id: s.siteUrl,
-            name: s.siteUrl,
-          })) || []
-        );
+        // Sort sites alphabetically
+        const sortedSites = (gscData.siteEntry?.map((s: any) => ({
+          id: s.siteUrl,
+          name: s.siteUrl,
+        })) || []).sort((a: Account, b: Account) => a.name.localeCompare(b.name));
+        
+        setGscAccounts(sortedSites);
       } catch (error: any) {
         handleApiError(error, "Search Console");
       }
@@ -300,7 +316,14 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const refreshAccounts = () => {
     if (accessToken) {
+      // Add a log to confirm refresh is happening with the current access token
+      console.log("Refreshing accounts with token:", accessToken);
       fetchAccountData(accessToken);
+      
+      toast({
+        title: "Refreshing",
+        description: "Fetching the latest properties from Google...",
+      });
     } else {
       toast({
         title: "Not Connected",
