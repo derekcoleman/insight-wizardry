@@ -89,37 +89,19 @@ export function useGoogleServices(): UseGoogleServicesReturn {
       const cleanPropertyId = propertyId.replace(/^properties\//, '');
       console.log("Clean property ID:", cleanPropertyId);
       
-      // Fetch all available events
-      const response = await fetch(
-        `https://analyticsdata.googleapis.com/v1beta/properties/${cleanPropertyId}:runReport`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            dateRanges: [{
-              startDate: '30daysAgo',
-              endDate: 'today',
-            }],
-            dimensions: [
-              { name: 'eventName' },
-            ],
-            metrics: [
-              { name: 'eventCount' },
-            ],
-          }),
+      // Use the Edge Function to proxy the request to avoid CORS
+      const { data, error } = await fetch(`/api/proxy/ga4/events?propertyId=${cleanPropertyId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
         }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("GA4 API Error Response:", errorText);
-        throw new Error(`Failed to fetch events: ${response.statusText}`);
+      }).then(response => response.json());
+      
+      if (error) {
+        throw new Error(error);
       }
-
-      const data = await response.json();
+      
       console.log("Events data response:", data);
 
       // Extract unique event names and sort them
@@ -179,58 +161,47 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       try {
         console.log("Fetching GA4 accounts...");
-        // Add cache-busting query parameter
-        const cacheBuster = new Date().getTime();
-        const gaResponse = await fetch(
-          `https://analyticsadmin.googleapis.com/v1alpha/accounts?cacheBuster=${cacheBuster}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0'
-            },
+        
+        // Use Supabase Edge Function as a proxy to avoid CORS issues
+        const result = await fetch('/api/proxy/ga4/accounts', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           }
-        );
-
-        if (!gaResponse.ok) {
-          throw new Error(`GA4 API error: ${gaResponse.statusText}`);
+        }).then(response => response.json());
+        
+        if (result.error) {
+          throw new Error(result.error);
         }
-
-        const gaData = await gaResponse.json();
-        console.log("GA4 Response:", gaData);
-
-        if (!gaData.accounts || gaData.accounts.length === 0) {
+        
+        console.log("GA4 Response:", result.data);
+        
+        if (!result.data.accounts || result.data.accounts.length === 0) {
           throw new Error("No GA4 accounts found");
         }
-
-        console.log("Fetching GA4 properties for all accounts...");
-        const allProperties = [];
         
-        for (const account of gaData.accounts) {
-          const propertiesResponse = await fetch(
-            `https://analyticsadmin.googleapis.com/v1beta/properties?filter=parent:${account.name}&cacheBuster=${cacheBuster}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-              },
+        // Fetch GA4 properties
+        const allProperties = [];
+        for (const account of result.data.accounts) {
+          const propertiesResult = await fetch(`/api/proxy/ga4/properties?accountId=${account.name}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
             }
-          );
-
-          if (!propertiesResponse.ok) {
-            console.warn(`Failed to fetch properties for account ${account.name}`);
+          }).then(response => response.json());
+          
+          if (propertiesResult.error) {
+            console.warn(`Failed to fetch properties for account ${account.name}: ${propertiesResult.error}`);
             continue;
           }
-
-          const propertiesData = await propertiesResponse.json();
-          if (propertiesData.properties) {
-            allProperties.push(...propertiesData.properties);
+          
+          if (propertiesResult.data.properties) {
+            allProperties.push(...propertiesResult.data.properties);
           }
         }
-
+        
         console.log("All GA4 Properties Response:", allProperties);
         
         if (allProperties.length === 0) {
@@ -262,27 +233,23 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
       try {
         console.log("Fetching Search Console sites...");
-        const cacheBuster = new Date().getTime();
-        const gscResponse = await fetch(
-          `https://www.googleapis.com/webmasters/v3/sites?cacheBuster=${cacheBuster}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0'
-            },
-          }
-        );
-
-        if (!gscResponse.ok) {
-          throw new Error(`Search Console API error: ${gscResponse.statusText}`);
-        }
-
-        const gscData = await gscResponse.json();
-        console.log("Search Console Response:", gscData);
         
-        if (!gscData.siteEntry || gscData.siteEntry.length === 0) {
+        // Use Supabase Edge Function as a proxy to avoid CORS issues
+        const result = await fetch('/api/proxy/gsc/sites', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        }).then(response => response.json());
+        
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        
+        console.log("Search Console Response:", result.data);
+        
+        if (!result.data.siteEntry || result.data.siteEntry.length === 0) {
           toast({
             title: "Warning",
             description: "No Search Console sites found",
@@ -297,7 +264,7 @@ export function useGoogleServices(): UseGoogleServicesReturn {
         }
         
         // Sort sites alphabetically
-        const sortedSites = (gscData.siteEntry?.map((s: any) => ({
+        const sortedSites = (result.data.siteEntry?.map((s: any) => ({
           id: s.siteUrl,
           name: s.siteUrl,
         })) || []).sort((a: Account, b: Account) => a.name.localeCompare(b.name));
@@ -316,7 +283,6 @@ export function useGoogleServices(): UseGoogleServicesReturn {
 
   const refreshAccounts = () => {
     if (accessToken) {
-      // Add a log to confirm refresh is happening with the current access token
       console.log("Refreshing accounts with token:", accessToken);
       fetchAccountData(accessToken);
       
