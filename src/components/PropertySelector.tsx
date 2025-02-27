@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+
+import { useState, useRef, useEffect } from "react";
 import { 
   Select, 
   SelectContent, 
@@ -31,6 +32,7 @@ export function PropertySelector({
 }: PropertySelectorProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Filter accounts based on search query
   const filteredAccounts = accounts.filter((account) =>
@@ -38,22 +40,33 @@ export function PropertySelector({
     account.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Use useEffect to focus the input when the dropdown opens
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      // Slight delay to ensure the dropdown is fully rendered
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   // Handle search input without losing focus
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setSearchQuery(e.target.value);
-    // Keep focus on input
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
   };
 
   // Prevent default interactions to maintain focus
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Prevent arrow keys from navigating the dropdown
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.stopPropagation();
+    // Prevent all key events from propagating to the dropdown
+    e.stopPropagation();
+    
+    // Handle escape key to close dropdown
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setIsOpen(false);
     }
   };
 
@@ -64,19 +77,35 @@ export function PropertySelector({
       </label>
       <Select
         value={value}
-        onValueChange={onValueChange}
+        onValueChange={(val) => {
+          onValueChange(val);
+          setIsOpen(false);
+        }}
+        open={isOpen}
+        onOpenChange={setIsOpen}
       >
-        <SelectTrigger>
+        <SelectTrigger onClick={() => setIsOpen(true)}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent onPointerDownOutside={(e) => e.preventDefault()}>
+        <SelectContent 
+          onPointerDownOutside={(e) => {
+            // Only prevent outside clicks if they're not on the trigger
+            if (!e.target.closest('[data-radix-select-trigger]')) {
+              e.preventDefault();
+            }
+          }}
+          onEscapeKeyDown={() => setIsOpen(false)}
+        >
           <div className="px-2 pb-2">
             <Input
               ref={inputRef}
               placeholder="Search properties..."
               value={searchQuery}
               onChange={handleSearchChange}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
               onKeyDown={handleInputKeyDown}
               autoComplete="off"
               className="h-8"
@@ -84,7 +113,14 @@ export function PropertySelector({
           </div>
           <ScrollArea className="h-[200px]">
             {filteredAccounts.map((account) => (
-              <SelectItem key={account.id} value={account.id}>
+              <SelectItem 
+                key={account.id} 
+                value={account.id}
+                onPointerDown={(e) => {
+                  // Prevent the dropdown from closing when clicking an item
+                  e.preventDefault();
+                }}
+              >
                 {account.name}
               </SelectItem>
             ))}

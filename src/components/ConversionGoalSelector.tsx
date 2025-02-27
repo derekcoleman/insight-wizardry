@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+
+import { useState, useRef, useEffect } from "react";
 import {
   Select,
   SelectContent,
@@ -35,46 +36,77 @@ export function ConversionGoalSelector({
 }: ConversionGoalSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Filter goals based on search query
   const filteredGoals = goals.filter((goal) =>
     goal.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Use useEffect to focus the input when the dropdown opens
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      // Slight delay to ensure the dropdown is fully rendered
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   // Handle search input without losing focus
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setSearchQuery(e.target.value);
-    // Keep focus on input
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
   };
 
   // Prevent default interactions to maintain focus
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Prevent arrow keys from navigating the dropdown
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.stopPropagation();
+    // Prevent all key events from propagating to the dropdown
+    e.stopPropagation();
+    
+    // Handle escape key to close dropdown
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setIsOpen(false);
     }
   };
 
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">Select Conversion Goal</label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger>
+      <Select 
+        value={value} 
+        onValueChange={(val) => {
+          onValueChange(val);
+          setIsOpen(false);
+        }}
+        open={isOpen}
+        onOpenChange={setIsOpen}
+      >
+        <SelectTrigger onClick={() => setIsOpen(true)}>
           <SelectValue placeholder="Select conversion goal" />
         </SelectTrigger>
-        <SelectContent onPointerDownOutside={(e) => e.preventDefault()}>
+        <SelectContent 
+          onPointerDownOutside={(e) => {
+            // Only prevent outside clicks if they're not on the trigger
+            if (!e.target.closest('[data-radix-select-trigger]')) {
+              e.preventDefault();
+            }
+          }}
+          onEscapeKeyDown={() => setIsOpen(false)}
+        >
           <div className="px-2 pb-2">
             <Input
               ref={inputRef}
               placeholder="Search events..."
               value={searchQuery}
               onChange={handleSearchChange}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
               onKeyDown={handleInputKeyDown}
               autoComplete="off"
               className="h-8"
@@ -82,7 +114,14 @@ export function ConversionGoalSelector({
           </div>
           <ScrollArea className="h-[200px]">
             {filteredGoals.map((goal) => (
-              <SelectItem key={goal.id} value={goal.id}>
+              <SelectItem 
+                key={goal.id} 
+                value={goal.id}
+                onPointerDown={(e) => {
+                  // Prevent the dropdown from closing when clicking an item
+                  e.preventDefault();
+                }}
+              >
                 {formatEventName(goal.name)}
               </SelectItem>
             ))}
