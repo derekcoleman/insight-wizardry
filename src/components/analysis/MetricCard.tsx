@@ -6,9 +6,10 @@ interface MetricCardProps {
   value: string | number;
   change: number;
   higherIsBetter?: boolean;
+  suffix?: string;
 }
 
-export function MetricCard({ title, value, change, higherIsBetter = true }: MetricCardProps) {
+export function MetricCard({ title, value, change, higherIsBetter = true, suffix }: MetricCardProps) {
   const formatValue = (val: string | number) => {
     if (typeof val === 'number') {
       if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
@@ -24,7 +25,9 @@ export function MetricCard({ title, value, change, higherIsBetter = true }: Metr
   return (
     <div className="p-3 border rounded-lg">
       <p className="text-sm font-medium text-muted-foreground">{title}</p>
-      <p className="text-xl font-bold">{formatValue(value)}</p>
+      <p className="text-xl font-bold">
+        {suffix && suffix === "$" ? "$" : ""}{formatValue(value)}{suffix && suffix !== "$" ? suffix : ""}
+      </p>
       {change !== 0 && (
         <div className="flex items-center mt-1">
           {isPositive ? (
