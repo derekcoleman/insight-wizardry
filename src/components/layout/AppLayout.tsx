@@ -87,6 +87,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     });
   }
 
+  const handleAuditClick = (audit: any) => {
+    // Store the selected audit data for the dashboard to use
+    localStorage.setItem('selectedAudit', JSON.stringify(audit));
+    // Navigate to dashboard if not already there
+    if (location.pathname !== '/dashboard') {
+      window.location.href = '/dashboard';
+    } else {
+      // Trigger a custom event to notify the dashboard of the selection
+      window.dispatchEvent(new CustomEvent('auditSelected', { detail: audit }));
+    }
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -122,8 +134,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       {savedAudits.slice(0, 10).map((audit) => (
                         <SidebarMenuItem key={audit.id}>
                           <SidebarMenuButton asChild>
-                            <div className="flex items-center justify-between w-full p-2 hover:bg-sidebar-accent rounded-md group">
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div className="flex items-center justify-between w-full p-2 hover:bg-sidebar-accent rounded-md group cursor-pointer">
+                              <div 
+                                className="flex items-center gap-2 flex-1 min-w-0"
+                                onClick={() => handleAuditClick(audit)}
+                              >
                                 <FileText className="h-4 w-4 flex-shrink-0" />
                                 <span className="truncate text-sm" title={audit.title}>
                                   {audit.title}

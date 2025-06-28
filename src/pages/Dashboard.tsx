@@ -1,20 +1,53 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ProjectSidebar } from "@/components/projects/ProjectSidebar";
 import { AnalysisResults } from "@/components/AnalysisResults";
 
 const Dashboard = () => {
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [selectedStrategy, setSelectedStrategy] = useState(null);
+  const [selectedAudit, setSelectedAudit] = useState(null);
+
+  useEffect(() => {
+    // Check for selected audit from localStorage
+    const storedAudit = localStorage.getItem('selectedAudit');
+    if (storedAudit) {
+      const audit = JSON.parse(storedAudit);
+      setSelectedAudit(audit);
+      // Clear the stored audit after loading
+      localStorage.removeItem('selectedAudit');
+    }
+
+    // Listen for audit selection events
+    const handleAuditSelected = (event: CustomEvent) => {
+      setSelectedAudit(event.detail);
+      setSelectedAnalysis(null);
+      setSelectedStrategy(null);
+    };
+
+    window.addEventListener('auditSelected', handleAuditSelected as EventListener);
+    
+    return () => {
+      window.removeEventListener('auditSelected', handleAuditSelected as EventListener);
+    };
+  }, []);
 
   const handleSelectAnalysis = (analysisData: any) => {
     setSelectedAnalysis(analysisData);
     setSelectedStrategy(null);
+    setSelectedAudit(null);
   };
 
   const handleSelectStrategy = (strategyData: any) => {
     setSelectedStrategy(strategyData);
     setSelectedAnalysis(null);
+    setSelectedAudit(null);
+  };
+
+  const handleSelectAudit = (auditData: any) => {
+    setSelectedAudit(auditData);
+    setSelectedAnalysis(null);
+    setSelectedStrategy(null);
   };
 
   return (
@@ -35,6 +68,7 @@ const Dashboard = () => {
             <ProjectSidebar 
               onSelectAnalysis={handleSelectAnalysis}
               onSelectStrategy={handleSelectStrategy}
+              onSelectAudit={handleSelectAudit}
             />
           </div>
 
@@ -49,6 +83,8 @@ const Dashboard = () => {
                   {JSON.stringify(selectedStrategy, null, 2)}
                 </pre>
               </div>
+            ) : selectedAudit ? (
+              <AnalysisResults report={selectedAudit.audit_data} isLoading={false} />
             ) : (
               <div className="text-center py-12">
                 <div className="max-w-md mx-auto">
@@ -56,7 +92,7 @@ const Dashboard = () => {
                     Welcome to Your Dashboard
                   </h2>
                   <p className="text-gray-600 mb-6">
-                    Select a project from the sidebar to view your analysis results and SEO strategies.
+                    Select a project from the sidebar or click on a saved audit to view your analysis results and SEO strategies.
                   </p>
                 </div>
               </div>

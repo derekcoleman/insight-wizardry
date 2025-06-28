@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useProjects } from "@/hooks/useProjects";
+import { useSavedAudits } from "@/hooks/useSavedAudits";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,12 +12,39 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 interface ProjectSidebarProps {
   onSelectAnalysis?: (analysisData: any) => void;
   onSelectStrategy?: (strategyData: any) => void;
+  onSelectAudit?: (auditData: any) => void;
 }
 
-export function ProjectSidebar({ onSelectAnalysis, onSelectStrategy }: ProjectSidebarProps) {
+export function ProjectSidebar({ onSelectAnalysis, onSelectStrategy, onSelectAudit }: ProjectSidebarProps) {
   const { projects, isLoading, getProjectAnalyses, getProjectStrategies } = useProjects();
+  const { savedAudits } = useSavedAudits();
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-  const [projectData, setProjectData] = useState<Record<string, { analyses: any[], strategies: any[] }>>({});
+  const [projectData, setProjectData] = useState<Record<string, { analyses: any[], strategies: any[], audits: any[] }>>({});
+
+  // Group audits by website domain to match with projects
+  const groupAuditsByDomain = () => {
+    const auditsByDomain: Record<string, any[]> = {};
+    
+    savedAudits.forEach(audit => {
+      if (audit.website_url) {
+        try {
+          const domain = new URL(audit.website_url).hostname;
+          if (!auditsByDomain[domain]) {
+            auditsByDomain[domain] = [];
+          }
+          auditsByDomain[domain].push(audit);
+        } catch {
+          // If URL parsing fails, use the website_url as is
+          if (!auditsByDomain[audit.website_url]) {
+            auditsByDomain[audit.website_url] = [];
+          }
+          auditsByDomain[audit.website_url].push(audit);
+        }
+      }
+    });
+    
+    return auditsByDomain;
+  };
 
   const toggleProject = async (projectId: string) => {
     const newExpanded = new Set(expandedProjects);
@@ -32,10 +60,24 @@ export function ProjectSidebar({ onSelectAnalysis, onSelectStrategy }: ProjectSi
           getProjectAnalyses(projectId),
           getProjectStrategies(projectId)
         ]);
+
+        // Get audits for this project based on domain matching
+        const project = projects.find(p => p.id === projectId);
+        const auditsByDomain = groupAuditsByDomain();
+        let projectAudits: any[] = [];
+        
+        if (project?.url) {
+          try {
+            const domain = new URL(project.url).hostname;
+            projectAudits = auditsByDomain[domain] || [];
+          } catch {
+            projectAudits = auditsByDomain[project.url] || [];
+          }
+        }
         
         setProjectData(prev => ({
           ...prev,
-          [projectId]: { analyses, strategies }
+          [projectId]: { analyses, strategies, audits: projectAudits }
         }));
       }
     }
@@ -106,6 +148,23 @@ export function ProjectSidebar({ onSelectAnalysis, onSelectStrategy }: ProjectSi
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="ml-6 space-y-1">
+                {projectData[project.id]?.audits.map((audit) => (
+                  <Button
+                    key={audit.id}
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start h-auto p-2 hover:bg-accent"
+                    onClick={() => onSelectAudit?.(audit)}
+                  >
+                    <FileText className="h-3 w-3 mr-2" />
+                    <div className="flex flex-col items-start">
+                      <span className="text-xs">Audit</span>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(audit.created_at), 'MMM d, HH:mm')}
+                      </span>
+                    </div>
+                  </Button>
+                ))}
                 {projectData[project.id]?.analyses.map((analysis) => (
                   <Button
                     key={analysis.id}
