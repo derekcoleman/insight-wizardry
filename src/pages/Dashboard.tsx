@@ -2,6 +2,10 @@
 import { useState, useEffect } from "react";
 import { ProjectSidebar } from "@/components/projects/ProjectSidebar";
 import { AnalysisResults } from "@/components/AnalysisResults";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AnalysisInsights } from "@/components/AnalysisInsights";
+import { DashboardTabs } from "@/components/analysis/DashboardTabs";
 
 const Dashboard = () => {
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
@@ -50,6 +54,8 @@ const Dashboard = () => {
     setSelectedStrategy(null);
   };
 
+  const currentReport = selectedAnalysis || selectedAudit?.audit_data || null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
@@ -74,8 +80,8 @@ const Dashboard = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            {selectedAnalysis ? (
-              <AnalysisResults report={selectedAnalysis} isLoading={false} />
+            {currentReport ? (
+              <AnalysisResults report={currentReport} isLoading={false} />
             ) : selectedStrategy ? (
               <div className="space-y-6">
                 <h2 className="text-3xl font-bold">SEO Strategy</h2>
@@ -83,8 +89,6 @@ const Dashboard = () => {
                   {JSON.stringify(selectedStrategy, null, 2)}
                 </pre>
               </div>
-            ) : selectedAudit ? (
-              <AnalysisResults report={selectedAudit.audit_data} isLoading={false} />
             ) : (
               <div className="text-center py-12">
                 <div className="max-w-md mx-auto">

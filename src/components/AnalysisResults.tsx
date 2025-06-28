@@ -8,12 +8,12 @@ import { DashboardTabs } from "./analysis/DashboardTabs";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useToast } from "./ui/use-toast";
-import { ExportButtons } from "./analysis/ExportButtons";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileText, FileType2 } from "lucide-react";
 import { useSavedAudits } from "@/hooks/useSavedAudits";
 import { useProjects } from "@/hooks/useProjects";
 import { useAuth } from "@/contexts/AuthContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AnalysisResultsProps {
   report: {
@@ -301,7 +301,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     <div className="w-full space-y-6 text-left">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-bold">Analytics Dashboard</h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-2">
           <Button
             onClick={handleGenerateStrategy}
             disabled={isGeneratingStrategy}
@@ -310,19 +310,64 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
             {isGeneratingStrategy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Generate SEO Strategy
           </Button>
-          <ExportButtons
-            onExportDoc={handleCreateDoc}
-            onExportPdf={handleCreatePdf}
-            isCreatingDoc={isCreatingDoc}
-            isCreatingPdf={isCreatingPdf}
-            isGeneratingInsights={isGeneratingInsights}
-          />
+          <Button
+            onClick={handleCreateDoc}
+            disabled={isCreatingDoc || isGeneratingInsights}
+            variant="outline"
+            size="icon"
+            title="Export to Google Doc"
+          >
+            {isCreatingDoc ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            onClick={handleCreatePdf}
+            disabled={isCreatingPdf || isGeneratingInsights}
+            variant="outline"
+            size="icon"
+            title="Export to PDF"
+          >
+            {isCreatingPdf ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileType2 className="h-4 w-4" />
+            )}
+          </Button>
         </div>
       </div>
       
-      <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
-      
-      <DashboardTabs analyses={analyses} />
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+          <TabsTrigger value="search">Search Terms</TabsTrigger>
+          <TabsTrigger value="pages">Top Pages</TabsTrigger>
+          <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ai-analysis" className="space-y-6">
+          <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
+        </TabsContent>
+
+        <TabsContent value="overview">
+          <DashboardTabs analyses={analyses} activeTab="overview" />
+        </TabsContent>
+
+        <TabsContent value="performance">
+          <DashboardTabs analyses={analyses} activeTab="performance" />
+        </TabsContent>
+
+        <TabsContent value="search">
+          <DashboardTabs analyses={analyses} activeTab="search" />
+        </TabsContent>
+
+        <TabsContent value="pages">
+          <DashboardTabs analyses={analyses} activeTab="pages" />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
