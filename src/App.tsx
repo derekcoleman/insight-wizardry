@@ -5,7 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import { AuthProvider } from "@/contexts/AuthContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import Index from "./pages/Index";
 import Privacy from "./pages/Privacy";
@@ -23,22 +22,20 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-        <AuthProvider>
-          <BrowserRouter>
-            <TooltipProvider>
-              <AppLayout>
-                <Toaster />
-                <Sonner />
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/privacy" element={<Privacy />} />
-                  <Route path="/terms" element={<Terms />} />
-                  <Route path="/seo-strategy" element={<SeoStrategy />} />
-                </Routes>
-              </AppLayout>
-            </TooltipProvider>
-          </BrowserRouter>
-        </AuthProvider>
+        <BrowserRouter>
+          <TooltipProvider>
+            <AppLayout>
+              <Toaster />
+              <Sonner />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/seo-strategy" element={<SeoStrategy />} />
+              </Routes>
+            </AppLayout>
+          </TooltipProvider>
+        </BrowserRouter>
       </GoogleOAuthProvider>
     </QueryClientProvider>
   );
