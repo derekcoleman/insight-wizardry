@@ -11,6 +11,7 @@ import { ExportButtons } from "./analysis/ExportButtons";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useSavedAudits } from "@/hooks/useSavedAudits";
+import { useProjects } from "@/hooks/useProjects";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AnalysisResultsProps {
@@ -34,6 +35,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { saveAudit } = useSavedAudits();
+  const { projects, saveStrategyToProject } = useProjects();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -198,6 +200,19 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         throw new Error(response.error.message || 'Failed to generate strategy');
       }
 
+      // Find the current project based on the analysis data
+      const websiteUrl = report.weekly_analysis?.pages?.[0]?.page || 
+                        report.monthly_analysis?.pages?.[0]?.page;
+      
+      if (websiteUrl && projects.length > 0) {
+        const domain = new URL(websiteUrl).hostname;
+        const currentProject = projects.find(p => p.domain === domain);
+        
+        if (currentProject) {
+          await saveStrategyToProject(currentProject.id, response.data);
+        }
+      }
+
       // Store the generated strategy in localStorage
       localStorage.setItem('generatedStrategy', JSON.stringify(response.data));
 
@@ -206,7 +221,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
       
       toast({
         title: "Success",
-        description: "SEO Strategy generated successfully.",
+        description: "SEO Strategy generated and saved successfully.",
       });
     } catch (error) {
       console.error('Error generating strategy:', error);

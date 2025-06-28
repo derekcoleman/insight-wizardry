@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { supabase } from "@/integrations/supabase/client";
 import { useGoogleServices } from "@/hooks/useGoogleServices";
+import { useProjects } from "@/hooks/useProjects";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { PropertySelector } from "@/components/PropertySelector";
 import { ConversionGoalSelector } from "@/components/ConversionGoalSelector";
@@ -42,6 +42,8 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
     accessToken,
     refreshAccounts,
   } = useGoogleServices();
+
+  const { createProject, saveAnalysisToProject } = useProjects();
 
   useEffect(() => {
     onConnectionChange?.(gaConnected || gscConnected);
@@ -122,9 +124,25 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
       }
 
       setReport(result.data.report);
+
+      // Create or find project and save analysis
+      const domain = extractDomainFromProperty(selectedGaAccount);
+      const projectName = `${domain} Analytics`;
+      
+      const project = await createProject({
+        domain,
+        name: projectName,
+        ga4_property: selectedGaAccount,
+        gsc_property: selectedGscAccount,
+      });
+
+      if (project) {
+        await saveAnalysisToProject(project.id, result.data.report);
+      }
+
       toast({
         title: "Success",
-        description: "Analysis completed successfully",
+        description: "Analysis completed and saved to project",
       });
     } catch (error) {
       console.error('Analysis error:', error);
@@ -138,6 +156,18 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const extractDomainFromProperty = (property: string) => {
+    // Extract domain from GA4 property or GSC property
+    if (property.includes('://')) {
+      try {
+        return new URL(property).hostname;
+      } catch {
+        return property;
+      }
+    }
+    return property;
   };
 
   // Show collapse toggle only when there's been an analysis or connection
