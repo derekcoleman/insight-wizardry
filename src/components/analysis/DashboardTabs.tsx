@@ -21,13 +21,17 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
   // Get the most recent analysis for overview (usually the first one which should be weekly)
   const primaryAnalysis = analyses[0];
 
-  // Prepare chart data from the analyses - use real data
+  // Prepare chart data from the analyses - use real data from all time periods
   const getChartData = () => {
-    return analyses.map((analysis, index) => ({
+    return analyses.map((analysis) => ({
       name: analysis.type.replace(' over ', '/').replace(' to ', '/'),
       sessions: analysis.data.current?.sessions || 0,
       users: analysis.data.current?.users || 0,
       pageviews: analysis.data.current?.pageviews || 0,
+      clicks: analysis.data.current?.clicks || 0,
+      impressions: analysis.data.current?.impressions || 0,
+      ctr: analysis.data.current?.ctr ? (analysis.data.current.ctr * 100) : 0,
+      position: analysis.data.current?.position || 0,
       bounceRate: analysis.data.current?.bounceRate ? (analysis.data.current.bounceRate * 100) : 0,
       change: analysis.data.growth_rate || 0,
     }));
@@ -57,6 +61,7 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
     return (
       <div className="w-full space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Google Analytics Metrics */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -101,23 +106,24 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
             </CardContent>
           </Card>
 
+          {/* Search Console Metrics */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Pageviews</p>
-                  <p className="text-2xl font-bold">{formatNumber(primaryAnalysis.data.current?.pageviews || 0)}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Clicks</p>
+                  <p className="text-2xl font-bold">{formatNumber(primaryAnalysis.data.current?.clicks || 0)}</p>
                 </div>
                 <MousePointer className="h-8 w-8 text-purple-500" />
               </div>
               <div className="flex items-center mt-2">
-                {(primaryAnalysis.data.changes?.pageviews || 0) >= 0 ? (
+                {(primaryAnalysis.data.changes?.clicks || 0) >= 0 ? (
                   <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                 ) : (
                   <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm ${(primaryAnalysis.data.changes?.pageviews || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {Math.abs(primaryAnalysis.data.changes?.pageviews || 0).toFixed(1)}%
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.clicks || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {Math.abs(primaryAnalysis.data.changes?.clicks || 0).toFixed(1)}%
                 </span>
               </div>
             </CardContent>
@@ -127,19 +133,19 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Avg. Duration</p>
-                  <p className="text-2xl font-bold">{formatDuration(primaryAnalysis.data.current?.averageSessionDuration || 0)}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Impressions</p>
+                  <p className="text-2xl font-bold">{formatNumber(primaryAnalysis.data.current?.impressions || 0)}</p>
                 </div>
-                <Clock className="h-8 w-8 text-orange-500" />
+                <Eye className="h-8 w-8 text-orange-500" />
               </div>
               <div className="flex items-center mt-2">
-                {(primaryAnalysis.data.changes?.averageSessionDuration || 0) >= 0 ? (
+                {(primaryAnalysis.data.changes?.impressions || 0) >= 0 ? (
                   <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                 ) : (
                   <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm ${(primaryAnalysis.data.changes?.averageSessionDuration || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {Math.abs(primaryAnalysis.data.changes?.averageSessionDuration || 0).toFixed(1)}%
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.impressions || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {Math.abs(primaryAnalysis.data.changes?.impressions || 0).toFixed(1)}%
                 </span>
               </div>
             </CardContent>
@@ -149,7 +155,7 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Traffic Trends</CardTitle>
+              <CardTitle>Google Analytics Traffic Trends</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -167,7 +173,7 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
 
           <Card>
             <CardHeader>
-              <CardTitle>Performance Comparison</CardTitle>
+              <CardTitle>Search Console Performance</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -176,10 +182,76 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip formatter={(value) => formatNumber(Number(value))} />
-                  <Bar dataKey="sessions" fill="#0088FE" name="Sessions" />
-                  <Bar dataKey="pageviews" fill="#00C49F" name="Pageviews" />
+                  <Bar dataKey="clicks" fill="#0088FE" name="Clicks" />
+                  <Bar dataKey="impressions" fill="#00C49F" name="Impressions" />
                 </BarChart>
               </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Additional metrics grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Click-Through Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {primaryAnalysis.data.current?.ctr ? (primaryAnalysis.data.current.ctr * 100).toFixed(1) : '0.0'}%
+              </div>
+              <div className="flex items-center mt-2">
+                {(primaryAnalysis.data.changes?.ctr || 0) >= 0 ? (
+                  <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
+                )}
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.ctr || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {Math.abs(primaryAnalysis.data.changes?.ctr || 0).toFixed(1)}%
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Average Position</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {primaryAnalysis.data.current?.position?.toFixed(1) || '0.0'}
+              </div>
+              <div className="flex items-center mt-2">
+                {(primaryAnalysis.data.changes?.position || 0) <= 0 ? (
+                  <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
+                )}
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.position || 0) <= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {Math.abs(primaryAnalysis.data.changes?.position || 0).toFixed(1)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Bounce Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {primaryAnalysis.data.current?.bounceRate ? (primaryAnalysis.data.current.bounceRate * 100).toFixed(1) : '0.0'}%
+              </div>
+              <div className="flex items-center mt-2">
+                {(primaryAnalysis.data.changes?.bounceRate || 0) <= 0 ? (
+                  <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
+                )}
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.bounceRate || 0) <= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {Math.abs(primaryAnalysis.data.changes?.bounceRate || 0).toFixed(1)}%
+                </span>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -199,6 +271,7 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Google Analytics Metrics */}
                   <MetricCard
                     title="Sessions"
                     value={analysis.data.current?.sessions || 0}
@@ -219,11 +292,53 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
                     value={`${((analysis.data.current?.bounceRate || 0) * 100).toFixed(1)}%`}
                     change={analysis.data.changes?.bounceRate || 0}
                   />
+                  {/* Search Console Metrics */}
+                  <MetricCard
+                    title="Clicks"
+                    value={Math.round(analysis.data.current?.clicks || 0)}
+                    change={analysis.data.changes?.clicks || 0}
+                  />
+                  <MetricCard
+                    title="Impressions"
+                    value={Math.round(analysis.data.current?.impressions || 0)}
+                    change={analysis.data.changes?.impressions || 0}
+                  />
+                  <MetricCard
+                    title="CTR"
+                    value={`${((analysis.data.current?.ctr || 0) * 100).toFixed(1)}%`}
+                    change={analysis.data.changes?.ctr || 0}
+                  />
+                  <MetricCard
+                    title="Avg Position"
+                    value={analysis.data.current?.position?.toFixed(1) || '0.0'}
+                    change={analysis.data.changes?.position || 0}
+                    higherIsBetter={false}
+                  />
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+
+        {/* Performance comparison chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance Comparison Across Time Periods</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip formatter={(value) => formatNumber(Number(value))} />
+                <Bar dataKey="sessions" fill="#0088FE" name="Sessions" />
+                <Bar dataKey="clicks" fill="#00C49F" name="Clicks" />
+                <Bar dataKey="impressions" fill="#FFBB28" name="Impressions" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </div>
     );
   }
