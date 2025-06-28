@@ -1,10 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisInsights } from "./AnalysisInsights";
 import { DashboardTabs } from "./analysis/DashboardTabs";
-import { ExecutiveSummary } from "./analysis/ExecutiveSummary";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useToast } from "./ui/use-toast";
@@ -339,17 +339,16 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         </div>
       </div>
       
-      <Tabs defaultValue="executive-summary" className="w-full">
+      <Tabs defaultValue="ai-analysis" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="executive-summary">AI Analysis</TabsTrigger>
+          <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="search">Search Terms</TabsTrigger>
           <TabsTrigger value="pages">Top Pages</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="executive-summary" className="space-y-6">
-          <ExecutiveSummary analyses={analyses} insights={insights} />
+        <TabsContent value="ai-analysis" className="space-y-6">
           <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
         </TabsContent>
 

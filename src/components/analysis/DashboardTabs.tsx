@@ -4,7 +4,6 @@ import { MetricCard } from "./MetricCard";
 import { SearchTermsTable } from "./SearchTermsTable";
 import { TopPagesTable } from "./TopPagesTable";
 import { TrendingUp, TrendingDown, Eye, MousePointer, Users, Clock } from "lucide-react";
-import { ConversionFunnel } from "./ConversionFunnel";
 
 interface DashboardTabsProps {
   analyses: Array<{
@@ -61,28 +60,26 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
   if (activeTab === "overview") {
     return (
       <div className="w-full space-y-6">
-        {/* Primary KPIs with clear trend indicators */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Google Analytics Metrics */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Sessions</p>
                   <p className="text-2xl font-bold">{formatNumber(primaryAnalysis.data.current?.sessions || 0)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Website visits</p>
                 </div>
                 <Eye className="h-8 w-8 text-blue-500" />
               </div>
-              <div className="flex items-center mt-3">
+              <div className="flex items-center mt-2">
                 {(primaryAnalysis.data.changes?.sessions || 0) >= 0 ? (
                   <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                 ) : (
                   <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm font-medium ${(primaryAnalysis.data.changes?.sessions || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.sessions || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {Math.abs(primaryAnalysis.data.changes?.sessions || 0).toFixed(1)}%
                 </span>
-                <span className="text-xs text-muted-foreground ml-1">vs previous period</span>
               </div>
             </CardContent>
           </Card>
@@ -93,44 +90,41 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Users</p>
                   <p className="text-2xl font-bold">{formatNumber(primaryAnalysis.data.current?.users || 0)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Unique visitors</p>
                 </div>
                 <Users className="h-8 w-8 text-green-500" />
               </div>
-              <div className="flex items-center mt-3">
+              <div className="flex items-center mt-2">
                 {(primaryAnalysis.data.changes?.users || 0) >= 0 ? (
                   <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                 ) : (
                   <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm font-medium ${(primaryAnalysis.data.changes?.users || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.users || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {Math.abs(primaryAnalysis.data.changes?.users || 0).toFixed(1)}%
                 </span>
-                <span className="text-xs text-muted-foreground ml-1">vs previous period</span>
               </div>
             </CardContent>
           </Card>
 
+          {/* Search Console Metrics */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Clicks</p>
                   <p className="text-2xl font-bold">{formatNumber(primaryAnalysis.data.current?.clicks || 0)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">From search results</p>
                 </div>
                 <MousePointer className="h-8 w-8 text-purple-500" />
               </div>
-              <div className="flex items-center mt-3">
+              <div className="flex items-center mt-2">
                 {(primaryAnalysis.data.changes?.clicks || 0) >= 0 ? (
                   <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                 ) : (
                   <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm font-medium ${(primaryAnalysis.data.changes?.clicks || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.clicks || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {Math.abs(primaryAnalysis.data.changes?.clicks || 0).toFixed(1)}%
                 </span>
-                <span className="text-xs text-muted-foreground ml-1">vs previous period</span>
               </div>
             </CardContent>
           </Card>
@@ -141,42 +135,27 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Impressions</p>
                   <p className="text-2xl font-bold">{formatNumber(primaryAnalysis.data.current?.impressions || 0)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Search appearances</p>
                 </div>
                 <Eye className="h-8 w-8 text-orange-500" />
               </div>
-              <div className="flex items-center mt-3">
+              <div className="flex items-center mt-2">
                 {(primaryAnalysis.data.changes?.impressions || 0) >= 0 ? (
                   <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                 ) : (
                   <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm font-medium ${(primaryAnalysis.data.changes?.impressions || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.impressions || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {Math.abs(primaryAnalysis.data.changes?.impressions || 0).toFixed(1)}%
                 </span>
-                <span className="text-xs text-muted-foreground ml-1">vs previous period</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Conversion Funnel */}
-        <ConversionFunnel 
-          data={{
-            impressions: primaryAnalysis.data.current?.impressions || 0,
-            clicks: primaryAnalysis.data.current?.clicks || 0,
-            sessions: primaryAnalysis.data.current?.sessions || 0,
-            conversions: primaryAnalysis.data.current?.conversions || 0,
-            changes: primaryAnalysis.data.changes
-          }}
-        />
-
-        {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Traffic Trends</CardTitle>
-              <p className="text-sm text-muted-foreground">Sessions and users over time</p>
+              <CardTitle>Google Analytics Traffic Trends</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -194,8 +173,7 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
 
           <Card>
             <CardHeader>
-              <CardTitle>Search Performance</CardTitle>
-              <p className="text-sm text-muted-foreground">Clicks and impressions from search</p>
+              <CardTitle>Search Console Performance</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -228,13 +206,10 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
                 ) : (
                   <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm font-medium ${(primaryAnalysis.data.changes?.ctr || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.ctr || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {Math.abs(primaryAnalysis.data.changes?.ctr || 0).toFixed(1)}%
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {primaryAnalysis.data.current?.ctr && (primaryAnalysis.data.current.ctr * 100) >= 2 ? 'Above average' : 'Below average (2%+ is good)'}
-              </p>
             </CardContent>
           </Card>
 
@@ -252,37 +227,31 @@ export function DashboardTabs({ analyses, activeTab = "overview" }: DashboardTab
                 ) : (
                   <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm font-medium ${(primaryAnalysis.data.changes?.position || 0) <= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.position || 0) <= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {Math.abs(primaryAnalysis.data.changes?.position || 0).toFixed(1)}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {primaryAnalysis.data.current?.position && primaryAnalysis.data.current.position <= 10 ? 'First page results' : 'Second page or lower'}
-              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Conversions</CardTitle>
+              <CardTitle>Bounce Rate</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {primaryAnalysis.data.current?.conversions || 0}
+                {primaryAnalysis.data.current?.bounceRate ? (primaryAnalysis.data.current.bounceRate * 100).toFixed(1) : '0.0'}%
               </div>
               <div className="flex items-center mt-2">
-                {(primaryAnalysis.data.changes?.conversions || 0) >= 0 ? (
+                {(primaryAnalysis.data.changes?.bounceRate || 0) <= 0 ? (
                   <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                 ) : (
                   <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm font-medium ${(primaryAnalysis.data.changes?.conversions || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {Math.abs(primaryAnalysis.data.changes?.conversions || 0).toFixed(1)}%
+                <span className={`text-sm ${(primaryAnalysis.data.changes?.bounceRate || 0) <= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {Math.abs(primaryAnalysis.data.changes?.bounceRate || 0).toFixed(1)}%
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {primaryAnalysis.data.current?.conversions > 0 ? 'Goal completions' : 'No conversions tracked'}
-              </p>
             </CardContent>
           </Card>
         </div>
