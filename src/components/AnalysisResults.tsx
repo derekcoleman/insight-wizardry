@@ -4,8 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisInsights } from "./AnalysisInsights";
-import { ExecutiveSummary } from "./analysis/ExecutiveSummary";
-import { ConversionFunnel } from "./analysis/ConversionFunnel";
 import { DashboardTabs } from "./analysis/DashboardTabs";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -351,14 +349,11 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         </TabsList>
 
         <TabsContent value="ai-analysis" className="space-y-6">
-          <ExecutiveSummary insights={insights} analyses={analyses} />
+          <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
         </TabsContent>
 
         <TabsContent value="overview">
-          <div className="space-y-6">
-            <ConversionFunnel analysis={analyses[0]} />
-            <DashboardTabs analyses={analyses} activeTab="overview" />
-          </div>
+          <DashboardTabs analyses={analyses} activeTab="overview" />
         </TabsContent>
 
         <TabsContent value="performance">

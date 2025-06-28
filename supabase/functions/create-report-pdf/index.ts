@@ -1,7 +1,6 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { jsPDF } from 'https://cdn.skypack.dev/jspdf@2.5.1'
-import 'https://cdn.skypack.dev/jspdf-autotable@3.5.28'
+import { jsPDF } from 'jspdf'
+import 'jspdf-autotable'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
