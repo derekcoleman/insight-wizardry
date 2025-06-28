@@ -10,6 +10,8 @@ import { useToast } from "./ui/use-toast";
 import { ExportButtons } from "./analysis/ExportButtons";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { useSavedAudits } from "@/hooks/useSavedAudits";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AnalysisResultsProps {
   report: {
@@ -28,8 +30,11 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   const [isCreatingDoc, setIsCreatingDoc] = useState(false);
   const [isCreatingPdf, setIsCreatingPdf] = useState(false);
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
+  const [hasAutoSaved, setHasAutoSaved] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { saveAudit } = useSavedAudits();
+  const { user } = useAuth();
 
   useEffect(() => {
     const generateInsights = async () => {
@@ -52,6 +57,34 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
     generateInsights();
   }, [report, isLoading]);
+
+  // Auto-save audit when analysis is complete
+  useEffect(() => {
+    const autoSaveAudit = async () => {
+      if (!report || !user || hasAutoSaved || isLoading) return;
+
+      try {
+        const auditTitle = `Analysis - ${format(new Date(), 'MMM d, yyyy HH:mm')}`;
+        const websiteUrl = report.weekly_analysis?.pages?.[0]?.page || 
+                          report.monthly_analysis?.pages?.[0]?.page || 
+                          'Unknown';
+
+        await saveAudit({
+          title: auditTitle,
+          description: 'Automated audit save after analysis completion',
+          audit_data: report,
+          audit_type: 'comprehensive',
+          website_url: websiteUrl
+        });
+
+        setHasAutoSaved(true);
+      } catch (error) {
+        console.error('Error auto-saving audit:', error);
+      }
+    };
+
+    autoSaveAudit();
+  }, [report, user, hasAutoSaved, isLoading, saveAudit]);
 
   const handleCreateDoc = async () => {
     if (!report) return;

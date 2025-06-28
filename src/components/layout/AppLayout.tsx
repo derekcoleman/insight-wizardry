@@ -1,21 +1,22 @@
 
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
-import { Home, LineChart, PanelLeft } from "lucide-react";
+import { Home, LineChart, PanelLeft, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const items = [
-  {
-    title: "Home",
-    url: "/",
-    icon: Home,
-  },
-  {
-    title: "SEO Strategy",
-    url: "/seo-strategy",
-    icon: LineChart,
-  },
-];
+import { useAuth } from "@/contexts/AuthContext";
+import { useSavedAudits } from "@/hooks/useSavedAudits";
+import { useState, useEffect } from "react";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 function NavHeader() {
   const { toggleSidebar } = useSidebar();
@@ -49,6 +50,34 @@ function NavHeader() {
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const { savedAudits, deleteAudit } = useSavedAudits();
+  const [hasGeneratedStrategy, setHasGeneratedStrategy] = useState(false);
+  const location = useLocation();
+
+  // Check if user has generated a strategy
+  useEffect(() => {
+    const storedStrategy = localStorage.getItem('generatedStrategy');
+    setHasGeneratedStrategy(!!storedStrategy);
+  }, [location.pathname]);
+
+  const mainItems = [
+    {
+      title: "Home",
+      url: "/",
+      icon: Home,
+    },
+  ];
+
+  // Only show SEO Strategy if user has generated one
+  if (hasGeneratedStrategy) {
+    mainItems.push({
+      title: "SEO Strategy",
+      url: "/seo-strategy",
+      icon: LineChart,
+    });
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -60,7 +89,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {items.map((item) => (
+                  {mainItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild>
                         <Link to={item.url} className="flex items-center gap-2">
@@ -73,6 +102,59 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            {/* Saved Audits Section */}
+            {user && savedAudits.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupContent>
+                  <div className="px-2 py-1">
+                    <h3 className="text-sm font-medium text-sidebar-foreground/70 mb-2">Saved Audits</h3>
+                    <SidebarMenu>
+                      {savedAudits.slice(0, 10).map((audit) => (
+                        <SidebarMenuItem key={audit.id}>
+                          <SidebarMenuButton asChild>
+                            <div className="flex items-center justify-between w-full p-2 hover:bg-sidebar-accent rounded-md group">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <FileText className="h-4 w-4 flex-shrink-0" />
+                                <span className="truncate text-sm" title={audit.title}>
+                                  {audit.title}
+                                </span>
+                              </div>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Audit</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete "{audit.title}"? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteAudit(audit.id)}>
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </div>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
           </SidebarContent>
         </Sidebar>
 
