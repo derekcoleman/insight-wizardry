@@ -1,10 +1,11 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisInsights } from "./AnalysisInsights";
 import { DashboardTabs } from "./analysis/DashboardTabs";
+import { ExecutiveSummary } from "./analysis/ExecutiveSummary";
+import { ConversionFunnel } from "./analysis/ConversionFunnel";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useToast } from "./ui/use-toast";
@@ -349,6 +350,8 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         </TabsList>
 
         <TabsContent value="ai-analysis" className="space-y-6">
+          <ExecutiveSummary analyses={analyses} />
+          <ConversionFunnel analyses={analyses} />
           <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
         </TabsContent>
 
