@@ -47,12 +47,12 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
     onConnectionChange?.(gaConnected || gscConnected);
   }, [gaConnected, gscConnected, onConnectionChange]);
 
-  // Collapse form when analysis starts
+  // Only collapse form when analysis is complete (not just when it starts)
   useEffect(() => {
-    if (isAnalyzing) {
+    if (report) {
       setIsFormCollapsed(true);
     }
-  }, [isAnalyzing]);
+  }, [report]);
 
   const handleGaAccountChange = async (value: string) => {
     try {
@@ -140,20 +140,26 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
     }
   };
 
+  // Show collapse toggle only when there's been an analysis or connection
+  const showCollapseToggle = report || isAnalyzing || (gaConnected && selectedGaAccount);
+
   return (
     <div className="space-y-6">
       <Collapsible open={!isFormCollapsed} onOpenChange={setIsFormCollapsed}>
-        <div className="max-w-xl mx-auto">
-          <CollapsibleTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full flex items-center justify-between mb-4"
-            >
-              <span>{isFormCollapsed ? "Show Connection Form" : "Hide Connection Form"}</span>
-              {isFormCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-            </Button>
-          </CollapsibleTrigger>
-        </div>
+        {showCollapseToggle && (
+          <div className="max-w-xl mx-auto">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground"
+              >
+                <span>{isFormCollapsed ? "Show Connection Settings" : "Hide Connection Settings"}</span>
+                {isFormCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+        )}
         
         <CollapsibleContent>
           <Card className="max-w-xl mx-auto">

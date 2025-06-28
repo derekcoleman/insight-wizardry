@@ -19,16 +19,17 @@ interface DashboardTabsProps {
 export function DashboardTabs({ analyses }: DashboardTabsProps) {
   if (!analyses.length) return null;
 
-  // Get the most recent analysis for overview
+  // Get the most recent analysis for overview (usually the first one which should be weekly)
   const primaryAnalysis = analyses[0];
 
-  // Prepare chart data from the analyses
+  // Prepare chart data from the analyses - use real data
   const getChartData = () => {
     return analyses.map((analysis, index) => ({
       name: analysis.type.replace(' over ', '/').replace(' to ', '/'),
       sessions: analysis.data.current?.sessions || 0,
       users: analysis.data.current?.users || 0,
       pageviews: analysis.data.current?.pageviews || 0,
+      bounceRate: analysis.data.current?.bounceRate ? (analysis.data.current.bounceRate * 100) : 0,
       change: analysis.data.growth_rate || 0,
     }));
   };
@@ -42,6 +43,15 @@ export function DashboardTabs({ analyses }: DashboardTabsProps) {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toString();
+  };
+
+  const formatDuration = (seconds: number) => {
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = Math.round(seconds % 60);
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+    return `${Math.round(seconds)}s`;
   };
 
   return (
@@ -127,7 +137,7 @@ export function DashboardTabs({ analyses }: DashboardTabsProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Avg. Duration</p>
-                    <p className="text-2xl font-bold">{Math.round(primaryAnalysis.data.current?.averageSessionDuration || 0)}s</p>
+                    <p className="text-2xl font-bold">{formatDuration(primaryAnalysis.data.current?.averageSessionDuration || 0)}</p>
                   </div>
                   <Clock className="h-8 w-8 text-orange-500" />
                 </div>
@@ -157,8 +167,8 @@ export function DashboardTabs({ analyses }: DashboardTabsProps) {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip formatter={(value) => formatNumber(Number(value))} />
-                    <Line type="monotone" dataKey="sessions" stroke="#0088FE" strokeWidth={2} />
-                    <Line type="monotone" dataKey="users" stroke="#00C49F" strokeWidth={2} />
+                    <Line type="monotone" dataKey="sessions" stroke="#0088FE" strokeWidth={2} name="Sessions" />
+                    <Line type="monotone" dataKey="users" stroke="#00C49F" strokeWidth={2} name="Users" />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -175,8 +185,8 @@ export function DashboardTabs({ analyses }: DashboardTabsProps) {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip formatter={(value) => formatNumber(Number(value))} />
-                    <Bar dataKey="sessions" fill="#0088FE" />
-                    <Bar dataKey="pageviews" fill="#00C49F" />
+                    <Bar dataKey="sessions" fill="#0088FE" name="Sessions" />
+                    <Bar dataKey="pageviews" fill="#00C49F" name="Pageviews" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
