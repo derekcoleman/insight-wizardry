@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisInsights } from "./AnalysisInsights";
+import { ExecutiveSummary } from "./analysis/ExecutiveSummary";
 import { DashboardTabs } from "./analysis/DashboardTabs";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -297,6 +297,9 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
 
   if (analyses.length === 0) return null;
 
+  // Get the primary analysis (usually weekly or most recent)
+  const primaryAnalysis = analyses[0]?.data;
+
   return (
     <div className="w-full space-y-6 text-left">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -339,17 +342,21 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         </div>
       </div>
       
-      <Tabs defaultValue="ai-analysis" className="w-full">
+      <Tabs defaultValue="executive-summary" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
+          <TabsTrigger value="executive-summary">Executive Summary</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="search">Search Terms</TabsTrigger>
           <TabsTrigger value="pages">Top Pages</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ai-analysis" className="space-y-6">
-          <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
+        <TabsContent value="executive-summary" className="space-y-6">
+          <ExecutiveSummary 
+            insights={insights} 
+            isLoading={isGeneratingInsights} 
+            primaryAnalysis={primaryAnalysis}
+          />
         </TabsContent>
 
         <TabsContent value="overview">
