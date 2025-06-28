@@ -1,6 +1,7 @@
+
 import { Link, useLocation } from "react-router-dom";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
-import { Home, LineChart, PanelLeft, FileText, Trash2 } from "lucide-react";
+import { Home, LineChart, PanelLeft, FileText, Trash2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSavedAudits } from "@/hooks/useSavedAudits";
@@ -69,6 +70,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       title: "Home",
       url: "/",
       icon: Home,
+    },
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: BarChart3,
     },
   ];
 

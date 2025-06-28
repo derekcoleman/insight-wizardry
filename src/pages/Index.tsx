@@ -1,21 +1,17 @@
 
 import { GoogleConnect } from "@/components/GoogleConnect";
-import { ProjectSidebar } from "@/components/projects/ProjectSidebar";
-import { AnalysisResults } from "@/components/AnalysisResults";
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
-  const [selectedAnalysis, setSelectedAnalysis] = useState(null);
-  const [selectedStrategy, setSelectedStrategy] = useState(null);
+  const navigate = useNavigate();
 
-  const handleSelectAnalysis = (analysisData: any) => {
-    setSelectedAnalysis(analysisData);
-    setSelectedStrategy(null);
+  const handleConnectionChange = (connected: boolean) => {
+    // This callback can be used for future logic if needed
   };
 
-  const handleSelectStrategy = (strategyData: any) => {
-    setSelectedStrategy(strategyData);
-    setSelectedAnalysis(null);
+  const handleAnalysisComplete = () => {
+    // Navigate to dashboard after analysis is complete
+    navigate("/dashboard");
   };
 
   return (
@@ -30,35 +26,13 @@ const Index = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <ProjectSidebar 
-              onSelectAnalysis={handleSelectAnalysis}
-              onSelectStrategy={handleSelectStrategy}
-            />
-          </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {selectedAnalysis ? (
-              <AnalysisResults report={selectedAnalysis} isLoading={false} />
-            ) : selectedStrategy ? (
-              <div className="space-y-6">
-                <h2 className="text-3xl font-bold">SEO Strategy</h2>
-                {/* TODO: Add strategy display component */}
-                <pre className="bg-gray-100 p-4 rounded overflow-auto text-sm">
-                  {JSON.stringify(selectedStrategy, null, 2)}
-                </pre>
-              </div>
-            ) : (
-              <GoogleConnect />
-            )}
-          </div>
-        </div>
+        <GoogleConnect 
+          onConnectionChange={handleConnectionChange}
+          onAnalysisComplete={handleAnalysisComplete}
+        />
       </div>
     </div>
   );
-}
+};
 
 export default Index;

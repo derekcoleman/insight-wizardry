@@ -17,9 +17,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 interface GoogleConnectProps {
   onConnectionChange?: (connected: boolean) => void;
+  onAnalysisComplete?: () => void;
 }
 
-export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
+export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: GoogleConnectProps) {
   const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
   const [selectedGoal, setSelectedGoal] = useState<string>("");
@@ -142,6 +143,9 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
         title: "Success",
         description: "Analysis completed and saved to project",
       });
+
+      // Navigate to dashboard after successful analysis
+      onAnalysisComplete?.();
     } catch (error) {
       console.error('Analysis error:', error);
       setAnalysisError(error instanceof Error ? error.message : 'Failed to analyze data');
