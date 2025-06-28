@@ -101,7 +101,7 @@ export function ProjectSidebar({ onSelectAnalysis, onSelectStrategy }: ProjectSi
                   )}
                   <div className="flex flex-col items-start">
                     <span className="font-medium text-sm">{project.name}</span>
-                    <span className="text-xs text-muted-foreground">{project.domain}</span>
+                    <span className="text-xs text-muted-foreground">{project.url}</span>
                   </div>
                 </Button>
               </CollapsibleTrigger>

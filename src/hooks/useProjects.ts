@@ -6,10 +6,10 @@ import { useToast } from '@/components/ui/use-toast';
 
 interface Project {
   id: string;
-  domain: string;
   name: string;
-  ga4_property?: string;
-  gsc_property?: string;
+  url: string | null;
+  analysis_status: string | null;
+  user_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -60,10 +60,8 @@ export function useProjects() {
   };
 
   const createProject = async (projectData: {
-    domain: string;
     name: string;
-    ga4_property?: string;
-    gsc_property?: string;
+    url?: string;
   }) => {
     if (!user) return null;
 
@@ -72,10 +70,8 @@ export function useProjects() {
         .from('projects')
         .insert({
           user_id: user.id,
-          domain: projectData.domain,
           name: projectData.name,
-          ga4_property: projectData.ga4_property,
-          gsc_property: projectData.gsc_property,
+          url: projectData.url,
         })
         .select()
         .single();
