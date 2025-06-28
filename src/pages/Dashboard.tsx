@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from "react";
-import { ProjectSidebar } from "@/components/projects/ProjectSidebar";
 import { AnalysisResults } from "@/components/AnalysisResults";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,10 +28,28 @@ const Dashboard = () => {
       setSelectedStrategy(null);
     };
 
+    // Listen for analysis selection events
+    const handleAnalysisSelected = (event: CustomEvent) => {
+      setSelectedAnalysis(event.detail);
+      setSelectedStrategy(null);
+      setSelectedAudit(null);
+    };
+
+    // Listen for strategy selection events
+    const handleStrategySelected = (event: CustomEvent) => {
+      setSelectedStrategy(event.detail);
+      setSelectedAnalysis(null);
+      setSelectedAudit(null);
+    };
+
     window.addEventListener('auditSelected', handleAuditSelected as EventListener);
+    window.addEventListener('analysisSelected', handleAnalysisSelected as EventListener);
+    window.addEventListener('strategySelected', handleStrategySelected as EventListener);
     
     return () => {
       window.removeEventListener('auditSelected', handleAuditSelected as EventListener);
+      window.removeEventListener('analysisSelected', handleAnalysisSelected as EventListener);
+      window.removeEventListener('strategySelected', handleStrategySelected as EventListener);
     };
   }, []);
 
@@ -68,40 +85,28 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <ProjectSidebar 
-              onSelectAnalysis={handleSelectAnalysis}
-              onSelectStrategy={handleSelectStrategy}
-              onSelectAudit={handleSelectAudit}
-            />
-          </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {currentReport ? (
-              <AnalysisResults report={currentReport} isLoading={false} />
-            ) : selectedStrategy ? (
-              <div className="space-y-6">
-                <h2 className="text-3xl font-bold">SEO Strategy</h2>
-                <pre className="bg-gray-100 p-4 rounded overflow-auto text-sm">
-                  {JSON.stringify(selectedStrategy, null, 2)}
-                </pre>
+        <div className="w-full">
+          {currentReport ? (
+            <AnalysisResults report={currentReport} isLoading={false} />
+          ) : selectedStrategy ? (
+            <div className="space-y-6">
+              <h2 className="text-3xl font-bold">SEO Strategy</h2>
+              <pre className="bg-gray-100 p-4 rounded overflow-auto text-sm">
+                {JSON.stringify(selectedStrategy, null, 2)}
+              </pre>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="max-w-md mx-auto">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                  Welcome to Your Dashboard
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Select a project from the sidebar or click on a saved audit to view your analysis results and SEO strategies.
+                </p>
               </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="max-w-md mx-auto">
-                  <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-                    Welcome to Your Dashboard
-                  </h2>
-                  <p className="text-gray-600 mb-6">
-                    Select a project from the sidebar or click on a saved audit to view your analysis results and SEO strategies.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

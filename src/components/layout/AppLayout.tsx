@@ -1,12 +1,15 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
-import { Home, LineChart, PanelLeft, FileText, Trash2, BarChart3 } from "lucide-react";
+import { Home, LineChart, PanelLeft, FileText, Trash2, BarChart3, Folder, ChevronDown, ChevronRight, Target, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSavedAudits } from "@/hooks/useSavedAudits";
+import { useProjects } from "@/hooks/useProjects";
 import { useState, useEffect } from "react";
 import { AuthButton } from "@/components/auth/AuthButton";
+import { format } from "date-fns";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -56,7 +59,10 @@ function NavHeader() {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { savedAudits, deleteAudit } = useSavedAudits();
+  const { projects, isLoading, getProjectAnalyses, getProjectStrategies } = useProjects();
   const [hasGeneratedStrategy, setHasGeneratedStrategy] = useState(false);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [projectData, setProjectData] = useState<Record<string, { analyses: any[], strategies: any[], audits: any[] }>>({});
   const location = useLocation();
 
   // Check if user has generated a strategy
@@ -64,6 +70,98 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const storedStrategy = localStorage.getItem('generatedStrategy');
     setHasGeneratedStrategy(!!storedStrategy);
   }, [location.pathname]);
+
+  // Group audits by website domain to match with projects
+  const groupAuditsByDomain = () => {
+    const auditsByDomain: Record<string, any[]> = {};
+    
+    savedAudits.forEach(audit => {
+      if (audit.website_url) {
+        try {
+          const domain = new URL(audit.website_url).hostname;
+          if (!auditsByDomain[domain]) {
+            auditsByDomain[domain] = [];
+          }
+          auditsByDomain[domain].push(audit);
+        } catch {
+          // If URL parsing fails, use the website_url as is
+          if (!auditsByDomain[audit.website_url]) {
+            auditsByDomain[audit.website_url] = [];
+          }
+          auditsByDomain[audit.website_url].push(audit);
+        }
+      }
+    });
+    
+    return auditsByDomain;
+  };
+
+  const toggleProject = async (projectId: string) => {
+    const newExpanded = new Set(expandedProjects);
+    
+    if (newExpanded.has(projectId)) {
+      newExpanded.delete(projectId);
+    } else {
+      newExpanded.add(projectId);
+      
+      // Load project data if not already loaded
+      if (!projectData[projectId]) {
+        const [analyses, strategies] = await Promise.all([
+          getProjectAnalyses(projectId),
+          getProjectStrategies(projectId)
+        ]);
+
+        // Get audits for this project based on domain matching
+        const project = projects.find(p => p.id === projectId);
+        const auditsByDomain = groupAuditsByDomain();
+        let projectAudits: any[] = [];
+        
+        if (project?.url) {
+          try {
+            const domain = new URL(project.url).hostname;
+            projectAudits = auditsByDomain[domain] || [];
+          } catch {
+            projectAudits = auditsByDomain[project.url] || [];
+          }
+        }
+        
+        setProjectData(prev => ({
+          ...prev,
+          [projectId]: { analyses, strategies, audits: projectAudits }
+        }));
+      }
+    }
+    
+    setExpandedProjects(newExpanded);
+  };
+
+  const handleAuditClick = (audit: any) => {
+    // Store the selected audit data for the dashboard to use
+    localStorage.setItem('selectedAudit', JSON.stringify(audit));
+    // Navigate to dashboard if not already there
+    if (location.pathname !== '/dashboard') {
+      window.location.href = '/dashboard';
+    } else {
+      // Trigger a custom event to notify the dashboard of the selection
+      window.dispatchEvent(new CustomEvent('auditSelected', { detail: audit }));
+    }
+  };
+
+  const handleAnalysisClick = (analysisData: any) => {
+    if (location.pathname !== '/dashboard') {
+      window.location.href = '/dashboard';
+    } else {
+      window.dispatchEvent(new CustomEvent('analysisSelected', { detail: analysisData }));
+    }
+  };
+
+  const handleStrategyClick = (strategyData: any) => {
+    if (location.pathname !== '/dashboard') {
+      window.location.href = '/dashboard';
+    } else {
+      window.dispatchEvent(new CustomEvent('strategySelected', { detail: strategyData }));
+    }
+  };
 
   const mainItems = [
     {
@@ -86,18 +184,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       icon: LineChart,
     });
   }
-
-  const handleAuditClick = (audit: any) => {
-    // Store the selected audit data for the dashboard to use
-    localStorage.setItem('selectedAudit', JSON.stringify(audit));
-    // Navigate to dashboard if not already there
-    if (location.pathname !== '/dashboard') {
-      window.location.href = '/dashboard';
-    } else {
-      // Trigger a custom event to notify the dashboard of the selection
-      window.dispatchEvent(new CustomEvent('auditSelected', { detail: audit }));
-    }
-  };
 
   return (
     <SidebarProvider>
@@ -124,14 +210,117 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </SidebarGroupContent>
             </SidebarGroup>
 
-            {/* Saved Audits Section */}
+            {/* Projects Section */}
+            {user && projects.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupContent>
+                  <div className="px-2 py-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-sidebar-foreground/70">Projects</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => {/* TODO: Implement create project modal */}}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <SidebarMenu>
+                      {projects.map((project) => (
+                        <SidebarMenuItem key={project.id}>
+                          <Collapsible
+                            open={expandedProjects.has(project.id)}
+                            onOpenChange={() => toggleProject(project.id)}
+                          >
+                            <CollapsibleTrigger asChild>
+                              <SidebarMenuButton className="w-full justify-start">
+                                {expandedProjects.has(project.id) ? (
+                                  <ChevronDown className="h-4 w-4 mr-2" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 mr-2" />
+                                )}
+                                <Folder className="h-4 w-4 mr-2" />
+                                <div className="flex flex-col items-start">
+                                  <span className="font-medium text-sm">{project.name}</span>
+                                  <span className="text-xs text-muted-foreground">{project.url}</span>
+                                </div>
+                              </SidebarMenuButton>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="ml-6 space-y-1">
+                              {projectData[project.id]?.audits.map((audit) => (
+                                <SidebarMenuButton
+                                  key={audit.id}
+                                  onClick={() => handleAuditClick(audit)}
+                                  className="w-full justify-start text-xs"
+                                >
+                                  <FileText className="h-3 w-3 mr-2" />
+                                  <div className="flex flex-col items-start">
+                                    <span>Audit</span>
+                                    <span className="text-muted-foreground">
+                                      {format(new Date(audit.created_at), 'MMM d, HH:mm')}
+                                    </span>
+                                  </div>
+                                </SidebarMenuButton>
+                              ))}
+                              {projectData[project.id]?.analyses.map((analysis) => (
+                                <SidebarMenuButton
+                                  key={analysis.id}
+                                  onClick={() => handleAnalysisClick(analysis.analysis_data)}
+                                  className="w-full justify-start text-xs"
+                                >
+                                  <FileText className="h-3 w-3 mr-2" />
+                                  <div className="flex flex-col items-start">
+                                    <span>Analysis</span>
+                                    <span className="text-muted-foreground">
+                                      {format(new Date(analysis.created_at), 'MMM d, HH:mm')}
+                                    </span>
+                                  </div>
+                                </SidebarMenuButton>
+                              ))}
+                              {projectData[project.id]?.strategies.map((strategy) => (
+                                <SidebarMenuButton
+                                  key={strategy.id}
+                                  onClick={() => handleStrategyClick(strategy.strategy_data)}
+                                  className="w-full justify-start text-xs"
+                                >
+                                  <Target className="h-3 w-3 mr-2" />
+                                  <div className="flex flex-col items-start">
+                                    <span>SEO Strategy</span>
+                                    <span className="text-muted-foreground">
+                                      {format(new Date(strategy.created_at), 'MMM d, HH:mm')}
+                                    </span>
+                                  </div>
+                                </SidebarMenuButton>
+                              ))}
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </div>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+
+            {/* Saved Audits Section - Only show audits not associated with projects */}
             {user && savedAudits.length > 0 && (
               <SidebarGroup>
                 <SidebarGroupContent>
                   <div className="px-2 py-1">
-                    <h3 className="text-sm font-medium text-sidebar-foreground/70 mb-2">Saved Audits</h3>
+                    <h3 className="text-sm font-medium text-sidebar-foreground/70 mb-2">Other Audits</h3>
                     <SidebarMenu>
-                      {savedAudits.slice(0, 10).map((audit) => (
+                      {savedAudits.filter(audit => {
+                        // Only show audits that don't belong to any project
+                        if (!audit.website_url) return true;
+                        
+                        try {
+                          const domain = new URL(audit.website_url).hostname;
+                          return !projects.some(p => p.url && p.url.includes(domain));
+                        } catch {
+                          return !projects.some(p => p.url === audit.website_url);
+                        }
+                      }).slice(0, 10).map((audit) => (
                         <SidebarMenuItem key={audit.id}>
                           <SidebarMenuButton asChild>
                             <div className="flex items-center justify-between w-full p-2 hover:bg-sidebar-accent rounded-md group cursor-pointer">

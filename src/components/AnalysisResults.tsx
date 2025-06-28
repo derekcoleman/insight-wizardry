@@ -339,13 +339,13 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         </div>
       </div>
       
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs defaultValue="ai-analysis" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="search">Search Terms</TabsTrigger>
           <TabsTrigger value="pages">Top Pages</TabsTrigger>
-          <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ai-analysis" className="space-y-6">
