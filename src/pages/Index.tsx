@@ -1,9 +1,8 @@
 
 import { Summary } from "@/components/Summary";
 import { GoogleConnect } from "@/components/GoogleConnect";
-import { AuthButton } from "@/components/auth/AuthButton";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -79,14 +78,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header with Auth Button */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-semibold text-gray-900">SEO Analytics Dashboard</h1>
-          <AuthButton />
-        </div>
-      </div>
-
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -106,7 +97,7 @@ const Index = () => {
       </div>
 
       {/* Main Content */}
-      <div className={isConnected ? 'w-3/4 mx-auto' : 'max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'}>
+      <div className={isConnected ? 'w-full mx-auto' : 'max-w-4xl mx-auto px-4 sm:px-6 lg:px-8'}>
         <Summary summary={""} isLoading={false} />
       </div>
     </div>

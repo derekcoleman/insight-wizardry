@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AnalysisResults } from "@/components/AnalysisResults";
@@ -13,6 +13,7 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { PropertySelector } from "@/components/PropertySelector";
 import { ConversionGoalSelector } from "@/components/ConversionGoalSelector";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface GoogleConnectProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -25,6 +26,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [isFormCollapsed, setIsFormCollapsed] = useState(false);
   const { toast } = useToast();
 
   const {
@@ -44,6 +46,13 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
   useEffect(() => {
     onConnectionChange?.(gaConnected || gscConnected);
   }, [gaConnected, gscConnected, onConnectionChange]);
+
+  // Collapse form when analysis starts
+  useEffect(() => {
+    if (isAnalyzing) {
+      setIsFormCollapsed(true);
+    }
+  }, [isAnalyzing]);
 
   const handleGaAccountChange = async (value: string) => {
     try {
@@ -133,99 +142,115 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="max-w-xl mx-auto">
-        <CardContent className="space-y-4 pt-6">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription className="whitespace-pre-line">
-                {error}
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <div className="max-w-sm mx-auto">
-            <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
-          </div>
+      <Collapsible open={!isFormCollapsed} onOpenChange={setIsFormCollapsed}>
+        <div className="max-w-xl mx-auto">
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-between mb-4"
+            >
+              <span>{isFormCollapsed ? "Show Connection Form" : "Hide Connection Form"}</span>
+              {isFormCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            </Button>
+          </CollapsibleTrigger>
+        </div>
+        
+        <CollapsibleContent>
+          <Card className="max-w-xl mx-auto">
+            <CardContent className="space-y-4 pt-6">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription className="whitespace-pre-line">
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="max-w-sm mx-auto">
+                <GoogleAuthButton onClick={handleLogin} isLoading={isLoading} />
+              </div>
 
-          <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
+              <ConnectionStatus gaConnected={gaConnected} gscConnected={gscConnected} />
 
-          {gaConnected && (
-            <div className="flex justify-end">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRefresh}
-                disabled={isLoading}
-                className="flex items-center gap-1"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh Properties
-              </Button>
-            </div>
-          )}
+              {gaConnected && (
+                <div className="flex justify-end">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleRefresh}
+                    disabled={isLoading}
+                    className="flex items-center gap-1"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh Properties
+                  </Button>
+                </div>
+              )}
 
-          {gaAccounts.length > 0 && (
-            <div className="max-w-md mx-auto">
-              <PropertySelector
-                label="Select Google Analytics 4 Property"
-                accounts={gaAccounts}
-                value={selectedGaAccount}
-                onValueChange={handleGaAccountChange}
-                placeholder="Select GA4 property"
-              />
-            </div>
-          )}
+              {gaAccounts.length > 0 && (
+                <div className="max-w-md mx-auto">
+                  <PropertySelector
+                    label="Select Google Analytics 4 Property"
+                    accounts={gaAccounts}
+                    value={selectedGaAccount}
+                    onValueChange={handleGaAccountChange}
+                    placeholder="Select GA4 property"
+                  />
+                </div>
+              )}
 
-          {conversionGoals.length > 0 && (
-            <div className="max-w-md mx-auto">
-              <ConversionGoalSelector
-                goals={conversionGoals}
-                value={selectedGoal}
-                onValueChange={setSelectedGoal}
-              />
-            </div>
-          )}
+              {conversionGoals.length > 0 && (
+                <div className="max-w-md mx-auto">
+                  <ConversionGoalSelector
+                    goals={conversionGoals}
+                    value={selectedGoal}
+                    onValueChange={setSelectedGoal}
+                  />
+                </div>
+              )}
 
-          {gaAccounts.length > 0 && gscAccounts.length > 0 && (
-            <Separator className="my-4" />
-          )}
+              {gaAccounts.length > 0 && gscAccounts.length > 0 && (
+                <Separator className="my-4" />
+              )}
 
-          {gscAccounts.length > 0 && (
-            <div className="max-w-md mx-auto">
-              <PropertySelector
-                label="Select Search Console Property"
-                accounts={gscAccounts}
-                value={selectedGscAccount}
-                onValueChange={setSelectedGscAccount}
-                placeholder="Select Search Console property"
-              />
-            </div>
-          )}
+              {gscAccounts.length > 0 && (
+                <div className="max-w-md mx-auto">
+                  <PropertySelector
+                    label="Select Search Console Property"
+                    accounts={gscAccounts}
+                    value={selectedGscAccount}
+                    onValueChange={setSelectedGscAccount}
+                    placeholder="Select Search Console property"
+                  />
+                </div>
+              )}
 
-          {selectedGaAccount && (
-            <div className="max-w-sm mx-auto">
-              <Button 
-                onClick={handleAnalyze}
-                disabled={isAnalyzing}
-                className="w-full"
-              >
-                {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Analyze Data
-              </Button>
-            </div>
-          )}
+              {selectedGaAccount && (
+                <div className="max-w-sm mx-auto">
+                  <Button 
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing}
+                    className="w-full"
+                  >
+                    {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Analyze Data
+                  </Button>
+                </div>
+              )}
 
-          {analysisError && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Analysis Error</AlertTitle>
-              <AlertDescription>{analysisError}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+              {analysisError && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Analysis Error</AlertTitle>
+                  <AlertDescription>{analysisError}</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </CollapsibleContent>
+      </Collapsible>
 
       {(isAnalyzing || report) && (
         <AnalysisResults report={report} isLoading={isAnalyzing} />

@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from "react-router-dom";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
 import { Home, LineChart, PanelLeft, FileText, Trash2 } from "lucide-react";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSavedAudits } from "@/hooks/useSavedAudits";
 import { useState, useEffect } from "react";
+import { AuthButton } from "@/components/auth/AuthButton";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +42,9 @@ function NavHeader() {
                 className="h-12 w-auto"
               />
             </Link>
+          </div>
+          <div className="flex items-center">
+            <AuthButton />
           </div>
         </div>
       </div>

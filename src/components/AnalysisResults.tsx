@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisInsights } from "./AnalysisInsights";
-import { AnalysisCard } from "./analysis/AnalysisCard";
+import { DashboardTabs } from "./analysis/DashboardTabs";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useToast } from "./ui/use-toast";
@@ -58,7 +58,6 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     generateInsights();
   }, [report, isLoading]);
 
-  // Auto-save audit when analysis is complete
   useEffect(() => {
     const autoSaveAudit = async () => {
       if (!report || !user || hasAutoSaved || isLoading) return;
@@ -270,15 +269,23 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
     { type: "Quarter over Quarter", data: report.quarterly_analysis },
     { type: "Year to Date", data: report.ytd_analysis },
     { type: "Last 28 Days Year over Year", data: report.last28_yoy_analysis },
-  ].filter(analysis => analysis.data && analysis.data.current);
+  ].filter(analysis => analysis.data && analysis.data.current).map(analysis => {
+    const { title, dateRange } = getAnalysisTitle(analysis.type, analysis.data.period);
+    return {
+      type: analysis.type,
+      data: analysis.data,
+      title,
+      dateRange
+    };
+  });
 
   if (analyses.length === 0) return null;
 
   return (
     <div className="w-full space-y-6 text-left">
-      <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8">
-        <h2 className="text-2xl font-bold">Analysis Results</h2>
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-3xl font-bold">Analytics Dashboard</h2>
+        <div className="flex flex-wrap gap-2">
           <Button
             onClick={handleGenerateStrategy}
             disabled={isGeneratingStrategy}
@@ -296,25 +303,10 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
           />
         </div>
       </div>
-      <div className="px-4 sm:px-6 lg:px-8">
-        <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
-      </div>
-      <div className="space-y-6 px-4 sm:px-6 lg:px-8">
-        {analyses.map((analysis) => {
-          if (!analysis.data?.current) return null;
-          
-          const { title, dateRange } = getAnalysisTitle(analysis.type, analysis.data.period);
-          
-          return (
-            <AnalysisCard
-              key={title}
-              title={title}
-              dateRange={dateRange}
-              data={analysis.data}
-            />
-          );
-        })}
-      </div>
+      
+      <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
+      
+      <DashboardTabs analyses={analyses} />
     </div>
   );
 }
