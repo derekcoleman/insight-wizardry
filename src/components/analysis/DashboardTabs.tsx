@@ -76,13 +76,13 @@ export function DashboardTabs({ analyses }: DashboardTabsProps) {
                   <Eye className="h-8 w-8 text-blue-500" />
                 </div>
                 <div className="flex items-center mt-2">
-                  {(primaryAnalysis.data.growth_rate || 0) >= 0 ? (
+                  {(primaryAnalysis.data.changes?.sessions || 0) >= 0 ? (
                     <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                   ) : (
                     <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                   )}
-                  <span className={`text-sm ${(primaryAnalysis.data.growth_rate || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {Math.abs(primaryAnalysis.data.growth_rate || 0).toFixed(1)}%
+                  <span className={`text-sm ${(primaryAnalysis.data.changes?.sessions || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {Math.abs(primaryAnalysis.data.changes?.sessions || 0).toFixed(1)}%
                   </span>
                 </div>
               </CardContent>
@@ -98,13 +98,13 @@ export function DashboardTabs({ analyses }: DashboardTabsProps) {
                   <Users className="h-8 w-8 text-green-500" />
                 </div>
                 <div className="flex items-center mt-2">
-                  {(primaryAnalysis.data.user_growth_rate || 0) >= 0 ? (
+                  {(primaryAnalysis.data.changes?.users || 0) >= 0 ? (
                     <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                   ) : (
                     <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                   )}
-                  <span className={`text-sm ${(primaryAnalysis.data.user_growth_rate || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {Math.abs(primaryAnalysis.data.user_growth_rate || 0).toFixed(1)}%
+                  <span className={`text-sm ${(primaryAnalysis.data.changes?.users || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {Math.abs(primaryAnalysis.data.changes?.users || 0).toFixed(1)}%
                   </span>
                 </div>
               </CardContent>
@@ -120,13 +120,13 @@ export function DashboardTabs({ analyses }: DashboardTabsProps) {
                   <MousePointer className="h-8 w-8 text-purple-500" />
                 </div>
                 <div className="flex items-center mt-2">
-                  {(primaryAnalysis.data.pageview_growth_rate || 0) >= 0 ? (
+                  {(primaryAnalysis.data.changes?.pageviews || 0) >= 0 ? (
                     <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                   ) : (
                     <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                   )}
-                  <span className={`text-sm ${(primaryAnalysis.data.pageview_growth_rate || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {Math.abs(primaryAnalysis.data.pageview_growth_rate || 0).toFixed(1)}%
+                  <span className={`text-sm ${(primaryAnalysis.data.changes?.pageviews || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {Math.abs(primaryAnalysis.data.changes?.pageviews || 0).toFixed(1)}%
                   </span>
                 </div>
               </CardContent>
@@ -142,13 +142,13 @@ export function DashboardTabs({ analyses }: DashboardTabsProps) {
                   <Clock className="h-8 w-8 text-orange-500" />
                 </div>
                 <div className="flex items-center mt-2">
-                  {(primaryAnalysis.data.duration_growth_rate || 0) >= 0 ? (
+                  {(primaryAnalysis.data.changes?.averageSessionDuration || 0) >= 0 ? (
                     <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                   ) : (
                     <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
                   )}
-                  <span className={`text-sm ${(primaryAnalysis.data.duration_growth_rate || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {Math.abs(primaryAnalysis.data.duration_growth_rate || 0).toFixed(1)}%
+                  <span className={`text-sm ${(primaryAnalysis.data.changes?.averageSessionDuration || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {Math.abs(primaryAnalysis.data.changes?.averageSessionDuration || 0).toFixed(1)}%
                   </span>
                 </div>
               </CardContent>
@@ -207,22 +207,22 @@ export function DashboardTabs({ analyses }: DashboardTabsProps) {
                     <MetricCard
                       title="Sessions"
                       value={analysis.data.current?.sessions || 0}
-                      change={analysis.data.growth_rate || 0}
+                      change={analysis.data.changes?.sessions || 0}
                     />
                     <MetricCard
                       title="Users"
                       value={analysis.data.current?.users || 0}
-                      change={analysis.data.user_growth_rate || 0}
+                      change={analysis.data.changes?.users || 0}
                     />
                     <MetricCard
                       title="Pageviews"
                       value={analysis.data.current?.pageviews || 0}
-                      change={analysis.data.pageview_growth_rate || 0}
+                      change={analysis.data.changes?.pageviews || 0}
                     />
                     <MetricCard
                       title="Bounce Rate"
                       value={`${((analysis.data.current?.bounceRate || 0) * 100).toFixed(1)}%`}
-                      change={analysis.data.bounce_rate_change || 0}
+                      change={analysis.data.changes?.bounceRate || 0}
                     />
                   </div>
                 </CardContent>
