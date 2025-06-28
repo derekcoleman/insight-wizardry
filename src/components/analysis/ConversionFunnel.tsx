@@ -1,6 +1,5 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Funnel, TrendingUp, TrendingDown } from "lucide-react";
+import { Filter, TrendingUp, TrendingDown } from "lucide-react";
 
 interface ConversionFunnelProps {
   analyses: Array<{
@@ -74,7 +73,7 @@ export function ConversionFunnel({ analyses }: ConversionFunnelProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Funnel className="h-5 w-5" />
+          <Filter className="h-5 w-5" />
           Conversion Funnel Analysis
         </CardTitle>
       </CardHeader>
