@@ -126,14 +126,12 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
       setReport(result.data.report);
 
       // Create or find project and save analysis
-      const domain = extractDomainFromProperty(selectedGaAccount);
-      const projectName = `${domain} Analytics`;
+      const websiteUrl = extractDomainFromProperty(selectedGaAccount);
+      const projectName = `${websiteUrl} Analytics`;
       
       const project = await createProject({
-        domain,
         name: projectName,
-        ga4_property: selectedGaAccount,
-        gsc_property: selectedGscAccount,
+        url: websiteUrl,
       });
 
       if (project) {

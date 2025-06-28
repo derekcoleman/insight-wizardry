@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -205,8 +206,8 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
                         report.monthly_analysis?.pages?.[0]?.page;
       
       if (websiteUrl && projects.length > 0) {
-        const domain = new URL(websiteUrl).hostname;
-        const currentProject = projects.find(p => p.domain === domain);
+        const urlObj = new URL(websiteUrl);
+        const currentProject = projects.find(p => p.url && p.url.includes(urlObj.hostname));
         
         if (currentProject) {
           await saveStrategyToProject(currentProject.id, response.data);
