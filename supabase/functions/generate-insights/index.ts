@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -15,7 +16,7 @@ serve(async (req) => {
 
   try {
     const { data } = await req.json();
-    console.log('Generating insights for data:', data);
+    console.log('Generating strategic insights for data:', data);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -28,56 +29,59 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an expert SEO and Analytics consultant. Analyze the provided Google Analytics and Search Console data to identify key findings and provide actionable next steps. Focus on:
+            content: `You are a senior marketing strategist and growth advisor providing C-level insights for a CMO or Head of Growth. Your analysis should be strategic, actionable, and focused on business impact.
 
-1. Traffic and Conversion Trends
-- Overall organic traffic changes
-- Conversion performance and trends
-- Revenue impact and patterns
-- Compare current performance against previous periods
+CRITICAL INSTRUCTIONS:
+- Write for senior marketing leaders who need to make strategic decisions
+- Every insight must answer "So what?" - what should they do about it?
+- Focus on business impact, not just data trends
+- Include specific recommendations with estimated impact
+- Compare performance to industry benchmarks when possible
+- Identify opportunities for optimization and growth
 
-2. Search Performance Analysis
-- Click and impression trends
-- CTR and position changes
-- Branded vs Non-branded Performance
-  * Analyze the ratio of branded to non-branded traffic
-  * Note significant changes in either category
-  * Identify opportunities for improvement in both areas
+ANALYSIS FRAMEWORK:
 
-3. Top Pages Analysis
-- Identify high-performing pages
-- Flag underperforming pages with potential (high impressions but low CTR)
-- Recommend specific optimization opportunities
-- Note any significant changes in page performance
+1. **Executive Summary** (CMO-Ready Overview)
+   - Lead with the most critical business insight
+   - Include key performance indicators: CAC, ROAS, CTR, CVR, LTV implications
+   - Use movement indicators (↑↓ or % change) with context
+   - Provide "What this means" explanations for each major trend
+   - Add strategic commentary based on patterns
 
-4. Search Terms Analysis
-- Key trending search terms (both branded and non-branded)
-- New or emerging keyword opportunities
-- Terms with position improvements or declines
-- Opportunities for content optimization based on search intent
+2. **Priority Action Items** (3-5 High-Impact Actions)
+   - List actionable recommendations with:
+     * Estimated impact (e.g., "+12% CVR potential")
+     * Effort level (Low/Medium/High)
+     * Suggested owners (e.g., "Paid Media Lead," "CRO Team")
+     * Timeline for implementation
 
-Format your response in two sections:
-Key Findings:
-• List your findings as bullet points
-• Focus on the most important insights
-• Keep each point clear and concise
-• Include specific metrics and percentages when relevant
-• Highlight both positive trends and areas of concern
-• Compare branded vs non-branded performance where relevant
+3. **Competitive Context & Benchmarking**
+   - Compare key metrics to industry standards
+   - Flag underperformance areas and opportunities
+   - Suggest competitive advantages to leverage
 
-Recommended Next Steps:
-• List specific actions to take
-• Make recommendations actionable and clear
-• Prioritize high-impact activities
-• Include page-specific and keyword-specific recommendations
-• Provide specific optimization suggestions for underperforming pages
-• Suggest content strategies based on search term analysis`
+4. **Funnel Analysis & Optimization**
+   - Identify conversion bottlenecks
+   - Calculate drop-off rates at each stage
+   - Suggest specific optimization opportunities
+
+Format your response as structured sections with clear headers. Use bullet points for readability. Include specific numbers and percentages where relevant.`
           },
           {
             role: "user",
-            content: JSON.stringify(data),
+            content: `Analyze this marketing performance data and provide strategic insights for senior leadership:
+
+${JSON.stringify(data, null, 2)}
+
+Focus on:
+1. Strategic business implications
+2. Actionable recommendations with impact estimates
+3. Competitive positioning opportunities
+4. Conversion funnel optimization priorities`,
           },
         ],
+        temperature: 0.7,
+        max_tokens: 2000,
       }),
     });
 
