@@ -2,8 +2,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, AlertCircle, RefreshCw, Save } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AnalysisResults } from "@/components/AnalysisResults";
@@ -13,18 +13,25 @@ import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { PropertySelector } from "@/components/PropertySelector";
 import { ConversionGoalSelector } from "@/components/ConversionGoalSelector";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { useAuth } from "@/contexts/AuthContext";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface GoogleConnectProps {
   onConnectionChange?: (connected: boolean) => void;
 }
 
 export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
+  const { user } = useAuth();
   const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
   const [selectedGoal, setSelectedGoal] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [auditTitle, setAuditTitle] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
   const {
@@ -48,7 +55,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
   const handleGaAccountChange = async (value: string) => {
     try {
       setSelectedGaAccount(value);
-      setSelectedGoal(""); // Reset goal when changing account
+      setSelectedGoal("");
       setAnalysisError(null);
       setReport(null);
       
@@ -71,6 +78,58 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
     setSelectedGscAccount("");
     setSelectedGoal("");
     refreshAccounts();
+  };
+
+  const saveAudit = async () => {
+    if (!user || !report) {
+      toast({
+        title: "Error",
+        description: "Please sign in and run an analysis first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!auditTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a title for your audit.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('saved_audits').insert({
+        user_id: user.id,
+        title: auditTitle.trim(),
+        description: `SEO audit for ${websiteUrl || 'website'}`,
+        audit_data: report,
+        audit_type: 'comprehensive',
+        ga4_property: selectedGaAccount,
+        gsc_property: selectedGscAccount,
+        website_url: websiteUrl,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Audit saved successfully!",
+      });
+      
+      setAuditTitle("");
+    } catch (error) {
+      console.error('Error saving audit:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save audit. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAnalyze = async () => {
@@ -113,6 +172,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
       }
 
       setReport(result.data.report);
+      setAuditTitle(`SEO Audit - ${new Date().toLocaleDateString()}`);
       toast({
         title: "Success",
         description: "Analysis completed successfully",
@@ -133,7 +193,7 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="max-w-xl mx-auto">
+      <Card>
         <CardContent className="space-y-4 pt-6">
           {error && (
             <Alert variant="destructive">
@@ -167,14 +227,27 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
           )}
 
           {gaAccounts.length > 0 && (
-            <div className="max-w-md mx-auto">
-              <PropertySelector
-                label="Select Google Analytics 4 Property"
-                accounts={gaAccounts}
-                value={selectedGaAccount}
-                onValueChange={handleGaAccountChange}
-                placeholder="Select GA4 property"
-              />
+            <div className="space-y-4">
+              <div className="max-w-md mx-auto">
+                <PropertySelector
+                  label="Select Google Analytics 4 Property"
+                  accounts={gaAccounts}
+                  value={selectedGaAccount}
+                  onValueChange={handleGaAccountChange}
+                  placeholder="Select GA4 property"
+                />
+              </div>
+
+              <div className="max-w-md mx-auto">
+                <Label htmlFor="website-url">Website URL (Optional)</Label>
+                <Input
+                  id="website-url"
+                  placeholder="https://example.com"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
             </div>
           )}
 
@@ -212,7 +285,29 @@ export function GoogleConnect({ onConnectionChange }: GoogleConnectProps) {
                 className="w-full"
               >
                 {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Analyze Data
+                Run SEO Audit
+              </Button>
+            </div>
+          )}
+
+          {report && user && (
+            <div className="max-w-md mx-auto space-y-3 pt-4 border-t">
+              <Label htmlFor="audit-title">Save This Audit</Label>
+              <Input
+                id="audit-title"
+                placeholder="Enter audit title..."
+                value={auditTitle}
+                onChange={(e) => setAuditTitle(e.target.value)}
+              />
+              <Button 
+                onClick={saveAudit}
+                disabled={isSaving || !auditTitle.trim()}
+                className="w-full"
+                variant="outline"
+              >
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Save className="mr-2 h-4 w-4" />
+                Save Audit
               </Button>
             </div>
           )}
