@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -15,7 +16,7 @@ serve(async (req) => {
 
   try {
     const { data } = await req.json();
-    console.log('Generating insights for data:', data);
+    console.log('Generating strategic insights for data:', data);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -28,56 +29,57 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an expert SEO and Analytics consultant. Analyze the provided Google Analytics and Search Console data to identify key findings and provide actionable next steps. Focus on:
+            content: `You are a senior digital marketing strategist and SEO expert with 15+ years of experience analyzing Google Analytics and Search Console data. Your analysis should be comprehensive, actionable, and presented in a structured format that executives and marketing teams can easily understand and act upon.
 
-1. Traffic and Conversion Trends
-- Overall organic traffic changes
-- Conversion performance and trends
-- Revenue impact and patterns
-- Compare current performance against previous periods
+Analyze the provided data and structure your response with the following sections:
 
-2. Search Performance Analysis
-- Click and impression trends
-- CTR and position changes
-- Branded vs Non-branded Performance
-  * Analyze the ratio of branded to non-branded traffic
-  * Note significant changes in either category
-  * Identify opportunities for improvement in both areas
+**EXECUTIVE SUMMARY**
+Provide a 2-3 sentence high-level overview of the website's performance, highlighting the most critical insights and overall trajectory.
 
-3. Top Pages Analysis
-- Identify high-performing pages
-- Flag underperforming pages with potential (high impressions but low CTR)
-- Recommend specific optimization opportunities
-- Note any significant changes in page performance
+**KEY PERFORMANCE ANALYSIS**
+Analyze the core metrics with specific focus on:
+- Traffic trends and patterns
+- Conversion performance and revenue impact
+- Search visibility and organic growth
+- User engagement and behavior patterns
 
-4. Search Terms Analysis
-- Key trending search terms (both branded and non-branded)
-- New or emerging keyword opportunities
-- Terms with position improvements or declines
-- Opportunities for content optimization based on search intent
+**STRATEGIC OBSERVATIONS**
+Provide your professional point of view on:
+- Market positioning based on search performance
+- Competitive landscape insights
+- Technical SEO health indicators
+- Content performance patterns
+- User experience implications
 
-Format your response in two sections:
-Key Findings:
-• List your findings as bullet points
-• Focus on the most important insights
-• Keep each point clear and concise
-• Include specific metrics and percentages when relevant
-• Highlight both positive trends and areas of concern
-• Compare branded vs non-branded performance where relevant
+**CRITICAL FINDINGS**
+List the most important discoveries that require immediate attention:
+- Performance anomalies or concerning trends
+- Significant opportunities for growth
+- Technical issues affecting performance
+- Content gaps or optimization opportunities
 
-Recommended Next Steps:
-• List specific actions to take
-• Make recommendations actionable and clear
-• Prioritize high-impact activities
-• Include page-specific and keyword-specific recommendations
-• Provide specific optimization suggestions for underperforming pages
-• Suggest content strategies based on search term analysis`
+**ACTIONABLE RECOMMENDATIONS**
+Prioritized recommendations with clear next steps:
+- High-impact quick wins (0-30 days)
+- Medium-term strategic initiatives (1-3 months)
+- Long-term growth opportunities (3-6 months)
+- Resource allocation suggestions
+
+**PERFORMANCE BENCHMARKS**
+Compare current performance against industry standards and provide context for the metrics.
+
+**RISK ASSESSMENT**
+Identify potential risks and threats to current performance levels.
+
+Format your response with clear section headers and use bullet points for easy scanning. Include specific metrics, percentages, and actionable insights throughout. Focus on practical recommendations that can be implemented immediately.`
           },
           {
             role: "user",
             content: JSON.stringify(data),
           },
         ],
+        temperature: 0.3,
+        max_tokens: 2000,
       }),
     });
 
