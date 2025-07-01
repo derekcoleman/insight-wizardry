@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Brain, TrendingUp, AlertTriangle, Target, Lightbulb, Shield } from "lucide-react";
+import { Brain, TrendingUp, AlertTriangle, Target, Lightbulb, Eye } from "lucide-react";
 
 interface AnalysisInsightsProps {
   insights: string;
@@ -11,18 +11,18 @@ interface AnalysisInsightsProps {
 export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps) {
   if (isLoading) {
     return (
-      <Card className="max-w-[75%] mx-auto">
+      <Card className="max-w-[75%] mx-auto bg-white border-gray-200">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-gray-900">
+            <Brain className="h-5 w-5 text-gray-600" />
             AI Strategic Analysis
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-5/6" />
-          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-4 w-full bg-gray-100" />
+          <Skeleton className="h-4 w-3/4 bg-gray-100" />
+          <Skeleton className="h-4 w-5/6 bg-gray-100" />
+          <Skeleton className="h-32 w-full bg-gray-100" />
         </CardContent>
       </Card>
     );
@@ -35,33 +35,23 @@ export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps)
   
   const getSectionIcon = (title: string) => {
     const lowerTitle = title.toLowerCase();
-    if (lowerTitle.includes('executive') || lowerTitle.includes('summary')) return <Target className="h-4 w-4" />;
-    if (lowerTitle.includes('performance') || lowerTitle.includes('analysis')) return <TrendingUp className="h-4 w-4" />;
-    if (lowerTitle.includes('findings') || lowerTitle.includes('critical')) return <AlertTriangle className="h-4 w-4" />;
-    if (lowerTitle.includes('recommendations') || lowerTitle.includes('actionable')) return <Lightbulb className="h-4 w-4" />;
-    if (lowerTitle.includes('risk') || lowerTitle.includes('assessment')) return <Shield className="h-4 w-4" />;
-    return <Brain className="h-4 w-4" />;
-  };
-
-  const getSectionColor = (title: string) => {
-    const lowerTitle = title.toLowerCase();
-    if (lowerTitle.includes('executive') || lowerTitle.includes('summary')) return 'border-blue-200 bg-blue-50';
-    if (lowerTitle.includes('performance') || lowerTitle.includes('analysis')) return 'border-green-200 bg-green-50';
-    if (lowerTitle.includes('findings') || lowerTitle.includes('critical')) return 'border-amber-200 bg-amber-50';
-    if (lowerTitle.includes('recommendations') || lowerTitle.includes('actionable')) return 'border-purple-200 bg-purple-50';
-    if (lowerTitle.includes('risk') || lowerTitle.includes('assessment')) return 'border-red-200 bg-red-50';
-    return 'border-gray-200 bg-gray-50';
+    if (lowerTitle.includes('executive') || lowerTitle.includes('summary')) return <Target className="h-4 w-4 text-gray-600" />;
+    if (lowerTitle.includes('performance') || lowerTitle.includes('metrics')) return <TrendingUp className="h-4 w-4 text-gray-600" />;
+    if (lowerTitle.includes('findings') || lowerTitle.includes('critical')) return <AlertTriangle className="h-4 w-4 text-gray-600" />;
+    if (lowerTitle.includes('recommendations')) return <Lightbulb className="h-4 w-4 text-gray-600" />;
+    if (lowerTitle.includes('observations') || lowerTitle.includes('strategic')) return <Eye className="h-4 w-4 text-gray-600" />;
+    return <Brain className="h-4 w-4 text-gray-600" />;
   };
 
   return (
-    <Card className="max-w-[75%] mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5" />
+    <Card className="max-w-[75%] mx-auto bg-white border-gray-200">
+      <CardHeader className="bg-gray-50">
+        <CardTitle className="flex items-center gap-2 text-gray-900">
+          <Brain className="h-5 w-5 text-gray-600" />
           AI Strategic Analysis
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 p-6">
         {sections.map((section, index) => {
           const lines = section.trim().split('\n');
           const titleLine = lines[0];
@@ -73,10 +63,10 @@ export function AnalysisInsights({ insights, isLoading }: AnalysisInsightsProps)
           if (!title) return null;
           
           return (
-            <div key={index} className={`p-4 rounded-lg border-2 ${getSectionColor(title)}`}>
+            <div key={index} className="p-4 rounded-lg bg-gray-50 border border-gray-100">
               <div className="flex items-center gap-2 mb-3">
                 {getSectionIcon(title)}
-                <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
               </div>
               
               <div className="space-y-2">
