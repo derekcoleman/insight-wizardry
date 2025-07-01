@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useToast } from "./ui/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Loader2, FileText, FileType2, Globe, AlertCircle, CheckCircle, Download } from "lucide-react";
+import { Loader2, FileText, FileType2, Globe } from "lucide-react";
 import { useSavedAudits } from "@/hooks/useSavedAudits";
 import { useProjects } from "@/hooks/useProjects";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,13 +31,10 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   const [insights, setInsights] = useState<string>("");
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isCrawlingSitemap, setIsCrawlingSitemap] = useState(false);
-  const [sitemapStatus, setSitemapStatus] = useState<string>("");
-  const [sitemapError, setSitemapError] = useState<string | null>(null);
-  const [hasAutoSaved, setHasAutoSaved] = useState(false);
   const [isCreatingDoc, setIsCreatingDoc] = useState(false);
   const [isCreatingPdf, setIsCreatingPdf] = useState(false);
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
-  const [sitemapData, setSitemapData] = useState<any>(null);
+  const [hasAutoSaved, setHasAutoSaved] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { saveAudit } = useSavedAudits();
@@ -50,14 +47,12 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
       
       setIsGeneratingInsights(true);
       setIsCrawlingSitemap(true);
-      setSitemapStatus("Crawling XML sitemap...");
-      setSitemapError(null);
       
       try {
         // Show crawling status
         toast({
           title: "Analyzing Content",
-          description: "Crawling XML sitemap and analyzing page freshness...",
+          description: "Crawling sitemap and analyzing page freshness...",
         });
 
         const { data, error } = await supabase.functions.invoke('generate-insights', {
@@ -65,30 +60,14 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         });
 
         if (error) throw error;
-        
-        // Check if insights contain sitemap information
-        if (data.insights && data.insights.includes('SITEMAP LIMITATION')) {
-          setSitemapError("Sitemap crawling encountered issues - analysis based on performance data only");
-          setSitemapStatus("Sitemap crawling failed");
-        } else if (data.insights && data.insights.includes('NO SITEMAP DATA')) {
-          setSitemapError("No XML sitemap found - consider creating one for better analysis");
-          setSitemapStatus("No sitemap found");
-        } else {
-          setSitemapStatus("Sitemap crawled successfully");
-        }
-        
         setInsights(data.insights);
         
         toast({
           title: "Analysis Complete",
-          description: sitemapError 
-            ? "Analysis completed with limited sitemap data" 
-            : "LLM optimization recommendations generated successfully",
+          description: "LLM optimization recommendations generated successfully",
         });
       } catch (error) {
         console.error('Error generating insights:', error);
-        setSitemapError("Analysis failed - please try again");
-        setSitemapStatus("Analysis failed");
         toast({
           title: "Analysis Error",
           description: "Failed to generate insights. Some recommendations may be limited.",
@@ -381,28 +360,14 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         </div>
       </div>
       
-      {(isCrawlingSitemap || sitemapStatus) && (
-        <Card className={`${sitemapError ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
+      {isCrawlingSitemap && (
+        <Card className="bg-blue-50 border-blue-200">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
-              {isCrawlingSitemap ? (
-                <Globe className="h-5 w-5 text-blue-600 animate-spin" />
-              ) : sitemapError ? (
-                <AlertCircle className="h-5 w-5 text-amber-600" />
-              ) : (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              )}
+              <Globe className="h-5 w-5 text-blue-600 animate-spin" />
               <div>
-                <p className={`text-sm font-medium ${sitemapError ? 'text-amber-900' : 'text-blue-900'}`}>
-                  {sitemapStatus || "Analyzing Website Structure"}
-                </p>
-                {sitemapError ? (
-                  <p className="text-xs text-amber-700 mt-1">{sitemapError}</p>
-                ) : (
-                  <p className="text-xs text-blue-700 mt-1">
-                    {isCrawlingSitemap ? "Extracting last-modified dates for content freshness analysis..." : "Content freshness data integrated into recommendations"}
-                  </p>
-                )}
+                <p className="text-sm font-medium text-blue-900">Analyzing Website Structure</p>
+                <p className="text-xs text-blue-700">Crawling XML sitemap and analyzing content freshness for LLM optimization...</p>
               </div>
             </div>
           </CardContent>

@@ -58,28 +58,27 @@ serve(async (req) => {
       throw new Error('No sitemap found at common locations');
     }
 
-    // Parse XML sitemap using regex-based approach (Deno-compatible)
-    const allEntries: SitemapEntry[] = [];
+    // Parse XML sitemap
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(sitemapContent, 'text/xml');
     
     // Check if this is a sitemap index
-    const sitemapIndexRegex = /<sitemapindex[^>]*>[\s\S]*?<\/sitemapindex>/i;
-    const isSitemapIndex = sitemapIndexRegex.test(sitemapContent);
+    const sitemapIndexEntries = xmlDoc.querySelectorAll('sitemapindex > sitemap');
+    let allEntries: SitemapEntry[] = [];
 
-    if (isSitemapIndex) {
-      // Extract individual sitemap URLs from sitemap index
-      const sitemapLocationRegex = /<sitemap[^>]*>[\s\S]*?<loc>(.*?)<\/loc>[\s\S]*?<\/sitemap>/gi;
-      const sitemapMatches = Array.from(sitemapContent.matchAll(sitemapLocationRegex));
+    if (sitemapIndexEntries.length > 0) {
+      // This is a sitemap index, fetch individual sitemaps
+      console.log('Found sitemap index with', sitemapIndexEntries.length, 'sitemaps');
       
-      console.log('Found sitemap index with', sitemapMatches.length, 'sitemaps');
-      
-      for (const match of sitemapMatches) {
-        const sitemapLoc = match[1];
+      for (const sitemapEntry of Array.from(sitemapIndexEntries)) {
+        const sitemapLoc = sitemapEntry.querySelector('loc')?.textContent;
         if (sitemapLoc) {
           try {
             const response = await fetch(sitemapLoc);
             if (response.ok) {
               const individualSitemapContent = await response.text();
-              const urls = parseUrlsFromSitemap(individualSitemapContent);
+              const individualXmlDoc = parser.parseFromString(individualSitemapContent, 'text/xml');
+              const urls = parseUrlsFromSitemap(individualXmlDoc);
               allEntries.push(...urls);
             }
           } catch (error) {
@@ -89,7 +88,7 @@ serve(async (req) => {
       }
     } else {
       // This is a regular sitemap
-      allEntries.push(...parseUrlsFromSitemap(sitemapContent));
+      allEntries = parseUrlsFromSitemap(xmlDoc);
     }
 
     console.log('Total URLs found:', allEntries.length);
@@ -114,31 +113,19 @@ serve(async (req) => {
   }
 });
 
-function parseUrlsFromSitemap(xmlContent: string): SitemapEntry[] {
-  const entries: SitemapEntry[] = [];
-  
-  // Extract URLs using regex
-  const urlRegex = /<url[^>]*>([\s\S]*?)<\/url>/gi;
-  const urlMatches = Array.from(xmlContent.matchAll(urlRegex));
-  
-  for (const urlMatch of urlMatches) {
-    const urlContent = urlMatch[1];
-    
-    // Extract individual elements
-    const locMatch = urlContent.match(/<loc>(.*?)<\/loc>/i);
-    const lastmodMatch = urlContent.match(/<lastmod>(.*?)<\/lastmod>/i);
-    const changefreqMatch = urlContent.match(/<changefreq>(.*?)<\/changefreq>/i);
-    const priorityMatch = urlContent.match(/<priority>(.*?)<\/priority>/i);
-    
-    if (locMatch && locMatch[1]) {
-      entries.push({
-        url: locMatch[1].trim(),
-        lastmod: lastmodMatch ? lastmodMatch[1].trim() : undefined,
-        changefreq: changefreqMatch ? changefreqMatch[1].trim() : undefined,
-        priority: priorityMatch ? priorityMatch[1].trim() : undefined
-      });
-    }
-  }
-  
-  return entries;
+function parseUrlsFromSitemap(xmlDoc: Document): SitemapEntry[] {
+  const urls = xmlDoc.querySelectorAll('urlset > url');
+  return Array.from(urls).map(url => {
+    const loc = url.querySelector('loc')?.textContent;
+    const lastmod = url.querySelector('lastmod')?.textContent;
+    const changefreq = url.querySelector('changefreq')?.textContent;
+    const priority = url.querySelector('priority')?.textContent;
+
+    return {
+      url: loc || '',
+      lastmod,
+      changefreq,
+      priority
+    };
+  }).filter(entry => entry.url);
 }

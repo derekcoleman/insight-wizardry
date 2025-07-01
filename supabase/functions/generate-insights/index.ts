@@ -17,11 +17,7 @@ serve(async (req) => {
 
   try {
     const { data } = await req.json();
-    console.log('Generating strategic insights for data');
-
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
+    console.log('Generating strategic insights for data:', data);
 
     // Extract domain from the data to crawl sitemap
     let domain = '';
@@ -36,8 +32,6 @@ serve(async (req) => {
 
     // Crawl sitemap to get last modified dates
     let sitemapData = null;
-    let sitemapError = null;
-    
     if (domain) {
       try {
         console.log('Crawling sitemap for domain:', domain);
@@ -46,23 +40,15 @@ serve(async (req) => {
           Deno.env.get('SUPABASE_ANON_KEY') ?? ''
         );
 
-        const { data: sitemapResult, error } = await supabase.functions.invoke('crawl-sitemap', {
+        const { data: sitemapResult } = await supabase.functions.invoke('crawl-sitemap', {
           body: { domain }
         });
-
-        if (error) {
-          throw error;
-        }
 
         if (sitemapResult && !sitemapResult.error) {
           sitemapData = sitemapResult;
           console.log('Sitemap data retrieved:', sitemapData.totalUrls, 'URLs found');
-        } else if (sitemapResult?.error) {
-          sitemapError = sitemapResult.error;
-          console.log('Sitemap crawl error:', sitemapError);
         }
       } catch (error) {
-        sitemapError = error.message;
         console.log('Failed to crawl sitemap:', error);
       }
     }
@@ -71,14 +57,9 @@ serve(async (req) => {
     const enhancedData = {
       ...data,
       sitemapData,
-      sitemapError,
       domain
     };
 
-    // Create a more targeted prompt based on available data
-    const systemPrompt = createSystemPrompt(sitemapData, sitemapError);
-
-    console.log('Making OpenAI API request...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -90,82 +71,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: JSON.stringify(enhancedData),
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 4000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API request failed: ${response.status} ${errorText}`);
-    }
-
-    const result = await response.json();
-    
-    if (!result.choices || !result.choices[0] || !result.choices[0].message) {
-      console.error('Invalid OpenAI response structure:', result);
-      throw new Error('Invalid response from OpenAI API');
-    }
-
-    console.log('OpenAI API request successful');
-    return new Response(
-      JSON.stringify({ insights: result.choices[0].message.content }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error) {
-    console.error('Error in generate-insights function:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-  }
-});
-
-function createSystemPrompt(sitemapData: any, sitemapError: string | null): string {
-  const hasSitemapData = sitemapData && sitemapData.entries && sitemapData.entries.length > 0;
-  
-  let sitemapInstructions = '';
-  
-  if (hasSitemapData) {
-    sitemapInstructions = `
-    SITEMAP DATA AVAILABLE: You have access to XML sitemap data with ${sitemapData.totalUrls} URLs and their last-modified dates. Use this data to:
-    - Cross-reference high-performing pages with their last modification dates
-    - Identify pages that haven't been updated in 10+ months and correlate with performance decline
-    - Prioritize content refresh recommendations based on actual last-modified dates
-    - Provide specific page-by-page update recommendations with current lastmod dates
-    `;
-  } else if (sitemapError) {
-    sitemapInstructions = `
-    SITEMAP LIMITATION: Sitemap crawling encountered an issue (${sitemapError}). Focus on:
-    - Analyzing available GA4/GSC performance data without sitemap correlation
-    - Recommending content audit strategies to manually assess page freshness
-    - Suggesting tools and methods for content freshness assessment
-    - Providing performance-based content optimization recommendations
-    `;
-  } else {
-    sitemapInstructions = `
-    NO SITEMAP DATA: No sitemap was found or accessible. Focus on:
-    - Pure performance-based analysis using GA4 and Search Console data
-    - Recommending the creation and submission of XML sitemaps
-    - Suggesting manual content audit processes
-    - Performance trend analysis for content optimization decisions
-    `;
-  }
-
-  return `You are a senior digital marketing strategist and SEO expert with 15+ years of experience analyzing Google Analytics and Search Console data. Your analysis should be comprehensive, actionable, and presented in a structured format with a strong focus on LLM optimization and AI-driven search visibility.
-
-${sitemapInstructions}
+            content: `You are a senior digital marketing strategist and SEO expert with 15+ years of experience analyzing Google Analytics and Search Console data. Your analysis should be comprehensive, actionable, and presented in a structured format with a strong focus on LLM optimization and AI-driven search visibility.
 
 IMPORTANT: You MUST include ALL sections listed below. Do not skip any section, especially the LLM OPTIMIZATION RECOMMENDATIONS section which must be specific and data-driven.
 
@@ -188,7 +94,7 @@ Provide 3-4 key observations about market positioning, competitive landscape, te
 List 3-4 most important discoveries that require immediate attention, including performance anomalies, growth opportunities, and technical issues.
 
 **LLM OPTIMIZATION RECOMMENDATIONS**
-This section is MANDATORY and must provide specific, actionable recommendations based on the actual data provided. ${hasSitemapData ? 'Use the sitemap last-modified dates to inform content freshness recommendations.' : 'Focus on performance-based content recommendations without relying on last-modified dates.'} You must provide at least 5 specific recommendations:
+This section is MANDATORY and must provide specific, actionable recommendations based on the actual data provided. Analyze the top-performing pages from the analytics data and cross-reference with sitemap last-modified dates when available. You must provide at least 5 specific recommendations:
 
 Content Quality & Structure Analysis:
 - Identify the top 3-5 performing pages by clicks/traffic and analyze their potential for improvement
@@ -197,16 +103,12 @@ Content Quality & Structure Analysis:
 - Recommend specific word count targets for underperforming pages (aim for 1500+ words for comprehensive coverage)
 - Identify pages that would benefit from better readability (target Flesch score of 60+)
 
-${hasSitemapData ? `Content Freshness Assessment:
+Content Freshness Assessment:
 - Cross-reference high-performing pages with sitemap last-modified dates
 - Flag pages that haven't been updated in 10+ months and are losing traffic
 - Prioritize content refresh for pages with strong search visibility but declining performance
-- Recommend a content update schedule based on page performance patterns and last-modified dates
-- Suggest specific pages that need immediate content updates based on the data` : `Content Performance Assessment:
-- Analyze performance trends to identify pages that may need content updates
-- Recommend establishing a content audit process to assess page freshness
-- Suggest implementing proper XML sitemaps with last-modified dates
-- Prioritize content refresh based on performance decline patterns`}
+- Recommend a content update schedule based on page performance patterns
+- Suggest specific pages that need immediate content updates based on the data
 
 Technical LLM Optimization:
 - Recommend schema markup implementation for the top-performing pages
@@ -228,8 +130,38 @@ CRITICAL REQUIREMENTS:
 1. All recommendations must be based on the actual analytics data provided
 2. Reference specific pages, metrics, and search terms from the data
 3. Include current performance numbers when making recommendations
-4. ${hasSitemapData ? 'Use sitemap last-modified dates to inform content freshness recommendations' : 'Recommend establishing content freshness tracking mechanisms'}
+4. If sitemap data is available, use last-modified dates to inform content freshness recommendations
 5. Make recommendations actionable and specific, not generic advice
 
-Format your response with clear section headers using **SECTION NAME** formatting. Include specific metrics, percentages, and time periods throughout.`;
-}
+Format your response with clear section headers using **SECTION NAME** formatting. Include specific metrics, percentages, and time periods throughout.`
+          },
+          {
+            role: "user",
+            content: JSON.stringify(enhancedData),
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 4000,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('OpenAI API request failed');
+    }
+
+    const result = await response.json();
+    return new Response(
+      JSON.stringify({ insights: result.choices[0].message.content }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in generate-insights function:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+});
