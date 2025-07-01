@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,9 +6,9 @@ import { Loader2, AlertCircle, RefreshCw, ChevronDown, ChevronUp } from "lucide-
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { AnalysisResults } from "@/components/AnalysisResults";
+import { supabase } from "@/integrations/supabase/client";
 import { useGoogleServices } from "@/hooks/useGoogleServices";
 import { useProjects } from "@/hooks/useProjects";
-import { useAnalyticsCache } from "@/hooks/useAnalyticsCache";
 import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { PropertySelector } from "@/components/PropertySelector";
 import { ConversionGoalSelector } from "@/components/ConversionGoalSelector";
@@ -25,6 +24,9 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   const [selectedGaAccount, setSelectedGaAccount] = useState<string>("");
   const [selectedGscAccount, setSelectedGscAccount] = useState<string>("");
   const [selectedGoal, setSelectedGoal] = useState<string>("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [report, setReport] = useState(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isFormCollapsed, setIsFormCollapsed] = useState(false);
   const { toast } = useToast();
 
@@ -43,26 +45,6 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   } = useGoogleServices();
 
   const { createProject, saveAnalysisToProject } = useProjects();
-  const { analyzeData, prefetchAnalytics } = useAnalyticsCache();
-
-  // Use the cached analytics data
-  const {
-    data: report,
-    isLoading: isAnalyzing,
-    error: analysisError,
-    refetch: refetchAnalysis
-  } = analyzeData(
-    {
-      ga4Property: selectedGaAccount,
-      gscProperty: selectedGscAccount,
-      accessToken: accessToken || '',
-      mainConversionGoal: selectedGoal || undefined,
-    },
-    {
-      staleTime: 10 * 60 * 1000, // 10 minutes for analytics data
-      cacheTime: 60 * 60 * 1000, // 1 hour
-    }
-  );
 
   useEffect(() => {
     onConnectionChange?.(gaConnected || gscConnected);
@@ -70,7 +52,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
 
   // Only collapse form when analysis is complete (not just when it starts)
   useEffect(() => {
-    if (report?.report) {
+    if (report) {
       setIsFormCollapsed(true);
     }
   }, [report]);
@@ -79,18 +61,12 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
     try {
       setSelectedGaAccount(value);
       setSelectedGoal(""); // Reset goal when changing account
+      setAnalysisError(null);
+      setReport(null);
       
-      if (value && accessToken) {
+      if (value) {
         console.log("Fetching conversion goals for GA4 property:", value);
         await fetchConversionGoals(value);
-        
-        // Prefetch analytics data for this property
-        await prefetchAnalytics({
-          ga4Property: value,
-          gscProperty: selectedGscAccount,
-          accessToken: accessToken,
-          mainConversionGoal: selectedGoal || undefined,
-        });
       }
     } catch (error) {
       console.error("Error handling GA account change:", error);
@@ -120,13 +96,35 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
       return;
     }
 
+    setIsAnalyzing(true);
+    setAnalysisError(null);
     try {
-      // Trigger the cached query
-      const result = await refetchAnalysis();
+      console.log("Starting analysis with:", {
+        ga4Property: selectedGaAccount,
+        gscProperty: selectedGscAccount,
+        hasAccessToken: !!accessToken,
+        mainConversionGoal: selectedGoal,
+      });
+
+      const result = await supabase.functions.invoke('analyze-ga4-data', {
+        body: {
+          ga4Property: selectedGaAccount,
+          gscProperty: selectedGscAccount,
+          accessToken: accessToken,
+          mainConversionGoal: selectedGoal || undefined,
+        },
+      });
+
+      if (result.error) {
+        console.error('Analysis error:', result.error);
+        throw new Error(result.error.message || 'Failed to analyze data');
+      }
       
       if (!result.data?.report) {
         throw new Error('No report data received from analysis');
       }
+
+      setReport(result.data.report);
 
       // Create or find project and save analysis
       const websiteUrl = extractDomainFromProperty(selectedGaAccount);
@@ -150,11 +148,15 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
       onAnalysisComplete?.();
     } catch (error) {
       console.error('Analysis error:', error);
+      setAnalysisError(error instanceof Error ? error.message : 'Failed to analyze data');
       toast({
         title: "Error",
         description: "Failed to analyze data. Please try again.",
         variant: "destructive",
       });
+      setReport(null);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -171,7 +173,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
   };
 
   // Show collapse toggle only when there's been an analysis or connection
-  const showCollapseToggle = report?.report || isAnalyzing || (gaConnected && selectedGaAccount);
+  const showCollapseToggle = report || isAnalyzing || (gaConnected && selectedGaAccount);
 
   return (
     <div className="space-y-6">
@@ -267,11 +269,11 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
                 <div className="max-w-sm mx-auto">
                   <Button 
                     onClick={handleAnalyze}
-                    disabled={isAnalyzing || !accessToken}
+                    disabled={isAnalyzing}
                     className="w-full"
                   >
                     {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {report?.report ? 'Refresh Analysis' : 'Analyze Data'}
+                    Analyze Data
                   </Button>
                 </div>
               )}
@@ -280,7 +282,7 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
                 <Alert variant="destructive" className="mt-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Analysis Error</AlertTitle>
-                  <AlertDescription>{analysisError.message}</AlertDescription>
+                  <AlertDescription>{analysisError}</AlertDescription>
                 </Alert>
               )}
             </CardContent>
@@ -288,8 +290,8 @@ export function GoogleConnect({ onConnectionChange, onAnalysisComplete }: Google
         </CollapsibleContent>
       </Collapsible>
 
-      {(isAnalyzing || report?.report) && (
-        <AnalysisResults report={report?.report} isLoading={isAnalyzing} />
+      {(isAnalyzing || report) && (
+        <AnalysisResults report={report} isLoading={isAnalyzing} />
       )}
     </div>
   );
