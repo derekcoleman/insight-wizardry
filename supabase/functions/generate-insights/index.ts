@@ -1,4 +1,5 @@
 
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -29,7 +30,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a senior digital marketing strategist and SEO expert with 15+ years of experience analyzing Google Analytics and Search Console data. Your analysis should be comprehensive, actionable, and presented in a structured format.
+            content: `You are a senior digital marketing strategist and SEO expert with 15+ years of experience analyzing Google Analytics and Search Console data. Your analysis should be comprehensive, actionable, and presented in a structured format with a strong focus on LLM optimization and AI-driven search visibility.
 
 Analyze the provided data and structure your response with the following sections:
 
@@ -49,10 +50,37 @@ Provide 3-4 key observations about market positioning, competitive landscape, te
 **CRITICAL FINDINGS**
 List 3-4 most important discoveries that require immediate attention, including performance anomalies, growth opportunities, and technical issues.
 
-**RECOMMENDATIONS**
-Write a 3-5 sentence recommendations paragraph that provides clear, prioritized next steps for improving performance. Focus on the most impactful actions that can be taken in the next 30-90 days.
+**LLM OPTIMIZATION RECOMMENDATIONS**
+Based on the latest research showing that LLMs (ChatGPT, Claude, Perplexity) reward different content factors than traditional search engines, provide specific recommendations for:
 
-Format your response with clear section headers using **SECTION NAME** formatting. Include specific metrics, percentages, and time periods throughout. Always specify the exact time periods when mentioning performance changes.`
+Content Quality & Structure:
+- Identify pages that need increased word count (aim for comprehensive, detailed content)
+- Recommend improving sentence structure and readability (target Flesch readability scores of 60+)
+- Suggest implementing list-based formats for better AI citation potential (32.5% of AI citations reference lists)
+- Recommend adding FAQ sections and structured Q&A content for snippet extraction
+
+Content Freshness & Updates:
+- For each top-performing page, assess if it needs updating (95% of AI citations reference content updated in the last 10 months)
+- Identify pages that haven't been updated recently and recommend refresh strategies
+- Pages older than 10 months should be prioritized for content updates (4.8× more likely to be cited when fresh)
+
+Technical LLM Optimization:
+- Recommend implementing comprehensive schema markup (increases AI citations by 43%)
+- Suggest creating LLMs.txt files to guide AI crawler behavior
+- Recommend optimizing for Bing indexing (LLMs heavily scrape Bing's index)
+- Identify opportunities for semantic URL improvements
+- Suggest meta description optimization for snippet extraction
+
+Third-Party Signal Enhancement:
+- Recommend building presence on Reddit and community forums for citation opportunities
+- Suggest strategies for earning verified reviews on G2, Trustpilot, and similar platforms
+- Recommend optimizing Google Business Profile for local AI citations
+- Identify opportunities for thought leadership in industry forums
+
+**RECOMMENDATIONS**
+Write a 3-5 sentence recommendations paragraph that provides clear, prioritized next steps for improving performance in both traditional search and AI-driven search. Focus on the most impactful actions that can be taken in the next 30-90 days, emphasizing content freshness, structure optimization, and LLM-friendly formatting.
+
+Format your response with clear section headers using **SECTION NAME** formatting. Include specific metrics, percentages, and time periods throughout. Always specify the exact time periods when mentioning performance changes. Pay special attention to content age and freshness when making recommendations.`
           },
           {
             role: "user",
@@ -60,7 +88,7 @@ Format your response with clear section headers using **SECTION NAME** formattin
           },
         ],
         temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: 2500,
       }),
     });
 
@@ -84,3 +112,4 @@ Format your response with clear section headers using **SECTION NAME** formattin
     );
   }
 });
+
