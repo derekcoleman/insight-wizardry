@@ -17,7 +17,7 @@ serve(async (req) => {
 
   try {
     const { data } = await req.json();
-    console.log('Generating strategic insights for data:', data);
+    console.log('Generating strategic insights for data');
 
     // Extract domain from the data to crawl sitemap
     let domain = '';
@@ -32,6 +32,8 @@ serve(async (req) => {
 
     // Crawl sitemap to get last modified dates
     let sitemapData = null;
+    let sitemapError = null;
+    
     if (domain) {
       try {
         console.log('Crawling sitemap for domain:', domain);
@@ -40,15 +42,23 @@ serve(async (req) => {
           Deno.env.get('SUPABASE_ANON_KEY') ?? ''
         );
 
-        const { data: sitemapResult } = await supabase.functions.invoke('crawl-sitemap', {
+        const { data: sitemapResult, error } = await supabase.functions.invoke('crawl-sitemap', {
           body: { domain }
         });
+
+        if (error) {
+          throw error;
+        }
 
         if (sitemapResult && !sitemapResult.error) {
           sitemapData = sitemapResult;
           console.log('Sitemap data retrieved:', sitemapData.totalUrls, 'URLs found');
+        } else if (sitemapResult?.error) {
+          sitemapError = sitemapResult.error;
+          console.log('Sitemap crawl error:', sitemapError);
         }
       } catch (error) {
+        sitemapError = error.message;
         console.log('Failed to crawl sitemap:', error);
       }
     }
@@ -57,8 +67,12 @@ serve(async (req) => {
     const enhancedData = {
       ...data,
       sitemapData,
+      sitemapError,
       domain
     };
+
+    // Create a more targeted prompt based on available data
+    const systemPrompt = createSystemPrompt(sitemapData, sitemapError);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -71,69 +85,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a senior digital marketing strategist and SEO expert with 15+ years of experience analyzing Google Analytics and Search Console data. Your analysis should be comprehensive, actionable, and presented in a structured format with a strong focus on LLM optimization and AI-driven search visibility.
-
-IMPORTANT: You MUST include ALL sections listed below. Do not skip any section, especially the LLM OPTIMIZATION RECOMMENDATIONS section which must be specific and data-driven.
-
-Analyze the provided data and structure your response with the following sections:
-
-**EXECUTIVE SUMMARY**
-Write a 3-5 sentence executive summary that provides a high-level overview of the website's overall performance trajectory and the most critical insights discovered in the analysis.
-
-**KEY PERFORMANCE METRICS**
-For each metric, ALWAYS include the specific time period being analyzed (e.g., "for the period January 1, 2025 to June 27, 2025 vs January 1, 2024 to June 27, 2024"). Format metrics clearly:
-- Traffic Performance: Sessions decreased from X to Y (-Z%) for [specific time period]
-- Search Visibility: Organic clicks decreased from X to Y (-Z%) for [specific time period] 
-- User Engagement: Click-through rate changed from X% to Y% (±Z%) for [specific time period]
-- Search Rankings: Average position changed from X to Y (±Z positions) for [specific time period]
-
-**STRATEGIC OBSERVATIONS**
-Provide 3-4 key observations about market positioning, competitive landscape, technical SEO health, and content performance patterns.
-
-**CRITICAL FINDINGS**
-List 3-4 most important discoveries that require immediate attention, including performance anomalies, growth opportunities, and technical issues.
-
-**LLM OPTIMIZATION RECOMMENDATIONS**
-This section is MANDATORY and must provide specific, actionable recommendations based on the actual data provided. Analyze the top-performing pages from the analytics data and cross-reference with sitemap last-modified dates when available. You must provide at least 5 specific recommendations:
-
-Content Quality & Structure Analysis:
-- Identify the top 3-5 performing pages by clicks/traffic and analyze their potential for improvement
-- For pages with high impressions but low CTR, recommend specific content structure improvements (lists, FAQ sections, etc.)
-- For pages with declining performance, suggest content refresh strategies
-- Recommend specific word count targets for underperforming pages (aim for 1500+ words for comprehensive coverage)
-- Identify pages that would benefit from better readability (target Flesch score of 60+)
-
-Content Freshness Assessment:
-- Cross-reference high-performing pages with sitemap last-modified dates
-- Flag pages that haven't been updated in 10+ months and are losing traffic
-- Prioritize content refresh for pages with strong search visibility but declining performance
-- Recommend a content update schedule based on page performance patterns
-- Suggest specific pages that need immediate content updates based on the data
-
-Technical LLM Optimization:
-- Recommend schema markup implementation for the top-performing pages
-- Suggest creating LLMs.txt files for better AI crawler guidance
-- Identify URL structure improvements for better semantic understanding
-- Recommend meta description optimization for high-impression, low-CTR pages
-- Suggest Bing indexing optimization strategies for the domain
-
-Specific Page Recommendations:
-- Analyze each top-performing page individually and provide specific actionable recommendations
-- Include current metrics (CTR, clicks, impressions, position) for each page mentioned
-- Suggest content topics that could improve performance based on search terms data
-- Recommend internal linking strategies between high-performing pages
-
-**RECOMMENDATIONS**
-Write a 3-5 sentence recommendations paragraph that provides clear, prioritized next steps for improving performance in both traditional search and AI-driven search. Focus on the most impactful actions that can be taken in the next 30-90 days.
-
-CRITICAL REQUIREMENTS:
-1. All recommendations must be based on the actual analytics data provided
-2. Reference specific pages, metrics, and search terms from the data
-3. Include current performance numbers when making recommendations
-4. If sitemap data is available, use last-modified dates to inform content freshness recommendations
-5. Make recommendations actionable and specific, not generic advice
-
-Format your response with clear section headers using **SECTION NAME** formatting. Include specific metrics, percentages, and time periods throughout.`
+            content: systemPrompt
           },
           {
             role: "user",
@@ -165,3 +117,105 @@ Format your response with clear section headers using **SECTION NAME** formattin
     );
   }
 });
+
+function createSystemPrompt(sitemapData: any, sitemapError: string | null): string {
+  const hasSitemapData = sitemapData && sitemapData.entries && sitemapData.entries.length > 0;
+  
+  let sitemapInstructions = '';
+  
+  if (hasSitemapData) {
+    sitemapInstructions = `
+    SITEMAP DATA AVAILABLE: You have access to XML sitemap data with ${sitemapData.totalUrls} URLs and their last-modified dates. Use this data to:
+    - Cross-reference high-performing pages with their last modification dates
+    - Identify pages that haven't been updated in 10+ months and correlate with performance decline
+    - Prioritize content refresh recommendations based on actual last-modified dates
+    - Provide specific page-by-page update recommendations with current lastmod dates
+    `;
+  } else if (sitemapError) {
+    sitemapInstructions = `
+    SITEMAP LIMITATION: Sitemap crawling encountered an issue (${sitemapError}). Focus on:
+    - Analyzing available GA4/GSC performance data without sitemap correlation
+    - Recommending content audit strategies to manually assess page freshness
+    - Suggesting tools and methods for content freshness assessment
+    - Providing performance-based content optimization recommendations
+    `;
+  } else {
+    sitemapInstructions = `
+    NO SITEMAP DATA: No sitemap was found or accessible. Focus on:
+    - Pure performance-based analysis using GA4 and Search Console data
+    - Recommending the creation and submission of XML sitemaps
+    - Suggesting manual content audit processes
+    - Performance trend analysis for content optimization decisions
+    `;
+  }
+
+  return `You are a senior digital marketing strategist and SEO expert with 15+ years of experience analyzing Google Analytics and Search Console data. Your analysis should be comprehensive, actionable, and presented in a structured format with a strong focus on LLM optimization and AI-driven search visibility.
+
+${sitemapInstructions}
+
+IMPORTANT: You MUST include ALL sections listed below. Do not skip any section, especially the LLM OPTIMIZATION RECOMMENDATIONS section which must be specific and data-driven.
+
+Analyze the provided data and structure your response with the following sections:
+
+**EXECUTIVE SUMMARY**
+Write a 3-5 sentence executive summary that provides a high-level overview of the website's overall performance trajectory and the most critical insights discovered in the analysis.
+
+**KEY PERFORMANCE METRICS**
+For each metric, ALWAYS include the specific time period being analyzed (e.g., "for the period January 1, 2025 to June 27, 2025 vs January 1, 2024 to June 27, 2024"). Format metrics clearly:
+- Traffic Performance: Sessions decreased from X to Y (-Z%) for [specific time period]
+- Search Visibility: Organic clicks decreased from X to Y (-Z%) for [specific time period] 
+- User Engagement: Click-through rate changed from X% to Y% (±Z%) for [specific time period]
+- Search Rankings: Average position changed from X to Y (±Z positions) for [specific time period]
+
+**STRATEGIC OBSERVATIONS**
+Provide 3-4 key observations about market positioning, competitive landscape, technical SEO health, and content performance patterns.
+
+**CRITICAL FINDINGS**
+List 3-4 most important discoveries that require immediate attention, including performance anomalies, growth opportunities, and technical issues.
+
+**LLM OPTIMIZATION RECOMMENDATIONS**
+This section is MANDATORY and must provide specific, actionable recommendations based on the actual data provided. ${hasSitemapData ? 'Use the sitemap last-modified dates to inform content freshness recommendations.' : 'Focus on performance-based content recommendations without relying on last-modified dates.'} You must provide at least 5 specific recommendations:
+
+Content Quality & Structure Analysis:
+- Identify the top 3-5 performing pages by clicks/traffic and analyze their potential for improvement
+- For pages with high impressions but low CTR, recommend specific content structure improvements (lists, FAQ sections, etc.)
+- For pages with declining performance, suggest content refresh strategies
+- Recommend specific word count targets for underperforming pages (aim for 1500+ words for comprehensive coverage)
+- Identify pages that would benefit from better readability (target Flesch score of 60+)
+
+${hasSitemapData ? `Content Freshness Assessment:
+- Cross-reference high-performing pages with sitemap last-modified dates
+- Flag pages that haven't been updated in 10+ months and are losing traffic
+- Prioritize content refresh for pages with strong search visibility but declining performance
+- Recommend a content update schedule based on page performance patterns and last-modified dates
+- Suggest specific pages that need immediate content updates based on the data` : `Content Performance Assessment:
+- Analyze performance trends to identify pages that may need content updates
+- Recommend establishing a content audit process to assess page freshness
+- Suggest implementing proper XML sitemaps with last-modified dates
+- Prioritize content refresh based on performance decline patterns`}
+
+Technical LLM Optimization:
+- Recommend schema markup implementation for the top-performing pages
+- Suggest creating LLMs.txt files for better AI crawler guidance
+- Identify URL structure improvements for better semantic understanding
+- Recommend meta description optimization for high-impression, low-CTR pages
+- Suggest Bing indexing optimization strategies for the domain
+
+Specific Page Recommendations:
+- Analyze each top-performing page individually and provide specific actionable recommendations
+- Include current metrics (CTR, clicks, impressions, position) for each page mentioned
+- Suggest content topics that could improve performance based on search terms data
+- Recommend internal linking strategies between high-performing pages
+
+**RECOMMENDATIONS**
+Write a 3-5 sentence recommendations paragraph that provides clear, prioritized next steps for improving performance in both traditional search and AI-driven search. Focus on the most impactful actions that can be taken in the next 30-90 days.
+
+CRITICAL REQUIREMENTS:
+1. All recommendations must be based on the actual analytics data provided
+2. Reference specific pages, metrics, and search terms from the data
+3. Include current performance numbers when making recommendations
+4. ${hasSitemapData ? 'Use sitemap last-modified dates to inform content freshness recommendations' : 'Recommend establishing content freshness tracking mechanisms'}
+5. Make recommendations actionable and specific, not generic advice
+
+Format your response with clear section headers using **SECTION NAME** formatting. Include specific metrics, percentages, and time periods throughout.`;
+}
