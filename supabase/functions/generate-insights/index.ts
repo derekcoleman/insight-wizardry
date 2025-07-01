@@ -30,15 +30,17 @@ serve(async (req) => {
       }
     }
 
-    // Crawl sitemap to get last modified dates
+    // Crawl sitemap to get last modified dates and top pages SEO data
     let sitemapData = null;
+    let pageData = null;
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
     if (domain) {
       try {
         console.log('Crawling sitemap for domain:', domain);
-        const supabase = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-        );
 
         const { data: sitemapResult } = await supabase.functions.invoke('crawl-sitemap', {
           body: { domain }
@@ -53,10 +55,41 @@ serve(async (req) => {
       }
     }
 
-    // Prepare enhanced data with sitemap information
+    // Get top pages from analytics data for detailed SEO analysis
+    const topPages = [];
+    if (data.weekly_analysis?.pages) {
+      topPages.push(...data.weekly_analysis.pages.slice(0, 5).map(p => p.page));
+    }
+    if (data.monthly_analysis?.pages && topPages.length < 5) {
+      const additionalPages = data.monthly_analysis.pages
+        .filter(p => !topPages.includes(p.page))
+        .slice(0, 5 - topPages.length)
+        .map(p => p.page);
+      topPages.push(...additionalPages);
+    }
+
+    // Crawl top pages for SEO analysis
+    if (topPages.length > 0) {
+      try {
+        console.log('Crawling top pages for SEO analysis:', topPages);
+        const { data: pageResult } = await supabase.functions.invoke('crawl-page-seo', {
+          body: { urls: topPages }
+        });
+
+        if (pageResult && !pageResult.error) {
+          pageData = pageResult.pageData;
+          console.log('Page SEO data retrieved for', pageData?.length || 0, 'pages');
+        }
+      } catch (error) {
+        console.log('Failed to crawl page SEO data:', error);
+      }
+    }
+
+    // Prepare enhanced data with sitemap and page SEO information
     const enhancedData = {
       ...data,
       sitemapData,
+      pageData,
       domain
     };
 
@@ -94,14 +127,14 @@ Provide 3-4 key observations about market positioning, competitive landscape, te
 List 3-4 most important discoveries that require immediate attention, including performance anomalies, growth opportunities, and technical issues.
 
 **LLM OPTIMIZATION RECOMMENDATIONS**
-This section is MANDATORY and must provide specific, actionable recommendations based on the actual data provided. Analyze the top-performing pages from the analytics data and cross-reference with sitemap last-modified dates when available. You must provide at least 5 specific recommendations:
+This section is MANDATORY and must provide specific, actionable recommendations based on the actual data provided. Analyze the top-performing pages from the analytics data and cross-reference with sitemap last-modified dates and page SEO data when available. You must provide at least 5 specific recommendations:
 
 Content Quality & Structure Analysis:
 - Identify the top 3-5 performing pages by clicks/traffic and analyze their potential for improvement
 - For pages with high impressions but low CTR, recommend specific content structure improvements (lists, FAQ sections, etc.)
 - For pages with declining performance, suggest content refresh strategies
-- Recommend specific word count targets for underperforming pages (aim for 1500+ words for comprehensive coverage)
-- Identify pages that would benefit from better readability (target Flesch score of 60+)
+- Use actual word count data from page analysis to recommend specific improvements (aim for 1500+ words for comprehensive coverage)
+- Identify pages that would benefit from better readability based on current content structure
 
 Content Freshness Assessment:
 - Cross-reference high-performing pages with sitemap last-modified dates
@@ -110,18 +143,26 @@ Content Freshness Assessment:
 - Recommend a content update schedule based on page performance patterns
 - Suggest specific pages that need immediate content updates based on the data
 
-Technical LLM Optimization:
-- Recommend schema markup implementation for the top-performing pages
+Technical SEO & LLM Optimization:
+- Analyze existing structured data (JSON-LD) on top pages and recommend improvements
+- Identify pages missing schema markup and suggest specific schema types to implement
+- Review meta descriptions and titles for optimization opportunities based on actual page data
 - Suggest creating LLMs.txt files for better AI crawler guidance
 - Identify URL structure improvements for better semantic understanding
-- Recommend meta description optimization for high-impression, low-CTR pages
-- Suggest Bing indexing optimization strategies for the domain
+- Recommend Bing indexing optimization strategies for the domain
 
-Specific Page Recommendations:
-- Analyze each top-performing page individually and provide specific actionable recommendations
-- Include current metrics (CTR, clicks, impressions, position) for each page mentioned
-- Suggest content topics that could improve performance based on search terms data
-- Recommend internal linking strategies between high-performing pages
+Page-Specific SEO Analysis:
+- For each top page analyzed, provide specific recommendations based on actual SEO data (title, meta description, headings, word count, structured data)
+- Compare target keywords from search terms data with actual page content and headings
+- Identify gaps between ranking keywords and on-page optimization
+- Recommend internal linking improvements based on current link structure
+- Suggest image alt text improvements where applicable
+
+Structured Data & Schema Recommendations:
+- Analyze existing structured data implementations and suggest improvements
+- Recommend missing schema types that would benefit each page (Article, FAQ, BreadcrumbList, etc.)
+- Identify opportunities for rich snippets and enhanced SERP features
+- Suggest entity markup for better semantic understanding by AI systems
 
 **RECOMMENDATIONS**
 Write a 3-5 sentence recommendations paragraph that provides clear, prioritized next steps for improving performance in both traditional search and AI-driven search. Focus on the most impactful actions that can be taken in the next 30-90 days.
@@ -131,7 +172,10 @@ CRITICAL REQUIREMENTS:
 2. Reference specific pages, metrics, and search terms from the data
 3. Include current performance numbers when making recommendations
 4. If sitemap data is available, use last-modified dates to inform content freshness recommendations
-5. Make recommendations actionable and specific, not generic advice
+5. If page SEO data is available, reference actual titles, meta descriptions, word counts, structured data, and other on-page elements
+6. Compare ranking keywords with actual page content and identify optimization gaps
+7. Make recommendations actionable and specific, not generic advice
+8. Include specific structured data recommendations based on actual page analysis
 
 Format your response with clear section headers using **SECTION NAME** formatting. Include specific metrics, percentages, and time periods throughout.`
           },

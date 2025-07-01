@@ -366,8 +366,13 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
             <div className="flex items-center gap-3">
               <Globe className="h-5 w-5 text-blue-600 animate-spin" />
               <div>
-                <p className="text-sm font-medium text-blue-900">Analyzing Website Structure</p>
-                <p className="text-xs text-blue-700">Crawling XML sitemap and analyzing content freshness for LLM optimization...</p>
+                <p className="text-sm font-medium text-blue-900">Comprehensive Website Analysis</p>
+                <p className="text-xs text-blue-700">
+                  • Crawling XML sitemap for content freshness analysis<br/>
+                  • Analyzing top pages for SEO metadata and structured data<br/>
+                  • Comparing ranking keywords with on-page optimization<br/>
+                  • Generating LLM-optimized recommendations
+                </p>
               </div>
             </div>
           </CardContent>
