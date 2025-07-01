@@ -32,6 +32,8 @@ serve(async (req) => {
             role: "system",
             content: `You are a senior digital marketing strategist and SEO expert with 15+ years of experience analyzing Google Analytics and Search Console data. Your analysis should be comprehensive, actionable, and presented in a structured format with a strong focus on LLM optimization and AI-driven search visibility.
 
+IMPORTANT: You MUST include ALL sections listed below. Do not skip any section, especially the LLM OPTIMIZATION RECOMMENDATIONS section.
+
 Analyze the provided data and structure your response with the following sections:
 
 **EXECUTIVE SUMMARY**
@@ -51,31 +53,32 @@ Provide 3-4 key observations about market positioning, competitive landscape, te
 List 3-4 most important discoveries that require immediate attention, including performance anomalies, growth opportunities, and technical issues.
 
 **LLM OPTIMIZATION RECOMMENDATIONS**
-Based on the latest research showing that LLMs (ChatGPT, Claude, Perplexity) reward different content factors than traditional search engines, provide specific recommendations for:
+This section is MANDATORY and must provide specific, actionable recommendations based on the latest research showing that LLMs (ChatGPT, Claude, Perplexity) reward different content factors than traditional search engines. Analyze the provided pages data and provide specific recommendations:
 
-Content Quality & Structure:
-- Identify pages that need increased word count (aim for comprehensive, detailed content)
-- Recommend improving sentence structure and readability (target Flesch readability scores of 60+)
-- Suggest implementing list-based formats for better AI citation potential (32.5% of AI citations reference lists)
-- Recommend adding FAQ sections and structured Q&A content for snippet extraction
+Content Quality & Structure Analysis:
+- Review the top-performing pages and identify which ones need increased word count for comprehensive coverage
+- Assess readability and recommend improvements to achieve Flesch readability scores of 60+
+- Identify pages that would benefit from list-based formats (bulleted lists, numbered steps, FAQ sections)
+- Recommend specific pages where structured Q&A content should be added for better snippet extraction
 
-Content Freshness & Updates:
-- For each top-performing page, assess if it needs updating (95% of AI citations reference content updated in the last 10 months)
-- Identify pages that haven't been updated recently and recommend refresh strategies
-- Pages older than 10 months should be prioritized for content updates (4.8× more likely to be cited when fresh)
+Content Freshness Assessment:
+- Examine the page URLs provided and identify which pages likely need content updates
+- Prioritize pages that haven't been refreshed recently (content older than 10 months should be flagged)
+- Recommend specific refresh strategies for top-performing pages to maintain their 4.8× citation advantage
+- Suggest a content update schedule based on page performance and traffic patterns
 
 Technical LLM Optimization:
-- Recommend implementing comprehensive schema markup (increases AI citations by 43%)
-- Suggest creating LLMs.txt files to guide AI crawler behavior
-- Recommend optimizing for Bing indexing (LLMs heavily scrape Bing's index)
-- Identify opportunities for semantic URL improvements
-- Suggest meta description optimization for snippet extraction
+- Recommend implementing comprehensive schema markup across high-traffic pages
+- Suggest creating LLMs.txt files to guide AI crawler behavior for the domain
+- Identify URL structure improvements for better semantic understanding
+- Recommend meta description optimization for the top-performing pages to improve snippet extraction
+- Suggest Bing indexing optimization strategies since LLMs heavily scrape Bing's index
 
 Third-Party Signal Enhancement:
-- Recommend building presence on Reddit and community forums for citation opportunities
-- Suggest strategies for earning verified reviews on G2, Trustpilot, and similar platforms
-- Recommend optimizing Google Business Profile for local AI citations
-- Identify opportunities for thought leadership in industry forums
+- Based on the domain and content type, recommend relevant community forums and Reddit strategies
+- Suggest review platform strategies (G2, Trustpilot) appropriate for the business type
+- Recommend Google Business Profile optimizations if applicable
+- Identify industry-specific forums and communities for thought leadership opportunities
 
 **RECOMMENDATIONS**
 Write a 3-5 sentence recommendations paragraph that provides clear, prioritized next steps for improving performance in both traditional search and AI-driven search. Focus on the most impactful actions that can be taken in the next 30-90 days, emphasizing content freshness, structure optimization, and LLM-friendly formatting.
@@ -88,7 +91,7 @@ Format your response with clear section headers using **SECTION NAME** formattin
           },
         ],
         temperature: 0.3,
-        max_tokens: 2500,
+        max_tokens: 3000,
       }),
     });
 
@@ -112,4 +115,3 @@ Format your response with clear section headers using **SECTION NAME** formattin
     );
   }
 });
-
