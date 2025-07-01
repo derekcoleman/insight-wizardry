@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useToast } from "./ui/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Loader2, FileText, FileType2 } from "lucide-react";
+import { Loader2, FileText, FileType2, Globe } from "lucide-react";
 import { useSavedAudits } from "@/hooks/useSavedAudits";
 import { useProjects } from "@/hooks/useProjects";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +30,7 @@ interface AnalysisResultsProps {
 export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   const [insights, setInsights] = useState<string>("");
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [isCrawlingSitemap, setIsCrawlingSitemap] = useState(false);
   const [isCreatingDoc, setIsCreatingDoc] = useState(false);
   const [isCreatingPdf, setIsCreatingPdf] = useState(false);
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
@@ -45,22 +46,41 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
       if (!report || isLoading) return;
       
       setIsGeneratingInsights(true);
+      setIsCrawlingSitemap(true);
+      
       try {
+        // Show crawling status
+        toast({
+          title: "Analyzing Content",
+          description: "Crawling sitemap and analyzing page freshness...",
+        });
+
         const { data, error } = await supabase.functions.invoke('generate-insights', {
           body: { data: report }
         });
 
         if (error) throw error;
         setInsights(data.insights);
+        
+        toast({
+          title: "Analysis Complete",
+          description: "LLM optimization recommendations generated successfully",
+        });
       } catch (error) {
         console.error('Error generating insights:', error);
+        toast({
+          title: "Analysis Error",
+          description: "Failed to generate insights. Some recommendations may be limited.",
+          variant: "destructive",
+        });
       } finally {
         setIsGeneratingInsights(false);
+        setIsCrawlingSitemap(false);
       }
     };
 
     generateInsights();
-  }, [report, isLoading]);
+  }, [report, isLoading, toast]);
 
   useEffect(() => {
     const autoSaveAudit = async () => {
@@ -339,6 +359,20 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
           </Button>
         </div>
       </div>
+      
+      {isCrawlingSitemap && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <Globe className="h-5 w-5 text-blue-600 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-blue-900">Analyzing Website Structure</p>
+                <p className="text-xs text-blue-700">Crawling XML sitemap and analyzing content freshness for LLM optimization...</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       <Tabs defaultValue="ai-analysis" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
