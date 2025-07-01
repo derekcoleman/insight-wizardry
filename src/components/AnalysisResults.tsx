@@ -14,6 +14,7 @@ import { Loader2, FileText, FileType2 } from "lucide-react";
 import { useSavedAudits } from "@/hooks/useSavedAudits";
 import { useProjects } from "@/hooks/useProjects";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAnalyticsCache } from "@/hooks/useAnalyticsCache";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AnalysisResultsProps {
@@ -28,8 +29,6 @@ interface AnalysisResultsProps {
 }
 
 export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
-  const [insights, setInsights] = useState<string>("");
-  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isCreatingDoc, setIsCreatingDoc] = useState(false);
   const [isCreatingPdf, setIsCreatingPdf] = useState(false);
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
@@ -39,28 +38,16 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
   const { saveAudit } = useSavedAudits();
   const { projects, saveStrategyToProject } = useProjects();
   const { user } = useAuth();
+  const { generateInsights } = useAnalyticsCache();
 
-  useEffect(() => {
-    const generateInsights = async () => {
-      if (!report || isLoading) return;
-      
-      setIsGeneratingInsights(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('generate-insights', {
-          body: { data: report }
-        });
-
-        if (error) throw error;
-        setInsights(data.insights);
-      } catch (error) {
-        console.error('Error generating insights:', error);
-      } finally {
-        setIsGeneratingInsights(false);
-      }
-    };
-
-    generateInsights();
-  }, [report, isLoading]);
+  // Use cached insights generation
+  const {
+    data: insights,
+    isLoading: isGeneratingInsights,
+  } = generateInsights(report, {
+    staleTime: 15 * 60 * 1000, // 15 minutes for insights
+    cacheTime: 60 * 60 * 1000, // 1 hour
+  });
 
   useEffect(() => {
     const autoSaveAudit = async () => {
@@ -352,7 +339,7 @@ export function AnalysisResults({ report, isLoading }: AnalysisResultsProps) {
         <TabsContent value="ai-analysis" className="space-y-6">
           <ExecutiveSummary analyses={analyses} />
           <ConversionFunnel analyses={analyses} />
-          <AnalysisInsights insights={insights} isLoading={isGeneratingInsights} />
+          <AnalysisInsights insights={insights || ""} isLoading={isGeneratingInsights} />
         </TabsContent>
 
         <TabsContent value="overview">
