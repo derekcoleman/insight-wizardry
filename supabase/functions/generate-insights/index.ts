@@ -19,6 +19,10 @@ serve(async (req) => {
     const { data } = await req.json();
     console.log('Generating strategic insights for data');
 
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
     // Extract domain from the data to crawl sitemap
     let domain = '';
     if (data.weekly_analysis?.pages?.[0]?.page) {
@@ -74,6 +78,7 @@ serve(async (req) => {
     // Create a more targeted prompt based on available data
     const systemPrompt = createSystemPrompt(sitemapData, sitemapError);
 
+    console.log('Making OpenAI API request...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -98,10 +103,19 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      throw new Error('OpenAI API request failed');
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API request failed: ${response.status} ${errorText}`);
     }
 
     const result = await response.json();
+    
+    if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+      console.error('Invalid OpenAI response structure:', result);
+      throw new Error('Invalid response from OpenAI API');
+    }
+
+    console.log('OpenAI API request successful');
     return new Response(
       JSON.stringify({ insights: result.choices[0].message.content }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
