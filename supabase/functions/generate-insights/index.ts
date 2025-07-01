@@ -1,7 +1,7 @@
 
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.14';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
@@ -19,6 +19,47 @@ serve(async (req) => {
     const { data } = await req.json();
     console.log('Generating strategic insights for data:', data);
 
+    // Extract domain from the data to crawl sitemap
+    let domain = '';
+    if (data.weekly_analysis?.pages?.[0]?.page) {
+      try {
+        const url = new URL(data.weekly_analysis.pages[0].page);
+        domain = `${url.protocol}//${url.hostname}`;
+      } catch (error) {
+        console.log('Could not extract domain from page URL');
+      }
+    }
+
+    // Crawl sitemap to get last modified dates
+    let sitemapData = null;
+    if (domain) {
+      try {
+        console.log('Crawling sitemap for domain:', domain);
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+        );
+
+        const { data: sitemapResult } = await supabase.functions.invoke('crawl-sitemap', {
+          body: { domain }
+        });
+
+        if (sitemapResult && !sitemapResult.error) {
+          sitemapData = sitemapResult;
+          console.log('Sitemap data retrieved:', sitemapData.totalUrls, 'URLs found');
+        }
+      } catch (error) {
+        console.log('Failed to crawl sitemap:', error);
+      }
+    }
+
+    // Prepare enhanced data with sitemap information
+    const enhancedData = {
+      ...data,
+      sitemapData,
+      domain
+    };
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -32,7 +73,7 @@ serve(async (req) => {
             role: "system",
             content: `You are a senior digital marketing strategist and SEO expert with 15+ years of experience analyzing Google Analytics and Search Console data. Your analysis should be comprehensive, actionable, and presented in a structured format with a strong focus on LLM optimization and AI-driven search visibility.
 
-IMPORTANT: You MUST include ALL sections listed below. Do not skip any section, especially the LLM OPTIMIZATION RECOMMENDATIONS section.
+IMPORTANT: You MUST include ALL sections listed below. Do not skip any section, especially the LLM OPTIMIZATION RECOMMENDATIONS section which must be specific and data-driven.
 
 Analyze the provided data and structure your response with the following sections:
 
@@ -53,45 +94,54 @@ Provide 3-4 key observations about market positioning, competitive landscape, te
 List 3-4 most important discoveries that require immediate attention, including performance anomalies, growth opportunities, and technical issues.
 
 **LLM OPTIMIZATION RECOMMENDATIONS**
-This section is MANDATORY and must provide specific, actionable recommendations based on the latest research showing that LLMs (ChatGPT, Claude, Perplexity) reward different content factors than traditional search engines. Analyze the provided pages data and provide specific recommendations:
+This section is MANDATORY and must provide specific, actionable recommendations based on the actual data provided. Analyze the top-performing pages from the analytics data and cross-reference with sitemap last-modified dates when available. You must provide at least 5 specific recommendations:
 
 Content Quality & Structure Analysis:
-- Review the top-performing pages and identify which ones need increased word count for comprehensive coverage
-- Assess readability and recommend improvements to achieve Flesch readability scores of 60+
-- Identify pages that would benefit from list-based formats (bulleted lists, numbered steps, FAQ sections)
-- Recommend specific pages where structured Q&A content should be added for better snippet extraction
+- Identify the top 3-5 performing pages by clicks/traffic and analyze their potential for improvement
+- For pages with high impressions but low CTR, recommend specific content structure improvements (lists, FAQ sections, etc.)
+- For pages with declining performance, suggest content refresh strategies
+- Recommend specific word count targets for underperforming pages (aim for 1500+ words for comprehensive coverage)
+- Identify pages that would benefit from better readability (target Flesch score of 60+)
 
 Content Freshness Assessment:
-- Examine the page URLs provided and identify which pages likely need content updates
-- Prioritize pages that haven't been refreshed recently (content older than 10 months should be flagged)
-- Recommend specific refresh strategies for top-performing pages to maintain their 4.8× citation advantage
-- Suggest a content update schedule based on page performance and traffic patterns
+- Cross-reference high-performing pages with sitemap last-modified dates
+- Flag pages that haven't been updated in 10+ months and are losing traffic
+- Prioritize content refresh for pages with strong search visibility but declining performance
+- Recommend a content update schedule based on page performance patterns
+- Suggest specific pages that need immediate content updates based on the data
 
 Technical LLM Optimization:
-- Recommend implementing comprehensive schema markup across high-traffic pages
-- Suggest creating LLMs.txt files to guide AI crawler behavior for the domain
+- Recommend schema markup implementation for the top-performing pages
+- Suggest creating LLMs.txt files for better AI crawler guidance
 - Identify URL structure improvements for better semantic understanding
-- Recommend meta description optimization for the top-performing pages to improve snippet extraction
-- Suggest Bing indexing optimization strategies since LLMs heavily scrape Bing's index
+- Recommend meta description optimization for high-impression, low-CTR pages
+- Suggest Bing indexing optimization strategies for the domain
 
-Third-Party Signal Enhancement:
-- Based on the domain and content type, recommend relevant community forums and Reddit strategies
-- Suggest review platform strategies (G2, Trustpilot) appropriate for the business type
-- Recommend Google Business Profile optimizations if applicable
-- Identify industry-specific forums and communities for thought leadership opportunities
+Specific Page Recommendations:
+- Analyze each top-performing page individually and provide specific actionable recommendations
+- Include current metrics (CTR, clicks, impressions, position) for each page mentioned
+- Suggest content topics that could improve performance based on search terms data
+- Recommend internal linking strategies between high-performing pages
 
 **RECOMMENDATIONS**
-Write a 3-5 sentence recommendations paragraph that provides clear, prioritized next steps for improving performance in both traditional search and AI-driven search. Focus on the most impactful actions that can be taken in the next 30-90 days, emphasizing content freshness, structure optimization, and LLM-friendly formatting.
+Write a 3-5 sentence recommendations paragraph that provides clear, prioritized next steps for improving performance in both traditional search and AI-driven search. Focus on the most impactful actions that can be taken in the next 30-90 days.
 
-Format your response with clear section headers using **SECTION NAME** formatting. Include specific metrics, percentages, and time periods throughout. Always specify the exact time periods when mentioning performance changes. Pay special attention to content age and freshness when making recommendations.`
+CRITICAL REQUIREMENTS:
+1. All recommendations must be based on the actual analytics data provided
+2. Reference specific pages, metrics, and search terms from the data
+3. Include current performance numbers when making recommendations
+4. If sitemap data is available, use last-modified dates to inform content freshness recommendations
+5. Make recommendations actionable and specific, not generic advice
+
+Format your response with clear section headers using **SECTION NAME** formatting. Include specific metrics, percentages, and time periods throughout.`
           },
           {
             role: "user",
-            content: JSON.stringify(data),
+            content: JSON.stringify(enhancedData),
           },
         ],
         temperature: 0.3,
-        max_tokens: 3000,
+        max_tokens: 4000,
       }),
     });
 
